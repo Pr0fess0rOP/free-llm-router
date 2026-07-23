@@ -1,0 +1,15 @@
+# Default owner
+* @Pr0fess0rOP
+
+# Sensitive application areas
+/src/auth.ts @Pr0fess0rOP
+/src/accounts.ts @Pr0fess0rOP
+/src/server.ts @Pr0fess0rOP
+/src/storage.ts @Pr0fess0rOP
+/providers.json @Pr0fess0rOP
+
+# Repository security and automation
+/.github/ @Pr0fess0rOP
+/package.json @Pr0fess0rOP
+/package-lock.json @Pr0fess0rOP
+/SECURITY.md @Pr0fess0rOP
