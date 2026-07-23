@@ -1,0 +1,2377 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <link rel="icon" href="/assets/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png" />
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+    content="Configure providers, routing policies, model aliases, capabilities, and analytics for your private LLM Router." />
+  <title>Dashboard · LLM Router</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script type="module" src="/app.js"></script>
+</head>
+
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Free LLM Router home">
+      <span class="brand-mark logo-brand-mark">
+        <img src="/assets/brand/logo-mark.png" alt="Free LLM Router logo" />
+      </span>
+      <span>LLM Router</span>
+    </a>
+    <div class="topbar-actions">
+      <span id="auth-user" class="local-badge" hidden></span>
+      <button id="sign-out" class="ghost compact-button" type="button" hidden>
+        Sign out
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section id="auth-gate" class="auth-gate">
+      <div class="hero-copy">
+        <p class="eyebrow">LLM Router</p>
+        <h1>Sign in before creating your router.</h1>
+        <p class="lede">
+          Your login keeps the router attached to your account so it remains
+          available across browsers and devices.
+        </p>
+      </div>
+      <div id="clerk-sign-in" class="auth-card">
+        <p>Loading secure sign-in…</p>
+      </div>
+    </section>
+
+    <section id="welcome" class="welcome" hidden>
+      <div class="hero-copy">
+        <p class="eyebrow">One endpoint. Your provider keys.</p>
+        <h1>Keep your app running when a free tier runs out.</h1>
+        <p class="lede">
+          Add keys from multiple LLM providers. The router tries them in order
+          and automatically fails over on rate limits or outages.
+        </p>
+      </div>
+
+      <div class="start-card">
+        <div>
+          <p class="step">New router</p>
+          <h2>Create your private router key</h2>
+          <p>You will see the full key once. Store it like any other secret.</p>
+        </div>
+        <form id="create-form">
+          <label for="account-name">Router name</label>
+          <input id="account-name" name="name" maxlength="80" placeholder="My development router" autocomplete="off" />
+          <button class="primary" type="submit">Create router</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="dashboard" class="dashboard" hidden>
+      <div class="dashboard-heading">
+        <div>
+          <p class="eyebrow">Router dashboard</p>
+          <h1 id="router-name">My router</h1>
+          <p class="lede compact">
+            Add providers, inspect traffic, and copy integration snippets from one place.
+          </p>
+        </div>
+      </div>
+
+      <div class="app-layout">
+        <aside class="sidebar" aria-label="Dashboard navigation">
+          <button class="nav-item active" type="button" data-tab="overview">
+            <span>Overview</span>
+            <small>Status</small>
+          </button>
+          <button class="nav-item" type="button" data-tab="providers">
+            <span>Providers</span>
+            <small>API keys</small>
+          </button>
+          <button class="nav-item" type="button" data-tab="playground">
+            <span>Playground</span>
+            <small>Test router</small>
+          </button>
+          <button class="nav-item" type="button" data-tab="analysis">
+            <span>Analysis</span>
+            <small>Logs</small>
+          </button>
+          <button class="nav-item" type="button" data-tab="docs">
+            <span>Docs</span>
+            <small>Connect app</small>
+          </button>
+          <button class="nav-item" type="button" data-tab="settings">
+            <span>Settings</span>
+            <small>Security</small>
+          </button>
+        </aside>
+
+        <div class="workspace">
+          <section id="overview-panel" class="tab-panel page-panel">
+            <div class="summary-grid">
+              <article class="summary-card accent">
+                <span class="summary-label">Providers connected</span>
+                <strong id="provider-count">0</strong>
+                <span id="provider-summary">Add your first provider</span>
+              </article>
+              <article class="summary-card">
+                <span class="summary-label">API base URL</span>
+                <code id="base-url"></code>
+                <button class="copy-button" data-copy="base-url" type="button">Copy</button>
+              </article>
+              <article class="summary-card">
+                <span class="summary-label">Router key</span>
+                <code id="router-key-preview"></code>
+                <button class="copy-button" data-copy-key type="button">Copy</button>
+              </article>
+            </div>
+
+            <div id="overview-empty" class="empty-state-card" hidden>
+              <div>
+                <p class="eyebrow">Next step</p>
+                <h2>No providers connected yet</h2>
+                <p>Add Groq, Mistral, OpenRouter, or any supported provider to start routing requests.</p>
+              </div>
+              <button class="primary" type="button" data-open-tab="providers">Add provider</button>
+            </div>
+
+            <div class="overview-content">
+              <!-- Row 2: Quick-start cards -->
+              <div class="overview-quickstart-grid">
+                <section class="mini-panel quickstart-panel">
+                  <div class="quickstart-panel-heading">
+                    <div>
+                      <p class="quickstart-type">OpenAI Responses-compatible</p>
+                      <h2>OpenAI Codex</h2>
+                      <p>
+                        Connect Codex CLI through the Responses API.
+                      </p>
+                    </div>
+
+                    <code class="quickstart-endpoint">
+                      /v1/responses
+                    </code>
+                  </div>
+
+                  <div class="code-window quickstart-code-window">
+                    <div class="code-window-header">
+                      <span class="code-dot red"></span>
+                      <span class="code-dot yellow"></span>
+                      <span class="code-dot green"></span>
+                      <span class="code-window-title">terminal</span>
+                    </div>
+
+                    <pre><code id="overview-codex-code"></code></pre>
+                  </div>
+
+                  <button class="copy-button quickstart-copy" data-copy="overview-codex-code" type="button">
+                    Copy Codex setup
+                  </button>
+                </section>
+
+                <section class="mini-panel quickstart-panel">
+                  <div class="quickstart-panel-heading">
+                    <div>
+                      <p class="quickstart-type">Anthropic-compatible</p>
+                      <h2>Claude Code</h2>
+                      <p>
+                        Point Claude Code at your router using the Messages API.
+                      </p>
+                    </div>
+
+                    <code class="quickstart-endpoint">
+                      /v1/messages
+                    </code>
+                  </div>
+
+                  <div class="code-window quickstart-code-window">
+                    <div class="code-window-header">
+                      <span class="code-dot red"></span>
+                      <span class="code-dot yellow"></span>
+                      <span class="code-dot green"></span>
+                      <span class="code-window-title">PowerShell</span>
+                    </div>
+
+                    <pre><code id="overview-claude-code"></code></pre>
+                  </div>
+
+                  <button class="copy-button quickstart-copy" data-copy="overview-claude-code" type="button">
+                    Copy Claude Code setup
+                  </button>
+                </section>
+              </div>
+
+              <!-- Row 3: Provider health -->
+              <section class="mini-panel provider-health-panel">
+                <div class="section-heading compact-heading">
+                  <div>
+                    <h2>Provider health</h2>
+                    <p>
+                      Quick view of your configured provider keys and their latest status.
+                    </p>
+                  </div>
+
+                  <button class="secondary provider-health-action" type="button" data-open-tab="providers">
+                    Manage providers
+                  </button>
+                </div>
+
+                <div id="health-list" class="health-list"></div>
+              </section>
+            </div>
+
+
+          </section>
+
+          <section id="providers-panel" class="tab-panel page-panel" hidden>
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Provider directory</p>
+                <h2>Provider keys</h2>
+                <p>Keys stay on this server and are never shown again after saving.</p>
+              </div>
+              <div class="section-actions">
+                <label class="search">
+                  <span class="sr-only">Search providers</span>
+                  <input id="provider-search" type="search" placeholder="Search providers" />
+                </label>
+                <button id="open-provider-modal" class="primary" type="button">Add provider</button>
+              </div>
+            </div>
+            <div id="provider-list" class="provider-grid" aria-live="polite"></div>
+          </section>
+
+          <section id="playground-panel" class="tab-panel page-panel" hidden>
+            <section class="tester">
+              <div class="tester-copy">
+                <p class="eyebrow">Live check</p>
+                <h2>Test your router</h2>
+                <p>
+                  Send a real request through your connected providers before using
+                  the endpoint in another app.
+                </p>
+              </div>
+              <form id="test-form" class="tester-form">
+                <div class="form-grid playground-form-grid">
+                  <label for="test-api-format">API compatibility
+                    <select id="test-api-format">
+                      <option value="openai-compatible">OpenAI</option>
+                      <option value="openai-responses-compatible">Codex</option>
+                      <option value="claude-code-compatible">Claude</option>
+                    </select>
+                  </label>
+                  <label for="test-model-alias">Model alias
+                    <select id="test-model-alias">
+                      <option value="free-router">Free Router</option>
+                    </select>
+                  </label>
+                  <label for="test-capability">Request type
+                    <select id="test-capability">
+                      <option value="basic">Basic text</option>
+                      <option value="json">JSON response</option>
+                      <option value="schema">Structured output</option>
+                      <option value="tools">Tool calling</option>
+                      <option value="reasoning">Reasoning</option>
+                    </select>
+                  </label>
+                  <label for="test-temperature">Temperature
+                    <input id="test-temperature" type="number" min="0" max="2" step="0.1" value="0.2" />
+                  </label>
+                  <label for="test-max-tokens">Max tokens
+                    <input id="test-max-tokens" type="number" min="16" max="4096" step="16" value="256" />
+                  </label>
+                </div>
+                <div id="test-capability-preview" class="playground-capability-preview" aria-live="polite"></div>
+                <label for="test-prompt">Prompt</label>
+                <textarea id="test-prompt" rows="5" maxlength="4000"
+                  required>Reply with exactly: Router is working.</textarea>
+                <div class="tester-actions">
+                  <span id="test-hint">Connect a provider to run a test.</span>
+                  <button id="test-button" class="primary" type="submit">Send test request</button>
+                </div>
+              </form>
+              <div id="test-result" class="test-result" aria-live="polite" hidden>
+                <div class="test-result-heading">
+                  <strong id="test-status">Response</strong>
+                  <span id="test-provider"></span>
+                </div>
+                <div id="test-routing-decision" class="test-routing-decision" hidden></div>
+                <pre><code id="test-output"></code></pre>
+              </div>
+            </section>
+          </section>
+
+          <section id="analysis-panel" class="tab-panel page-panel analytics-panel" hidden>
+            <div class="section-heading analysis-page-heading">
+              <div>
+                <p class="eyebrow">Observability</p>
+                <h2>Analytics and request logs</h2>
+                <p>Explore aggregated routing trends separately from individual request records and debugging details.
+                </p>
+              </div>
+              <div class="analysis-actions">
+                <button id="refresh-analytics" class="secondary" type="button">Refresh</button>
+                <button id="clear-analytics" class="secondary danger" type="button">Clear logs</button>
+              </div>
+            </div>
+
+            <div class="analysis-primary-tabs" role="tablist" aria-label="Analysis sections">
+              <button class="analysis-primary-tab active" type="button" role="tab" aria-selected="true"
+                data-analysis-tab="analytics">Analytics</button>
+              <button class="analysis-primary-tab" type="button" role="tab" aria-selected="false"
+                data-analysis-tab="logs">Request Logs</button>
+            </div>
+
+            <section class="analysis-tab-panel" data-analysis-panel="analytics">
+              <div class="analysis-tab-intro">
+                <div><span class="feature-kicker">Aggregated insights</span>
+                  <h3>Routing performance at a glance</h3>
+                  <p>Use shared filters, then move between the overview and dedicated provider, API/model, and
+                    application dashboards.</p>
+                </div>
+              </div>
+
+              <section class="filter-card analytics-filter-card">
+                <label>Time range
+                  <select id="analytics-time-filter">
+                    <option value="all">All time</option>
+                    <option value="1">Last 1 hour</option>
+                    <option value="12" selected>Last 12 hours</option>
+                    <option value="24">Last 24 hours</option>
+                    <option value="168">Last 7 days</option>
+                    <option value="720">Last 30 days</option>
+                  </select>
+                </label>
+                <label>Provider
+                  <select id="analytics-provider-filter">
+                    <option value="all">All providers</option>
+                  </select>
+                </label>
+                <label>API compatibility
+                  <select id="analytics-api-filter">
+                    <option value="all">All API formats</option>
+                    <option value="openai-compatible">OpenAI</option>
+                    <option value="openai-responses-compatible">Codex</option>
+                    <option value="claude-code-compatible">Claude</option>
+                  </select>
+                </label>
+                <label>Status
+                  <select id="analytics-status-filter">
+                    <option value="all">All statuses</option>
+                    <option value="success">Success only</option>
+                    <option value="failed">Failures only</option>
+                  </select>
+                </label>
+                <label>Model alias
+                  <select id="analytics-alias-filter">
+                    <option value="all">All model aliases</option>
+                  </select>
+                </label>
+                <label>Client application
+                  <select id="analytics-client-filter">
+                    <option value="all">All clients</option>
+                  </select>
+                </label>
+                <label>Delivery
+                  <select id="analytics-stream-filter">
+                    <option value="all">Streaming and regular</option>
+                    <option value="streaming">Streaming only</option>
+                    <option value="non-streaming">Non-streaming only</option>
+                  </select>
+                </label>
+                <label>Tool usage
+                  <select id="analytics-tool-filter">
+                    <option value="all">All requests</option>
+                    <option value="tools">Tools requested</option>
+                    <option value="tool-calls">Tool calls generated</option>
+                    <option value="no-tools">No tools</option>
+                  </select>
+                </label>
+                <label>Search analytics
+                  <input id="analytics-search" type="search"
+                    placeholder="Filter dashboards by request, provider, alias, or client" />
+                </label>
+              </section>
+
+              <div class="analytics-dashboard-tabs" role="tablist" aria-label="Analytics dashboards">
+                <button class="analytics-dashboard-tab active" type="button" role="tab" aria-selected="true"
+                  data-analytics-dashboard-tab="overview">Overview</button>
+                <button class="analytics-dashboard-tab" type="button" role="tab" aria-selected="false"
+                  data-analytics-dashboard-tab="providers">Providers</button>
+                <button class="analytics-dashboard-tab" type="button" role="tab" aria-selected="false"
+                  data-analytics-dashboard-tab="api-models">APIs &amp; Models</button>
+                <button class="analytics-dashboard-tab" type="button" role="tab" aria-selected="false"
+                  data-analytics-dashboard-tab="applications">Applications</button>
+              </div>
+
+              <section class="analytics-dashboard-panel" data-analytics-dashboard-panel="overview">
+                <div class="analytics-summary-grid">
+                  <article class="summary-card accent"><span class="summary-label">Total requests</span><strong
+                      id="analysis-total">0</strong><span>After current filters</span></article>
+                  <article class="summary-card"><span class="summary-label">Success rate</span><strong
+                      id="analysis-success-rate">—</strong><span id="analysis-failure-count">No failures</span>
+                  </article>
+                  <article class="summary-card"><span class="summary-label">Most used provider</span><strong
+                      id="analysis-top-provider">—</strong><span id="analysis-top-provider-count">No requests yet</span>
+                  </article>
+                  <article class="summary-card"><span class="summary-label">Average latency</span><strong
+                      id="analysis-latency">—</strong><span>Successful routed requests</span></article>
+                  <article class="summary-card"><span class="summary-label">Most used API</span><strong
+                      id="analysis-top-api">—</strong><span id="analysis-top-api-count">No requests yet</span></article>
+                </div>
+
+                <div class="analytics-insight-grid" aria-label="Advanced analytics summary">
+                  <article class="analytics-insight-card"><span>Total tokens</span><strong
+                      id="analysis-total-tokens">0</strong><small id="analysis-token-source">No token usage yet</small>
+                  </article>
+                  <article class="analytics-insight-card"><span>Fallback rate</span><strong
+                      id="analysis-fallback-rate">0%</strong><small id="analysis-fallback-count">No fallbacks</small>
+                  </article>
+                  <article class="analytics-insight-card"><span>Average attempts</span><strong
+                      id="analysis-average-attempts">0</strong><small>Per upstream request</small></article>
+                  <article class="analytics-insight-card"><span>Tool-enabled requests</span><strong
+                      id="analysis-tool-requests">0</strong><small id="analysis-tool-call-count">0 generated
+                      calls</small></article>
+                  <article class="analytics-insight-card"><span>Most used client</span><strong
+                      id="analysis-top-client">—</strong><small id="analysis-top-client-count">No client data
+                      yet</small></article>
+                  <article class="analytics-insight-card"><span>Most reliable provider</span><strong
+                      id="analysis-reliable-provider">—</strong><small id="analysis-reliable-provider-rate">No provider
+                      attempts yet</small></article>
+                </div>
+
+                <section class="analytics-chart-grid" aria-label="Advanced analytics charts">
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Token usage over time</h3>
+                        <p>Provider-reported and estimated input/output tokens.</p>
+                      </div>
+                    </div>
+                    <div id="analytics-token-chart" class="analytics-mini-chart"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Requests by client</h3>
+                        <p>Safely detected SDK or command-line application.</p>
+                      </div>
+                    </div>
+                    <div id="analytics-client-chart" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Fallback paths</h3>
+                        <p>Provider sequences used when the first attempt did not finish the request.</p>
+                      </div>
+                    </div>
+                    <div id="analytics-fallback-chart" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Provider success rate</h3>
+                        <p>Successful attempts divided by all upstream attempts.</p>
+                      </div>
+                    </div>
+                    <div id="analytics-provider-chart" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Tool and structured output</h3>
+                        <p>Tool-enabled traffic, generated calls, and validation results.</p>
+                      </div>
+                    </div>
+                    <div id="analytics-tool-chart" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Requests by API format</h3>
+                        <p>OpenAI Chat, Responses/Codex, and Claude Messages traffic.</p>
+                      </div>
+                    </div>
+                    <div id="analytics-api-chart" class="analytics-bar-list"></div>
+                  </article>
+                </section>
+
+                <section class="analysis-card">
+                  <div class="section-heading compact-heading">
+                    <div>
+                      <h3>Request frequency (Max 24)</h3>
+                      <p>Requests per hour across the selected time window.</p>
+                    </div>
+                  </div>
+                  <div id="request-frequency-chart" class="frequency-chart" aria-label="Request frequency chart"></div>
+                </section>
+              </section>
+
+              <section class="analytics-dashboard-panel" data-analytics-dashboard-panel="providers" hidden>
+                <div class="dashboard-view-heading">
+                  <div><span class="feature-kicker">Provider dashboard</span>
+                    <h3>Compare provider volume, reliability, latency, tokens, and fallback behavior</h3>
+                    <p>Attempt metrics describe every upstream try; completed-request metrics describe the provider that
+                      ultimately returned the response.</p>
+                  </div>
+                </div>
+                <div id="provider-dashboard-summary" class="dashboard-metric-grid"></div>
+                <section class="analytics-chart-grid dashboard-chart-grid">
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Completed requests</h3>
+                        <p>Requests ultimately served by each provider.</p>
+                      </div>
+                    </div>
+                    <div id="provider-dashboard-volume" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Attempt success rate</h3>
+                        <p>Successful upstream attempts divided by all attempts.</p>
+                      </div>
+                    </div>
+                    <div id="provider-dashboard-success" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Average attempt latency</h3>
+                        <p>Time spent inside each provider attempt.</p>
+                      </div>
+                    </div>
+                    <div id="provider-dashboard-latency" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Token consumption</h3>
+                        <p>Provider usage without deduplicated double counting.</p>
+                      </div>
+                    </div>
+                    <div id="provider-dashboard-tokens" class="analytics-bar-list"></div>
+                  </article>
+                </section>
+                <section class="analysis-card dashboard-table-card">
+                  <div class="section-heading compact-heading">
+                    <div>
+                      <h3>Provider comparison</h3>
+                      <p>Use View logs to open the matching request records.</p>
+                    </div>
+                  </div>
+                  <div id="provider-dashboard-table" class="analytics-detail-table"></div>
+                </section>
+              </section>
+
+              <section class="analytics-dashboard-panel" data-analytics-dashboard-panel="api-models" hidden>
+                <div class="dashboard-view-heading">
+                  <div><span class="feature-kicker">API and model dashboard</span>
+                    <h3>Understand traffic by compatibility format and virtual model alias</h3>
+                    <p>Compare demand, success, latency, streaming, tool usage, token volume, and fallback behavior
+                      across client-facing interfaces.</p>
+                  </div>
+                </div>
+                <div id="api-model-dashboard-summary" class="dashboard-metric-grid"></div>
+                <section class="analytics-chart-grid dashboard-chart-grid">
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Requests by API</h3>
+                        <p>OpenAI Chat, Responses/Codex, and Claude Messages volume.</p>
+                      </div>
+                    </div>
+                    <div id="api-dashboard-volume" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>API success rate</h3>
+                        <p>Successful client requests by compatibility format.</p>
+                      </div>
+                    </div>
+                    <div id="api-dashboard-success" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Requests by alias</h3>
+                        <p>Traffic sent to each virtual model.</p>
+                      </div>
+                    </div>
+                    <div id="model-dashboard-volume" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Alias fallback rate</h3>
+                        <p>How often each alias needed more than one provider.</p>
+                      </div>
+                    </div>
+                    <div id="model-dashboard-fallback" class="analytics-bar-list"></div>
+                  </article>
+                </section>
+                <section class="analysis-card dashboard-table-card">
+                  <div class="section-heading compact-heading">
+                    <div>
+                      <h3>API compatibility performance</h3>
+                      <p>Client-facing endpoint behavior after current filters.</p>
+                    </div>
+                  </div>
+                  <div id="api-dashboard-table" class="analytics-detail-table"></div>
+                </section>
+                <section class="analysis-card dashboard-table-card">
+                  <div class="section-heading compact-heading">
+                    <div>
+                      <h3>Model alias performance</h3>
+                      <p>Compare stable alias behavior before changing routing rules.</p>
+                    </div>
+                  </div>
+                  <div id="model-dashboard-table" class="analytics-detail-table"></div>
+                </section>
+              </section>
+
+              <section class="analytics-dashboard-panel" data-analytics-dashboard-panel="applications" hidden>
+                <div class="dashboard-view-heading">
+                  <div><span class="feature-kicker">Application dashboard</span>
+                    <h3>Compare Codex, Claude Code, SDK, cURL, and unknown-client traffic</h3>
+                    <p>Only normalized client categories and safe SDK metadata are used; raw user-agent and
+                      authorization values remain excluded.</p>
+                  </div>
+                </div>
+                <div id="application-dashboard-summary" class="dashboard-metric-grid"></div>
+                <section class="analytics-chart-grid dashboard-chart-grid">
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Requests by application</h3>
+                        <p>Traffic volume by safely detected client.</p>
+                      </div>
+                    </div>
+                    <div id="application-dashboard-volume" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Application success rate</h3>
+                        <p>Successful requests divided by all client requests.</p>
+                      </div>
+                    </div>
+                    <div id="application-dashboard-success" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Average latency</h3>
+                        <p>End-to-end response time observed by each application.</p>
+                      </div>
+                    </div>
+                    <div id="application-dashboard-latency" class="analytics-bar-list"></div>
+                  </article>
+                  <article class="analysis-card analytics-chart-card">
+                    <div class="section-heading compact-heading">
+                      <div>
+                        <h3>Tool-enabled traffic</h3>
+                        <p>Requests that supplied tool definitions.</p>
+                      </div>
+                    </div>
+                    <div id="application-dashboard-tools" class="analytics-bar-list"></div>
+                  </article>
+                </section>
+                <section class="analysis-card dashboard-table-card">
+                  <div class="section-heading compact-heading">
+                    <div>
+                      <h3>Application comparison</h3>
+                      <p>API mix, aliases, streaming, tokens, tools, fallbacks, latency, and reliability.</p>
+                    </div>
+                  </div>
+                  <div id="application-dashboard-table" class="analytics-detail-table"></div>
+                </section>
+              </section>
+            </section>
+
+            <section class="analysis-tab-panel" data-analysis-panel="logs" hidden>
+              <div class="analysis-tab-intro request-logs-intro">
+                <div><span class="feature-kicker">Request records</span>
+                  <h3>Inspect individual gateway requests</h3>
+                  <p>Search and filter requests, then open a record for its timeline, attempts, headers, timings,
+                    payload, and response.</p>
+                </div>
+                <strong id="request-log-count" class="request-log-count">0 requests</strong>
+              </div>
+
+              <section class="filter-card request-log-filter-card">
+                <label>Time range
+                  <select id="logs-time-filter">
+                    <option value="all">All time</option>
+                    <option value="1">Last 1 hour</option>
+                    <option value="12" selected>Last 12 hours</option>
+                    <option value="24">Last 24 hours</option>
+                    <option value="168">Last 7 days</option>
+                    <option value="720">Last 30 days</option>
+                  </select>
+                </label>
+                <label>Provider<select id="logs-provider-filter">
+                    <option value="all">All providers</option>
+                  </select></label>
+                <label>API compatibility
+                  <select id="logs-api-filter">
+                    <option value="all">All API formats</option>
+                    <option value="openai-compatible">OpenAI</option>
+                    <option value="openai-responses-compatible">Codex</option>
+                    <option value="claude-code-compatible">Claude</option>
+                  </select>
+                </label>
+                <label>Status
+                  <select id="logs-status-filter">
+                    <option value="all">All statuses</option>
+                    <option value="success">Success only</option>
+                    <option value="failed">Failures only</option>
+                  </select>
+                </label>
+                <label>Model alias<select id="logs-alias-filter">
+                    <option value="all">All model aliases</option>
+                  </select></label>
+                <label>Client application<select id="logs-client-filter">
+                    <option value="all">All clients</option>
+                  </select></label>
+                <label>Delivery
+                  <select id="logs-stream-filter">
+                    <option value="all">Streaming and regular</option>
+                    <option value="streaming">Streaming only</option>
+                    <option value="non-streaming">Non-streaming only</option>
+                  </select>
+                </label>
+                <label>Tool usage
+                  <select id="logs-tool-filter">
+                    <option value="all">All requests</option>
+                    <option value="tools">Tools requested</option>
+                    <option value="tool-calls">Tool calls generated</option>
+                    <option value="no-tools">No tools</option>
+                  </select>
+                </label>
+                <label class="request-log-search-label">Search request logs<input id="logs-search" type="search"
+                    placeholder="Request ID, provider, alias, client, payload…" /></label>
+              </section>
+
+              <section class="analysis-card">
+                <div class="section-heading compact-heading">
+                  <div>
+                    <h3>Recent requests</h3>
+                    <p>Click any request to open the full request and response drawer.</p>
+                  </div>
+                </div>
+                <div id="request-log-list" class="request-log-list" aria-live="polite"></div>
+              </section>
+            </section>
+          </section>
+
+          <section id="docs-panel" class="tab-panel page-panel" hidden>
+            <div class="section-heading docs-page-heading">
+              <div>
+                <p class="eyebrow">Documentation</p>
+                <h2>Connect and understand your router</h2>
+                <p>Copy a working integration or explore how routing, recovery, aliases, capabilities, and analytics
+                  work.</p>
+              </div>
+            </div>
+
+            <div class="docs-primary-tabs" role="tablist" aria-label="Documentation sections">
+              <button class="docs-primary-tab active" type="button" role="tab" aria-selected="true"
+                data-docs-tab="integration">Setup &amp; Code</button>
+              <button class="docs-primary-tab" type="button" role="tab" aria-selected="false"
+                data-docs-tab="features">Project Features</button>
+            </div>
+
+            <section class="docs-tab-panel" data-docs-panel="integration">
+              <div class="section-heading compact-heading docs-section-heading">
+                <div>
+                  <h3>Integration snippets</h3>
+                  <p>Connect OpenAI-compatible apps, Codex, or Claude Code to this gateway.</p>
+                </div>
+              </div>
+              <div class="snippet-tabs" aria-label="Snippet languages">
+                <button class="snippet-tab active" type="button" data-snippet="curl">cURL</button>
+                <button class="snippet-tab" type="button" data-snippet="javascript">JavaScript</button>
+                <button class="snippet-tab" type="button" data-snippet="python">Python</button>
+                <button class="snippet-tab" type="button" data-snippet="openai">OpenAI SDK</button>
+                <button class="snippet-tab" type="button" data-snippet="codex">Codex</button>
+                <button class="snippet-tab" type="button" data-snippet="claude">Claude Code</button>
+              </div>
+              <section class="usage">
+                <div class="code-window">
+                  <div class="code-window-header">
+                    <span class="code-dot red"></span>
+                    <span class="code-dot yellow"></span>
+                    <span class="code-dot green"></span>
+                    <span class="code-window-title">terminal</span>
+                  </div>
+                  <pre><code id="usage-code"></code></pre>
+                </div>
+                <button class="copy-button code-copy" data-copy="usage-code" type="button">Copy example</button>
+              </section>
+            </section>
+
+            <section class="docs-tab-panel" data-docs-panel="features" hidden>
+              <section class="docs-feature-hero" id="feature-overview">
+                <div>
+                  <p class="eyebrow">Project feature guide</p>
+                  <h3>Understand every part of the router—from the incoming request to provider recovery.</h3>
+                  <p>Your application sends one request with one private router key. The gateway resolves the requested
+                    virtual model, checks provider compatibility and health, applies the selected routing policy,
+                    retries safe failures, returns the response in the caller's API format, and records the complete
+                    decision in Analysis.</p>
+                </div>
+                <div class="docs-endpoint-stack" aria-label="Supported API endpoints">
+                  <code>POST /v1/chat/completions</code>
+                  <code>POST /v1/responses</code>
+                  <code>POST /v1/messages</code>
+                  <code>GET /v1/models</code>
+                </div>
+              </section>
+
+              <div class="docs-feature-layout">
+                <nav class="docs-feature-index" aria-label="Project features index">
+                  <div class="docs-feature-index-heading">
+                    <span class="feature-kicker">Index</span>
+                    <h3>Project features</h3>
+                    <p>Jump directly to a feature and see what it does, where it is configured, and a practical example.
+                    </p>
+                  </div>
+                  <ol>
+                    <li><a href="#feature-request-lifecycle"><span>01</span>Request lifecycle</a></li>
+                    <li><a href="#feature-api-compatibility"><span>02</span>API compatibility</a></li>
+                    <li><a href="#feature-provider-keys"><span>03</span>Provider keys</a></li>
+                    <li><a href="#feature-provider-models"><span>03A</span>Provider model catalogs</a></li>
+                    <li><a href="#feature-routing-policies"><span>04</span>Routing policies</a></li>
+                    <li><a href="#feature-priority-order"><span>05</span>Provider priority</a></li>
+                    <li><a href="#feature-retry-failover"><span>06</span>Retry and failover</a></li>
+                    <li><a href="#feature-cooldowns"><span>07</span>Rate-limit cooldowns</a></li>
+                    <li><a href="#feature-circuit-breaker"><span>08</span>Circuit breaker</a></li>
+                    <li><a href="#feature-model-aliases"><span>09</span>Model aliases</a></li>
+                    <li><a href="#feature-capabilities"><span>10</span>Model capability registry</a></li>
+                    <li><a href="#feature-analysis"><span>11</span>Request timeline &amp; Analysis</a></li>
+                    <li><a href="#feature-request-ids"><span>12</span>Request IDs &amp; routing headers</a></li>
+                    <li><a href="#feature-performance"><span>13</span>Performance timing</a></li>
+                    <li><a href="#feature-advanced-analytics"><span>14</span>Advanced analytics</a></li>
+                    <li><a href="#feature-expanded-dashboards"><span>15</span>Expanded dashboards</a></li>
+                    <li><a href="#feature-playground"><span>16</span>Playground</a></li>
+                    <li><a href="#feature-recovery-controls"><span>17</span>Recovery controls</a></li>
+                    <li><a href="#feature-provider-quotas"><span>18</span>Provider quotas</a></li>
+                    <li><a href="#feature-reliability-controls"><span>19</span>Retry and timeout controls</a></li>
+                    <li><a href="#feature-deduplication"><span>20</span>Request deduplication</a></li>
+                    <li><a href="#feature-security"><span>21</span>Security and storage</a></li>
+                  </ol>
+                </nav>
+
+                <div class="docs-feature-content">
+                  <section class="docs-feature-section feature-detail-section" id="feature-request-lifecycle">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">01</span><span class="feature-kicker">Foundation</span></div>
+                      <h3>Request lifecycle</h3>
+                      <p>Every supported API format passes through the same protected decision pipeline.</p>
+                    </div>
+                    <div class="request-flow-grid">
+                      <article class="request-flow-step"><span>1</span>
+                        <div><strong>Authenticate</strong><small>Validate the private <code>flm_...</code> key and load
+                            only that router's provider credentials.</small></div>
+                      </article>
+                      <article class="request-flow-step"><span>2</span>
+                        <div><strong>Resolve alias</strong><small>Turn the requested virtual model into strategy,
+                            capability, eligibility, and priority rules.</small></div>
+                      </article>
+                      <article class="request-flow-step"><span>3</span>
+                        <div><strong>Filter and rank</strong><small>Remove incompatible or unhealthy providers, then
+                            order the remaining candidates.</small></div>
+                      </article>
+                      <article class="request-flow-step"><span>4</span>
+                        <div><strong>Attempt and recover</strong><small>Call a provider and fail over when the upstream
+                            error is safe to retry.</small></div>
+                      </article>
+                      <article class="request-flow-step"><span>5</span>
+                        <div><strong>Return and analyze</strong><small>Normalize the response and store attempts,
+                            latency, skips, success, or failure.</small></div>
+                      </article>
+                    </div>
+                    <div class="feature-example-callout"><strong>Example</strong>
+                      <p>A request for <code>free-router</code> first tries Groq. Groq returns 429, so the router starts
+                        a cooldown, tries Mistral, returns Mistral's answer, and records both attempts in Analysis.</p>
+                    </div>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-api-compatibility">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">02</span><span class="feature-kicker">Compatibility</span></div>
+                      <h3>Three API surfaces, one router</h3>
+                      <p>The same provider pool can serve regular OpenAI clients, Codex, and Claude Code.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>OpenAI Chat Completions</strong>
+                        <p>Use <code>/v1/chat/completions</code> for most OpenAI-compatible SDKs and applications.</p>
+                      </article>
+                      <article><strong>OpenAI Responses</strong>
+                        <p>Use <code>/v1/responses</code> for Codex and clients built around the Responses API.</p>
+                      </article>
+                      <article><strong>Anthropic Messages</strong>
+                        <p>Use <code>/v1/messages</code> for Claude Code and Anthropic-compatible clients.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: the model name changes, not your provider
+                          credentials</strong><span>Request mapping</span></div>
+                      <pre><code>OpenAI app  → POST /v1/chat/completions → model: "free-router"
+Codex       → POST /v1/responses        → model: "codex-free-router"
+Claude Code → POST /v1/messages         → model: "claude-free-router"</code></pre>
+                    </div>
+                    <p class="feature-note">The router translates requests and responses when necessary, while the
+                      client continues speaking its native API format.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-provider-keys">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">03</span><span class="feature-kicker">Providers</span></div>
+                      <h3>Bring your own provider keys</h3>
+                      <p>Connect any of the 26 built-in providers to create one private pool of available models and
+                        quotas.</p>
+                    </div>
+                    <div class="feature-two-column">
+                      <div>
+                        <h4>What it does</h4>
+                        <p>Each signed-in router stores its own provider credentials. Keys are hidden after saving and
+                          are never returned in dashboard account responses.</p>
+                        <h4>Available providers</h4>
+                        <p>The catalog includes OpenRouter, Groq, NVIDIA, Mistral, Together AI, Fireworks AI, DeepInfra,
+                          Gemini, xAI, Novita, Baseten, Cohere, Anthropic, OpenAI, DeepSeek, Perplexity, FriendliAI, and
+                          more.</p>
+                        <h4>Where to configure</h4>
+                        <p>Open <strong>Providers</strong>, choose a provider, and save its API key. The card then shows
+                          its configured and health state.</p>
+                      </div>
+                      <div class="feature-example-card"><span>Example</span>
+                        <p>You add Groq, Gemini, Anthropic, and Together AI. Your app still uses one
+                          <code>flm_...</code> key; the router chooses which upstream provider and active model receives
+                          each request.
+                        </p>
+                      </div>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Resulting provider
+                          pool</strong><span>Illustrative</span></div>
+                      <pre><code>1. groq       configured
+2. mistral          configured
+3. openrouter       configured
+4. cerebras         no key — ignored</code></pre>
+                    </div>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-provider-models">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">03A</span><span class="feature-kicker">Provider models</span>
+                      </div>
+                      <h3>Save multiple provider models with one active choice</h3>
+                      <p>Model availability can change without the provider itself being down. Keep replacement model
+                        IDs ready and explicitly choose which one receives production traffic.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>Multiple saved options</strong>
+                        <p>Add any valid provider model slug, such as <code>qwen/qwen3-coder-next</code>, without
+                          editing the deployment configuration.</p>
+                      </article>
+                      <article><strong>Exactly one active</strong>
+                        <p>Only the selected active model is sent upstream. Inactive saved models are never silently
+                          attempted.</p>
+                      </article>
+                      <article><strong>Independent health</strong>
+                        <p>Models show healthy, unavailable, unauthorized, rate-limited, error, or not-tested state
+                          without incorrectly opening the provider circuit for a model-specific 404.</p>
+                      </article>
+                      <article><strong>Safe controls</strong>
+                        <p>Add, activate, test, edit, and delete saved models from the provider card. The active model
+                          cannot be deleted until another option is selected.</p>
+                      </article>
+                      <article><strong>Stable provider identity</strong>
+                        <p>The provider remains <code>openrouter</code>, <code>groq</code>, or <code>nvidia</code>
+                          regardless of which saved model is active. Model slugs never become part of provider IDs.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: replace a retired OpenRouter free
+                          model</strong><span>Explicit activation</span></div>
+                      <pre><code>OpenRouter
+○ qwen/qwen3-coder:free      unavailable · HTTP 404
+● qwen/qwen3-coder-next      active · healthy
+○ deepseek/deepseek-r1:free  saved · not tested
+
+New requests use only qwen/qwen3-coder-next.</code></pre>
+                    </div>
+                    <div class="feature-example-callout"><strong>Failure behavior</strong>
+                      <p>If the active model later returns a provider-specific 404, the router marks that model
+                        unavailable, keeps the provider circuit healthy, and immediately moves the request to the next
+                        ranked provider.</p>
+                    </div>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-routing-policies">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">04</span><span class="feature-kicker">Selection</span></div>
+                      <h3>Routing policies</h3>
+                      <p>Choose how healthy, compatible providers are ranked before the first upstream call.</p>
+                    </div>
+                    <div class="routing-policy-doc-grid">
+                      <article><strong>Priority</strong>
+                        <p>Always follows your provider order.</p>
+                      </article>
+                      <article><strong>Fastest</strong>
+                        <p>Prefers the lowest learned average latency after initial exploration.</p>
+                      </article>
+                      <article><strong>Round robin</strong>
+                        <p>Rotates requests across the ordered provider pool.</p>
+                      </article>
+                      <article><strong>Least used</strong>
+                        <p>Prefers providers with fewer recorded attempts.</p>
+                      </article>
+                      <article><strong>Reliability</strong>
+                        <p>Prefers the best learned success score, then lower latency.</p>
+                      </article>
+                      <article><strong>Smart</strong>
+                        <p>Combines health, reliability, latency, and usage into one score.</p>
+                      </article>
+                    </div>
+                    <div class="feature-example-callout"><strong>Example</strong>
+                      <p>With <strong>Fastest</strong>, Groq averages 420 ms and Mistral averages 780 ms. Groq is tried
+                        first unless it is incompatible, cooling down, or circuit-open.</p>
+                    </div>
+                    <p class="feature-note">Provider priority remains the tie-breaker when candidates have the same
+                      policy score.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-priority-order">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">05</span><span class="feature-kicker">Control</span></div>
+                      <h3>Provider priority order</h3>
+                      <p>Drag providers into the exact fallback order you want for this router.</p>
+                    </div>
+                    <div class="feature-two-column">
+                      <div>
+                        <h4>What it controls</h4>
+                        <p>Priority is the complete selection rule under the Priority strategy and the deterministic
+                          tie-breaker for the other five strategies.</p>
+                        <h4>Where to configure</h4>
+                        <p>Go to <strong>Settings → Router &amp; Policies → Routing Policies</strong>.</p>
+                      </div>
+                      <div class="feature-example-card"><span>Example order</span>
+                        <ol>
+                          <li>Groq</li>
+                          <li>Mistral</li>
+                          <li>OpenRouter</li>
+                        </ol>
+                      </div>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Priority behavior</strong><span>One request</span></div>
+                      <pre><code>Groq      → timeout       → retryable
+Mistral   → HTTP 200      → selected
+OpenRouter→ not attempted</code></pre>
+                    </div>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-retry-failover">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">06</span><span class="feature-kicker">Failover</span></div>
+                      <h3>Automatic retry and provider failover</h3>
+                      <p>A failed upstream attempt can move the same client request to the next eligible provider.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>Retryable</strong>
+                        <p>Rate limits, timeouts, connection failures, upstream 5xx responses, and malformed successful
+                          responses.</p>
+                      </article>
+                      <article><strong>Not blindly retried</strong>
+                        <p>Client-side validation or unsupported request errors are returned without repeatedly calling
+                          every provider.</p>
+                      </article>
+                      <article><strong>Safe final error</strong>
+                        <p>When every candidate fails, the router returns a sanitized <code>providers_exhausted</code>
+                          response.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: one request, three
+                          attempts</strong><span>Failover chain</span></div>
+                      <pre><code>Attempt 1 · Groq       → 429 rate_limit
+Attempt 2 · Mistral    → 503 upstream_error
+Attempt 3 · OpenRouter → 200 success
+Client receives OpenRouter's response.</code></pre>
+                    </div>
+                    <p class="feature-note">The Analysis drawer preserves every attempt so the successful final response
+                      does not hide earlier provider failures.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-cooldowns">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">07</span><span class="feature-kicker">Rate limits</span></div>
+                      <h3>Persistent rate-limit cooldowns</h3>
+                      <p>A provider that returns 429 is temporarily removed from routing instead of being called again
+                        immediately.</p>
+                    </div>
+                    <div class="feature-two-column">
+                      <div>
+                        <h4>How the timer is chosen</h4>
+                        <p>The router honors an upstream <code>Retry-After</code> header. Without one, it uses
+                          escalating fallback windows: 30 seconds, 1 minute, 2 minutes, 5 minutes, 10 minutes, then 15
+                          minutes.</p>
+                        <h4>What persists</h4>
+                        <p>Cooldown state is stored per router and provider, so restarting the server does not
+                          immediately hammer the same rate-limited key again.</p>
+                      </div>
+                      <div class="feature-example-card"><span>Example</span>
+                        <p>Groq returns <code>Retry-After: 60</code>. For the next minute, requests skip Groq before any
+                          network call and continue with the next compatible provider.</p>
+                      </div>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Analysis provider evaluation</strong><span>Skipped
+                          candidate</span></div>
+                      <pre><code>provider: groq
+state: cooldown
+retry_in: 42s
+network_call_made: false</code></pre>
+                    </div>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-circuit-breaker">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">08</span><span class="feature-kicker">Resilience</span></div>
+                      <h3>Persistent circuit breaker</h3>
+                      <p>Repeated operational failures stop traffic to a provider until it has a controlled chance to
+                        recover.</p>
+                    </div>
+                    <div class="circuit-state-docs" aria-label="Circuit breaker states">
+                      <article><span>Closed</span>
+                        <p>Normal routing. Failures are counted.</p>
+                      </article>
+                      <b>→</b>
+                      <article><span>Open</span>
+                        <p>After three eligible failures, traffic is blocked for 2, 5, 10, then 15 minutes.</p>
+                      </article>
+                      <b>→</b>
+                      <article><span>Half-open</span>
+                        <p>One recovery probe is allowed after the timer expires.</p>
+                      </article>
+                    </div>
+                    <div class="feature-example-callout"><strong>Example</strong>
+                      <p>Mistral times out three times. Its circuit opens for two minutes. Requests use other providers.
+                        After two minutes, one probe is allowed: success closes the circuit; failure reopens it for five
+                        minutes.</p>
+                    </div>
+                    <p class="feature-note">Circuit state includes failure type, consecutive failures, open count,
+                      recovery time, and probe state.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-model-aliases">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">09</span><span class="feature-kicker">Virtual models</span>
+                      </div>
+                      <h3>Model aliases</h3>
+                      <p>Create stable model names that carry their own routing intent without changing application
+                        code.</p>
+                    </div>
+                    <div class="feature-two-column">
+                      <div>
+                        <h4>Default aliases</h4>
+                        <div class="alias-example-grid">
+                          <code>free-router</code><code>codex-free-router</code><code>claude-free-router</code>
+                        </div>
+                        <h4>Optional alias rules</h4>
+                        <p>An alias can override the router strategy, require capabilities, restrict eligible providers,
+                          and define its own provider order.</p>
+                      </div>
+                      <div class="feature-example-card"><span>Example custom alias</span>
+                        <p><code>vision-router</code> requires vision, uses Reliability, and allows only OpenRouter and
+                          NVIDIA. Your app simply sends <code>model: "vision-router"</code>.</p>
+                      </div>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Alias configuration</strong><span>Illustrative</span>
+                      </div>
+                      <pre><code>{
+  "id": "vision-router",
+  "routingStrategy": "reliability",
+  "requiredCapabilities": ["vision"],
+  "eligibleProviderIds": ["openrouter", "nvidia"]
+}</code></pre>
+                    </div>
+                    <p class="feature-note">Use <code>GET /v1/models</code> to discover enabled aliases. Analysis
+                      records both the requested alias and the actual upstream provider model.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-capabilities">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">10</span><span class="feature-kicker">Compatibility</span></div>
+                      <h3>Model-aware capability registry</h3>
+                      <p>Combine provider transport support with the capabilities of each user-saved model, then route
+                        using the active model's verified profile.</p>
+                    </div>
+                    <div class="capability-chip-grid" aria-label="Tracked capabilities">
+                      <span>Streaming</span><span>Tools</span><span>JSON mode</span><span>Structured
+                        output</span><span>Vision</span><span>Reasoning</span><span>Embeddings</span><span>Context
+                        window</span><span>Max output tokens</span>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>Layered registry</strong>
+                        <p>Provider defaults describe the API transport. Each saved model can override those values with
+                          its own supported, unsupported, or unknown capability state.</p>
+                      </article>
+                      <article><strong>Explainable sources</strong>
+                        <p>Every model value identifies whether it came from a user override, capability probe, runtime
+                          request, built-in model catalog, or provider default.</p>
+                      </article>
+                      <article><strong>Safe automatic learning</strong>
+                        <p>Successful real requests verify support. Only clear capability-specific rejections mark a
+                          feature unsupported; rate limits, timeouts, and generic provider failures never change it.</p>
+                      </article>
+                      <article><strong>Strict or flexible routing</strong>
+                        <p>Flexible mode keeps unknown models as lower-confidence fallbacks. Strict mode excludes
+                          unknown support for required capabilities before any upstream call.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: an alias requires
+                          tools</strong><span>Active-model filtering</span></div>
+                      <pre><code>OpenRouter / qwen3-coder-next  supported (probe)  → eligible
+Groq / custom-llama           unsupported (user) → skipped
+Mistral / brand-new-model      unknown (provider) → flexible fallback
+                                                  → strict-mode skip</code></pre>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Capability precedence</strong><span>Highest confidence
+                          wins</span></div>
+                      <pre><code>User override
+  ↓
+Capability probe
+  ↓
+Runtime observation
+  ↓
+Built-in model catalog
+  ↓
+Provider default</code></pre>
+                    </div>
+                    <p class="feature-note">Use <strong>Detect capabilities</strong> or edit a model manually under
+                      Settings. Analysis records the active provider model, effective capability values and sources, and
+                      why each candidate was eligible or skipped. A clear capability rejection updates only that model
+                      and immediately fails over without opening the provider circuit.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-analysis">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">11</span><span class="feature-kicker">Observability</span></div>
+                      <h3>Full request timeline and Analysis logs</h3>
+                      <p>Follow every routing decision in chronological order—from gateway receipt to the final response
+                        or error.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>Chronological lifecycle</strong>
+                        <p>See authentication, alias resolution, filtering, ranking, provider starts, outcomes, retries,
+                          backoff, and final delivery with elapsed milliseconds.</p>
+                      </article>
+                      <article><strong>Protection decisions</strong>
+                        <p>Skipped-provider events preserve capability mismatches, quota exhaustion, cooldowns, open
+                          circuits, and half-open recovery probes.</p>
+                      </article>
+                      <article><strong>Inspectable evidence</strong>
+                        <p>Expand raw details for any event or copy the complete plain-text timeline for debugging and
+                          issue reports.</p>
+                      </article>
+                      <article><strong>Success and failure coverage</strong>
+                        <p>The same event format is stored for successful failover, exhausted routes, invalid provider
+                          keys, and deduplicated requests.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: one request, complete routing
+                          story</strong><span>Chronological Analysis timeline</span></div>
+                      <pre><code>0 ms      Request received
+1 ms      Router key accepted
+2 ms      Alias “free-router” resolved
+4 ms      NVIDIA skipped — vision unsupported
+5 ms      Groq ranked #1
+6 ms      Attempt 1 started — Groq
+1,204 ms  Groq failed — HTTP 429
+1,205 ms  Cooldown started for Groq
+1,205 ms  Retry scheduled after 500 ms
+1,708 ms  Attempt 2 started — Mistral
+2,942 ms  Mistral succeeded — HTTP 200
+2,945 ms  Response returned to client</code></pre>
+                    </div>
+                    <p class="feature-note">Each event stores an ISO timestamp, elapsed milliseconds, event type,
+                      provider, human-readable explanation, and expandable raw metadata. A provider
+                      <code>401 invalid_api_key</code>, exhausted route, or deduplicated request remains visible with
+                      the exact reason and original request context.
+                    </p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-request-ids">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">12</span><span class="feature-kicker">Correlation</span></div>
+                      <h3>Request IDs and richer routing headers</h3>
+                      <p>Use one safe identifier to trace a client request through authentication, retries, provider
+                        calls, Analysis, errors, streaming, and deduplicated responses.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>Automatic or client-provided IDs</strong>
+                        <p>Send a valid <code>x-request-id</code>, or let the gateway create a collision-resistant
+                          <code>req_...</code> value. Unsafe and oversized IDs are replaced.
+                        </p>
+                      </article>
+                      <article><strong>Upstream correlation</strong>
+                        <p>Every retry forwards the same safe <code>x-request-id</code> to the selected provider without
+                          exposing router keys, account IDs, or storage identifiers.</p>
+                      </article>
+                      <article><strong>Success and error coverage</strong>
+                        <p>The ID appears in response headers, structured error bodies, streaming headers, request
+                          timelines, and the Analysis record.</p>
+                      </article>
+                      <article><strong>Routing evidence</strong>
+                        <p>Headers show the winning provider, provider model, requested alias, strategy, attempt count,
+                          fallback usage, latency, quota warning, circuit state, cooldowns, and retry-stop reason when
+                          applicable.</p>
+                      </article>
+                      <article><strong>Deduplication linkage</strong>
+                        <p>Each duplicate keeps its own request ID while <code>x-free-llm-original-request-id</code>
+                          points back to the upstream operation that produced the reused response.</p>
+                      </article>
+                      <article><strong>Analysis search</strong>
+                        <p>Paste a request ID into the Analysis search box, copy it from the drawer, inspect every
+                          returned routing header, or jump from a duplicate to its original record.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: client correlation and routing
+                          outcome</strong><span>Request and response headers</span></div>
+                      <pre><code>x-request-id: checkout-summary-8472
+
+x-free-llm-request-id: checkout-summary-8472
+x-free-llm-request-id-source: client
+x-free-llm-provider: mistral
+x-free-llm-provider-model: mistral-small-latest
+x-free-llm-requested-model: free-router
+x-free-llm-routing-strategy: reliability
+x-free-llm-provider-attempts: 2
+x-free-llm-fallback-used: true
+x-free-llm-total-latency-ms: 2841
+x-free-llm-deduplicated: false</code></pre>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: correlated error</strong><span>JSON
+                          response</span></div>
+                      <pre><code>{
+  "error": {
+    "type": "providers_unavailable",
+    "message": "No compatible provider is currently available.",
+    "request_id": "req_7d7f..."
+  }
+}</code></pre>
+                    </div>
+                    <p class="feature-note">Valid client IDs may contain letters, numbers, periods, underscores, colons,
+                      and hyphens up to 128 characters. The gateway never forwards private account or database
+                      identifiers.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-performance">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">13</span><span class="feature-kicker">Performance</span></div>
+                      <h3>Router, provider, first-token, and stream timing</h3>
+                      <p>See exactly where request latency is spent instead of relying on one total-duration number.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>Router preparation</strong>
+                        <p>Measures authentication, account loading, alias resolution, capability checks, quota checks,
+                          circuit checks, and provider ranking before the first upstream call.</p>
+                      </article>
+                      <article><strong>Provider timing</strong>
+                        <p>Separates time to upstream headers from response-body or stream consumption and preserves an
+                          independent breakdown for every retry.</p>
+                      </article>
+                      <article><strong>Streaming performance</strong>
+                        <p>Captures time to first provider token, active stream duration, output throughput when token
+                          usage is available, and final stream-processing time.</p>
+                      </article>
+                      <article><strong>Retry overhead</strong>
+                        <p>Shows configured backoff separately from provider latency, so a slow response can be
+                          distinguished from deliberate recovery waiting.</p>
+                      </article>
+                      <article><strong>Failure and deduplication coverage</strong>
+                        <p>Failed requests retain partial timing evidence, while reused responses report deduplication
+                          latency without inventing a provider call.</p>
+                      </article>
+                      <article><strong>Headers and Analysis</strong>
+                        <p>Performance headers provide quick client-side measurements, while the Analysis drawer adds
+                          metric cards, timing bars, per-provider details, and a copyable report.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: failover followed by a streaming
+                          response</strong><span>Normalized timing breakdown</span></div>
+                      <pre><code>Total request                  4,280 ms
+Router preparation               18 ms
+Groq attempt                    1,205 ms
+Retry backoff                     500 ms
+Mistral provider time           2,430 ms
+Time to first token               620 ms
+Active stream duration          1,810 ms
+Response processing                12 ms</code></pre>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Performance response headers</strong><span>Available
+                          where applicable</span></div>
+                      <pre><code>x-free-llm-router-latency-ms: 30
+x-free-llm-provider-latency-ms: 3635
+x-free-llm-first-token-ms: 2470
+x-free-llm-stream-duration-ms: 1810
+x-free-llm-retry-delay-ms: 500
+x-free-llm-total-latency-ms: 4280</code></pre>
+                    </div>
+                    <p class="feature-note">For streaming responses, time-to-first-token is available before the first
+                      client chunk. Final stream duration and throughput are stored in Analysis and sent as HTTP
+                      trailers when the client supports them.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-advanced-analytics">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">14</span><span class="feature-kicker">Observability</span></div>
+                      <h3>Token, fallback, tool-call, and client analytics</h3>
+                      <p>Turn individual request records into trends that explain cost, reliability, feature usage, and
+                        where traffic originates.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>Token trends</strong>
+                        <p>Compare input, output, reported, and estimated usage without double-counting deduplicated
+                          requests.</p>
+                      </article>
+                      <article><strong>Fallback paths</strong>
+                        <p>See how often the first provider fails and which provider sequence ultimately completes the
+                          request.</p>
+                      </article>
+                      <article><strong>Tool activity</strong>
+                        <p>Track tool-enabled requests, generated calls, requested tool names, and structured-output
+                          validation.</p>
+                      </article>
+                      <article><strong>Client applications</strong>
+                        <p>Group traffic into Codex CLI, Claude Code, OpenAI SDKs, cURL, and unknown clients without
+                          storing sensitive headers.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example analytics story</strong><span>Filtered to the
+                          last 7 days</span></div>
+                      <pre><code>Total tokens          1,240,800
+Fallback rate              12.4%
+Most common path      Groq → Mistral
+Tool-enabled requests        86
+Most used client       Codex CLI
+Most reliable provider  Mistral · 98%</code></pre>
+                    </div>
+                    <p class="feature-note">Analysis is split into <strong>Analytics</strong> for aggregated cards and
+                      charts and <strong>Request Logs</strong> for individual records, timelines, headers, and payload
+                      inspection. Each tab keeps independent filters. Only normalized client labels and safe SDK
+                      metadata are stored; authorization values, IP addresses, and raw user-agent strings are not
+                      persisted as client analytics.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-expanded-dashboards">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">15</span><span class="feature-kicker">Observability
+                          workspaces</span></div>
+                      <h3>Expanded provider, API/model, and application dashboards</h3>
+                      <p>Move beyond one general chart page and inspect each operational dimension in a dedicated
+                        workspace.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>Provider dashboard</strong>
+                        <p>Compares completed requests, upstream attempts, success rate, average and P95 latency, token
+                          consumption, fallback starts, and recovery wins for every provider.</p>
+                      </article>
+                      <article><strong>API and model dashboard</strong>
+                        <p>Shows traffic, success, latency, streaming share, tool usage, token volume, attempts, and
+                          fallback rate by API compatibility format and model alias.</p>
+                      </article>
+                      <article><strong>Application dashboard</strong>
+                        <p>Compares Codex CLI, Claude Code, OpenAI SDKs, Anthropic SDKs, cURL, and unknown clients by
+                          volume, reliability, latency, tokens, tools, API mix, and aliases.</p>
+                      </article>
+                      <article><strong>Shared filters</strong>
+                        <p>Time range, provider, API, status, alias, application, delivery mode, tools, and search apply
+                          consistently while switching dashboards.</p>
+                      </article>
+                      <article><strong>Drill into logs</strong>
+                        <p>Every comparison table includes a View logs action that opens Request Logs with the matching
+                          provider, API, alias, or client filter already applied.</p>
+                      </article>
+                      <article><strong>Safe accounting</strong>
+                        <p>Client demand still includes deduplicated responses, while provider attempts, tokens, and
+                          fallback metrics count only real upstream work.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: diagnose a provider before changing
+                          priority</strong><span>Provider dashboard</span></div>
+                      <pre><code>Groq
+Completed requests       842
+Upstream attempts        996
+Attempt success rate    84.5%
+Average attempt latency  620 ms
+P95 attempt latency    1,940 ms
+Fallback starts           154
+Fallback recoveries         8
+Tokens used           1,840,200</code></pre>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: compare client
+                          behavior</strong><span>Application dashboard</span></div>
+                      <pre><code>Codex CLI      410 requests · 96% success · 72% tools · Responses API
+Claude Code    288 requests · 98% success · 61% streaming · Messages API
+Python SDK     172 requests · 94% success · 14% fallback · Chat Completions</code></pre>
+                    </div>
+                    <p class="feature-note">OpenTelemetry export is intentionally deferred and not required for the
+                      current product scope. These dashboards use the router's own privacy-safe Analysis records.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-playground">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">16</span><span class="feature-kicker">Testing</span></div>
+                      <h3>Built-in Playground</h3>
+                      <p>Send a real request through your router before connecting an external application.</p>
+                    </div>
+                    <div class="feature-two-column">
+                      <div>
+                        <h4>What you can test</h4>
+                        <p>Select an API compatibility mode, choose an enabled alias, enter a prompt, and send the
+                          request using the same routing path as production traffic.</p>
+                        <h4>What you learn</h4>
+                        <p>The result shows the endpoint, response, latency, and provider used. The same request also
+                          appears in Analysis.</p>
+                      </div>
+                      <div class="feature-example-card"><span>Example workflow</span>
+                        <ol>
+                          <li>Add two provider keys.</li>
+                          <li>Choose <code>free-router</code>.</li>
+                          <li>Send “Return valid JSON.”</li>
+                          <li>Open Analysis to inspect the winner and fallback decisions.</li>
+                        </ol>
+                      </div>
+                    </div>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-recovery-controls">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">17</span><span class="feature-kicker">Operations</span></div>
+                      <h3>Provider health and recovery controls</h3>
+                      <p>See live protection state and recover a provider without deleting its key.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>Clear cooldown</strong>
+                        <p>Remove an active rate-limit cooldown when you know quota is available again.</p>
+                      </article>
+                      <article><strong>Test recovery</strong>
+                        <p>Run a real half-open probe immediately against an open circuit.</p>
+                      </article>
+                      <article><strong>Reset circuit</strong>
+                        <p>Manually close the circuit and clear its failure state.</p>
+                      </article>
+                    </div>
+                    <div class="feature-example-callout"><strong>Example</strong>
+                      <p>You replace an invalid provider key while its circuit is open. Click <strong>Test
+                          recovery</strong>; a successful probe closes the circuit and returns the provider to normal
+                        routing.</p>
+                    </div>
+                    <p class="feature-note">Countdowns and compact actions appear in Provider Health, provider cards,
+                      and Routing Policies.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-provider-quotas">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">18</span><span class="feature-kicker">Free-tier
+                          protection</span></div>
+                      <h3>Provider quota and usage tracking</h3>
+                      <p>Track request and token consumption per provider, warn before a limit is reached, and keep
+                        exhausted providers out of the route.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>Daily and monthly limits</strong>
+                        <p>Configure request limits, token limits, or both from each connected provider card.</p>
+                      </article>
+                      <article><strong>Persistent usage</strong>
+                        <p>Every upstream attempt updates request counters. Successful responses add provider-reported
+                          or estimated token usage.</p>
+                      </article>
+                      <article><strong>Quota-aware routing</strong>
+                        <p>Providers above the warning threshold are deprioritized. Providers at a configured limit are
+                          skipped until the relevant UTC window resets.</p>
+                      </article>
+                      <article><strong>Analysis visibility</strong>
+                        <p>Request details show input, output, total tokens, and whether usage was reported or
+                          estimated.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: protect a free provider</strong><span>Daily
+                          request limit</span></div>
+                      <pre><code>Groq quota:       1,000 requests/day
+Warning at:       80%
+Current usage:    812 requests
+Routing result:   Groq remains eligible but moves behind healthy providers
+
+At 1,000 requests:
+Groq              quota-exhausted → skipped
+Mistral           healthy         → selected
+Analysis          records the quota skip and reset time</code></pre>
+                    </div>
+                    <div class="feature-example-callout"><strong>Example</strong>
+                      <p>A provider reports <code>6</code> input tokens and <code>4</code> output tokens. The router
+                        stores <code>10</code> total tokens in both the daily and monthly usage windows. If the provider
+                        omits usage, the router estimates input tokens and labels the value as estimated.</p>
+                    </div>
+                    <p class="feature-note">Limits are user-configured because provider plans and free-tier allowances
+                      vary. Use the values shown in your provider account.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-reliability-controls">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">19</span><span class="feature-kicker">Reliability policy</span>
+                      </div>
+                      <h3>Configurable retry and timeout controls</h3>
+                      <p>Control how long each provider may run, separate immediate provider failover from transient
+                        retry backoff, and define when the router must stop.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>Time boundaries</strong>
+                        <p>Set the normal provider timeout, hard total-request deadline, streaming connection timeout,
+                          and shorter half-open recovery-probe timeout.</p>
+                      </article>
+                      <article><strong>Attempt limit</strong>
+                        <p>Cap upstream calls per request so a long provider list cannot create unlimited failover work.
+                        </p>
+                      </article>
+                      <article><strong>Recovery decisions</strong>
+                        <p>Provider-specific <code>401</code>, <code>403</code>, and <code>404</code> failures move
+                          immediately to the next provider. Configured transient statuses, network failures, and
+                          malformed responses use retry pacing.</p>
+                      </article>
+                      <article><strong>Backoff and jitter</strong>
+                        <p>Configure the initial delay, maximum delay, multiplier, and randomized jitter used between
+                          retryable failures.</p>
+                      </article>
+                      <article><strong>Provider overrides</strong>
+                        <p>Give one slow provider a longer timeout or force an unreliable provider to fail fast without
+                          changing every provider.</p>
+                      </article>
+                      <article><strong>Alias overrides</strong>
+                        <p>Specialized aliases can override provider timeout, total deadline, and maximum attempts while
+                          inheriting every other router setting.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: bounded three-provider
+                          failover</strong><span>Attempt timeline</span></div>
+                      <pre><code>Settings:
+  provider timeout: 8 seconds
+  total deadline:   30 seconds
+  maximum attempts: 3
+  backoff:          250ms → 500ms, jitter enabled
+
+Attempt 1 — OpenRouter
+  HTTP 404 model unavailable → immediate failover → no delay
+
+Attempt 2 — Groq
+  HTTP 503 after 420ms → transient retry → wait 250ms
+
+Attempt 3 — Mistral
+  HTTP 200 after 1.2s → response returned
+
+Analysis records each timeout, delay, and decision.</code></pre>
+                    </div>
+                    <div class="feature-example-callout"><strong>Example alias override</strong>
+                      <p><code>fast-router</code> can use a 4-second provider timeout, 12-second total deadline, and
+                        only two attempts, while <code>free-router</code> continues using the router-wide defaults.</p>
+                    </div>
+                    <p class="feature-note">Immediate provider failover and transient retries both obey the attempt
+                      limit and total deadline. Invalid client requests such as an unconfigured <code>400</code> still
+                      stop instead of being sent to every provider. Analysis shows the exact recovery action.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-deduplication">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">20</span><span class="feature-kicker">Free-tier
+                          protection</span></div>
+                      <h3>Request deduplication and idempotency</h3>
+                      <p>Avoid repeated upstream calls when clients submit the same safe operation at nearly the same
+                        time.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>In-flight coalescing</strong>
+                        <p>Two identical requests arriving together share one provider operation. Both clients receive
+                          the same completed response.</p>
+                      </article>
+                      <article><strong>Short response reuse</strong>
+                        <p>Successful non-streaming responses may be replayed during the configured one-to-300-second
+                          window.</p>
+                      </article>
+                      <article><strong>Router isolation</strong>
+                        <p>Fingerprints include the router identity and endpoint, so different accounts can never share
+                          cached work.</p>
+                      </article>
+                      <article><strong>Complete fingerprints</strong>
+                        <p>The alias, messages or input, temperature, token limits, tool definitions, and
+                          structured-output settings all affect the match.</p>
+                      </article>
+                      <article><strong>Idempotency-Key</strong>
+                        <p>Clients can explicitly identify one logical operation. The key takes precedence over
+                          automatic request fingerprinting.</p>
+                      </article>
+                      <article><strong>Conservative safety</strong>
+                        <p>Streaming is always excluded. Tools, multimodal inputs, and explicitly non-deterministic
+                          settings are bypassed by default.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Example: one provider call, three client
+                          responses</strong><span>30-second window</span></div>
+                      <pre><code>Client A → POST /v1/chat/completions → provider call starts
+Client B → identical request          → joins Client A in flight
+Provider → HTTP 200                   → both clients receive the response
+Client C → identical request 5s later → completed response is reused
+
+Provider requests charged: 1
+Router responses returned: 3
+Quota request units saved: 2</code></pre>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Explicit idempotency</strong><span>Request header</span>
+                      </div>
+                      <pre><code>Idempotency-Key: document-summary-job-8472
+Authorization: Bearer flm_your_router_key
+
+x-free-llm-deduplicated: true
+x-free-llm-original-request-id: req_...
+x-free-llm-deduplication-source: in-flight | completed</code></pre>
+                    </div>
+                    <div class="feature-example-callout"><strong>Analysis example</strong>
+                      <p>The duplicate record points to the original request ID, reports whether it joined an in-flight
+                        call or reused a completed response, and estimates the requests and tokens protected. Provider
+                        usage counters increase only for the real upstream call.</p>
+                    </div>
+                    <p class="feature-note">Failed responses are shared only with callers already waiting for that same
+                      in-flight operation and are never stored for later reuse. The current response cache is
+                      process-local and intentionally ephemeral; horizontally scaled deployments should use sticky
+                      routing until a shared deduplication coordinator is added.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+
+                  <section class="docs-feature-section feature-detail-section" id="feature-security">
+                    <div class="feature-detail-heading">
+                      <div><span class="feature-number">21</span><span class="feature-kicker">Security</span></div>
+                      <h3>Account isolation, private router keys, and storage</h3>
+                      <p>Authentication separates router data while the gateway key authorizes API traffic.</p>
+                    </div>
+                    <div class="feature-explanation-grid">
+                      <article><strong>Account isolation</strong>
+                        <p>Signed-in users load only their own router settings, aliases, provider keys, and analytics.
+                        </p>
+                      </article>
+                      <article><strong>Private router key</strong>
+                        <p>The full <code>flm_...</code> key is shown once and should be treated like any production
+                          secret.</p>
+                      </article>
+                      <article><strong>Storage options</strong>
+                        <p>Run with local JSON for development or Redis/KV for persistent deployment state.</p>
+                      </article>
+                      <article><strong>Encryption</strong>
+                        <p>Provider credentials can be encrypted at rest with AES-256-GCM when the encryption secret is
+                          configured.</p>
+                      </article>
+                    </div>
+                    <div class="docs-example-block">
+                      <div class="docs-example-heading"><strong>Client authentication</strong><span>Bearer token</span>
+                      </div>
+                      <pre><code>Authorization: Bearer flm_your_private_router_key
+Content-Type: application/json</code></pre>
+                    </div>
+                    <p class="feature-note">Provider keys are used only server-side and are not exposed to Codex, Claude
+                      Code, browser clients, or Analysis responses.</p>
+                    <a class="feature-back-link" href="#feature-overview">Back to top</a>
+                  </section>
+                </div>
+              </div>
+            </section>
+          </section>
+
+          <section id="settings-panel" class="tab-panel page-panel" hidden>
+            <div class="section-heading settings-page-heading">
+              <div>
+                <p class="eyebrow">Settings</p>
+                <h2>Manage your router</h2>
+                <p>Update your account, routing behavior, and stored request data.</p>
+              </div>
+            </div>
+
+            <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+              <button class="settings-tab active" type="button" role="tab" aria-selected="true"
+                data-settings-tab="account">Account</button>
+              <button class="settings-tab" type="button" role="tab" aria-selected="false"
+                data-settings-tab="router">Router &amp; Policies</button>
+              <button class="settings-tab" type="button" role="tab" aria-selected="false" data-settings-tab="logs">Logs
+                &amp; Data</button>
+            </div>
+
+            <section id="settings-account-tab" class="settings-tab-panel" data-settings-panel="account">
+              <div class="settings-grid account-settings-grid">
+                <article class="settings-card account-details-card">
+                  <span class="summary-label">Account</span>
+                  <div class="account-settings-header">
+                    <div id="settings-account-avatar" class="settings-avatar">U</div>
+                    <div>
+                      <h3 id="settings-account-name">Signed-in user</h3>
+                      <p id="settings-account-email">Email unavailable</p>
+                    </div>
+                  </div>
+
+                  <dl class="settings-detail-list">
+                    <div>
+                      <dt>Login method</dt>
+                      <dd id="settings-login-method">Unknown</dd>
+                    </div>
+                    <div>
+                      <dt>User ID</dt>
+                      <dd id="settings-user-id">Unavailable</dd>
+                    </div>
+                    <div>
+                      <dt>Account created</dt>
+                      <dd id="settings-account-created-at">Unavailable</dd>
+                    </div>
+                    <div>
+                      <dt>Last sign in</dt>
+                      <dd id="settings-last-sign-in">Unavailable</dd>
+                    </div>
+                  </dl>
+                </article>
+
+                <article class="settings-card account-session-card">
+                  <span class="summary-label">Current session</span>
+                  <h3>Signed in</h3>
+                  <p>Your router remains connected to this account across supported browsers and devices.</p>
+                  <button id="settings-sign-out" class="ghost settings-card-action" type="button">Sign out</button>
+                </article>
+              </div>
+            </section>
+
+            <section id="settings-router-tab" class="settings-tab-panel" data-settings-panel="router" hidden>
+              <form id="router-settings-form" class="router-settings-layout">
+                <div class="router-settings-tabs" role="tablist" aria-label="Router settings sections">
+                  <button class="router-settings-tab active" type="button" role="tab" aria-selected="true"
+                    data-router-settings-tab="routing">Routing Policies</button>
+                  <button class="router-settings-tab" type="button" role="tab" aria-selected="false"
+                    data-router-settings-tab="aliases">Model Aliases</button>
+                  <button class="router-settings-tab" type="button" role="tab" aria-selected="false"
+                    data-router-settings-tab="capabilities">Capability Registry</button>
+                </div>
+
+                <section class="router-settings-subpanel" data-router-settings-panel="routing">
+                  <div class="router-settings-grid">
+                    <section class="settings-card router-project-card">
+                      <div class="settings-card-heading">
+                        <div>
+                          <span class="summary-label">Router project</span>
+                          <h3 id="settings-router-name">My router</h3>
+                          <p id="settings-created-at">Created date unavailable</p>
+                        </div>
+                        <span id="settings-policy-badge" class="routing-policy-badge">Priority</span>
+                      </div>
+
+                      <label for="settings-router-name-input">Router name</label>
+                      <input id="settings-router-name-input" name="routerName" maxlength="80"
+                        placeholder="My development router" autocomplete="off" />
+
+                      <div class="router-project-meta">
+                        <div>
+                          <span>API base URL</span>
+                          <code id="settings-base-url"></code>
+                        </div>
+                        <div>
+                          <span>Router key</span>
+                          <code id="settings-router-key-preview"></code>
+                        </div>
+                      </div>
+
+                      <button class="copy-button settings-key-copy" data-copy-key type="button">Copy router key</button>
+                    </section>
+
+                    <section class="settings-card routing-policy-card">
+                      <div class="settings-card-heading">
+                        <div>
+                          <span class="summary-label">Routing policy</span>
+                          <h3>Choose how providers are selected</h3>
+                          <p>The selected policy applies to OpenAI, Codex, and Claude requests.</p>
+                        </div>
+                      </div>
+
+                      <div class="routing-policy-options" role="radiogroup" aria-label="Routing strategy">
+                        <label class="policy-option">
+                          <input type="radio" name="routingStrategy" value="priority" checked />
+                          <span><strong>Priority</strong><small>Try providers in your saved order.</small></span>
+                        </label>
+                        <label class="policy-option">
+                          <input type="radio" name="routingStrategy" value="fastest" />
+                          <span><strong>Fastest</strong><small>Prefer the lowest observed latency.</small></span>
+                        </label>
+                        <label class="policy-option">
+                          <input type="radio" name="routingStrategy" value="round-robin" />
+                          <span><strong>Round robin</strong><small>Rotate traffic across providers.</small></span>
+                        </label>
+                        <label class="policy-option">
+                          <input type="radio" name="routingStrategy" value="least-used" />
+                          <span><strong>Least used</strong><small>Protect free-tier quotas by spreading
+                              usage.</small></span>
+                        </label>
+                        <label class="policy-option">
+                          <input type="radio" name="routingStrategy" value="reliability" />
+                          <span><strong>Reliability</strong><small>Prefer providers with the best success
+                              history.</small></span>
+                        </label>
+                        <label class="policy-option">
+                          <input type="radio" name="routingStrategy" value="smart" />
+                          <span><strong>Smart</strong><small>Balance reliability, speed, usage, and
+                              priority.</small></span>
+                        </label>
+                      </div>
+                    </section>
+
+                    <section class="settings-card provider-order-card">
+                      <div class="settings-card-heading">
+                        <div>
+                          <span class="summary-label">Provider order</span>
+                          <h3>Set your preferred fallback sequence</h3>
+                          <p>Order is the primary rule for Priority and the tie-breaker for every other policy.</p>
+                        </div>
+                      </div>
+                      <div id="routing-provider-order" class="routing-provider-order"></div>
+                    </section>
+
+                    <section class="settings-card reliability-controls-card router-settings-full-card">
+                      <div class="settings-card-heading reliability-controls-heading">
+                        <div>
+                          <span class="summary-label">Reliability controls</span>
+                          <h3>Control timeouts, retries, and failover pacing</h3>
+                          <p>These limits apply across OpenAI, Responses/Codex, and Claude requests. Model aliases can
+                            override the three primary limits.</p>
+                        </div>
+                        <button id="reset-reliability-settings" class="ghost compact-button" type="button">Reset
+                          defaults</button>
+                      </div>
+
+                      <div class="reliability-settings-grid">
+                        <label>Provider timeout
+                          <span class="input-with-unit"><input id="reliability-provider-timeout" type="number" min="1"
+                              max="300" step="1" /><span>sec</span></span>
+                          <small>Maximum time for a normal upstream connection.</small>
+                        </label>
+                        <label>Total request deadline
+                          <span class="input-with-unit"><input id="reliability-total-timeout" type="number" min="1"
+                              max="600" step="1" /><span>sec</span></span>
+                          <small>Hard deadline across attempts and retry delays.</small>
+                        </label>
+                        <label>Maximum provider attempts
+                          <input id="reliability-max-attempts" type="number" min="1" max="20" step="1" />
+                          <small>Stops failover after this many upstream calls.</small>
+                        </label>
+                        <label>Streaming connection timeout
+                          <span class="input-with-unit"><input id="reliability-stream-timeout" type="number" min="1"
+                              max="300" step="1" /><span>sec</span></span>
+                          <small>Time allowed to establish a streaming response.</small>
+                        </label>
+                        <label>Half-open probe timeout
+                          <span class="input-with-unit"><input id="reliability-probe-timeout" type="number" min="1"
+                              max="60" step="1" /><span>sec</span></span>
+                          <small>Shorter timeout for circuit recovery tests.</small>
+                        </label>
+                        <label>Backoff HTTP statuses
+                          <input id="reliability-status-codes" type="text" inputmode="numeric"
+                            placeholder="408, 409, 425, 429, 500, 502, 503, 504" />
+                          <small>Transient statuses that use retry backoff. Provider-specific 401, 403, and 404
+                            responses fail over immediately.</small>
+                        </label>
+                        <label>Initial backoff
+                          <span class="input-with-unit"><input id="reliability-initial-backoff" type="number" min="0"
+                              max="30000" step="50" /><span>ms</span></span>
+                          <small>Delay after the first retryable failure.</small>
+                        </label>
+                        <label>Maximum backoff
+                          <span class="input-with-unit"><input id="reliability-max-backoff" type="number" min="0"
+                              max="60000" step="50" /><span>ms</span></span>
+                          <small>Upper bound for exponential retry delays.</small>
+                        </label>
+                        <label>Backoff multiplier
+                          <input id="reliability-backoff-multiplier" type="number" min="1" max="5" step="0.1" />
+                          <small>Growth factor applied after each failure.</small>
+                        </label>
+                      </div>
+
+                      <div class="reliability-toggle-grid">
+                        <label class="settings-toggle"><input id="reliability-use-jitter"
+                            type="checkbox" /><span><strong>Use jitter</strong><small>Randomize delays to avoid
+                              synchronized retry bursts.</small></span></label>
+                        <label class="settings-toggle"><input id="reliability-network-errors"
+                            type="checkbox" /><span><strong>Retry network failures</strong><small>Fail over after
+                              timeouts, DNS, socket, and connection errors.</small></span></label>
+                        <label class="settings-toggle"><input id="reliability-malformed"
+                            type="checkbox" /><span><strong>Retry malformed responses</strong><small>Fail over when a
+                              successful upstream response is invalid or empty.</small></span></label>
+                      </div>
+
+                      <div class="provider-timeout-overrides">
+                        <div class="model-alias-subsection-heading">
+                          <div><strong>Provider timeout overrides</strong><small>Leave blank to use the router-wide
+                              provider timeout.</small></div>
+                        </div>
+                        <div id="reliability-provider-overrides" class="provider-timeout-override-grid"></div>
+                      </div>
+                    </section>
+
+                    <section class="settings-card deduplication-controls-card router-settings-full-card">
+                      <div class="settings-card-heading reliability-controls-heading">
+                        <div>
+                          <span class="summary-label">Request deduplication</span>
+                          <h3>Prevent duplicate provider calls and quota waste</h3>
+                          <p>Coalesce identical in-flight requests and briefly reuse successful non-streaming responses.
+                            Every key is isolated to this router.</p>
+                        </div>
+                        <button id="reset-deduplication-settings" class="ghost compact-button" type="button">Reset
+                          defaults</button>
+                      </div>
+
+                      <div class="deduplication-primary-grid">
+                        <label class="settings-toggle deduplication-master-toggle"><input id="dedup-enabled"
+                            type="checkbox" /><span><strong>Enable request deduplication</strong><small>Protect provider
+                              requests and token quotas from repeated work.</small></span></label>
+                        <label>Deduplication window
+                          <span class="input-with-unit"><input id="dedup-window" type="number" min="1" max="300"
+                              step="1" /><span>sec</span></span>
+                          <small>Successful responses may be reused during this short window.</small>
+                        </label>
+                      </div>
+
+                      <div class="deduplication-toggle-grid">
+                        <label class="settings-toggle"><input id="dedup-automatic-fingerprinting"
+                            type="checkbox" /><span><strong>Automatic fingerprinting</strong><small>Match equivalent
+                              endpoint, alias, input, generation settings, tools, and response-format
+                              options.</small></span></label>
+                        <label class="settings-toggle"><input id="dedup-require-idempotency-key"
+                            type="checkbox" /><span><strong>Require Idempotency-Key</strong><small>Disable automatic
+                              matching unless the client explicitly identifies the operation.</small></span></label>
+                        <label class="settings-toggle"><input id="dedup-bypass-tools"
+                            type="checkbox" /><span><strong>Bypass tool requests</strong><small>Do not automatically
+                              reuse requests that may trigger external actions.</small></span></label>
+                        <label class="settings-toggle"><input id="dedup-bypass-multimodal"
+                            type="checkbox" /><span><strong>Bypass multimodal requests</strong><small>Skip automatic
+                              reuse for images, audio, and file inputs.</small></span></label>
+                        <label class="settings-toggle"><input id="dedup-bypass-nondeterministic"
+                            type="checkbox" /><span><strong>Bypass non-deterministic requests</strong><small>Skip
+                              automatic reuse when temperature or candidate settings request varied
+                              outputs.</small></span></label>
+                      </div>
+
+                      <div class="deduplication-example-strip">
+                        <span><strong>Explicit client control</strong><small>Send
+                            <code>Idempotency-Key: checkout-summary-42</code> to safely identify one logical
+                            operation.</small></span>
+                        <span><strong>Always excluded</strong><small>Streaming requests are never buffered or
+                            deduplicated.</small></span>
+                      </div>
+                    </section>
+                  </div>
+                </section>
+
+                <section class="router-settings-subpanel" data-router-settings-panel="aliases" hidden>
+                  <section class="settings-card model-aliases-card router-settings-full-card">
+                    <div class="settings-card-heading">
+                      <div>
+                        <span class="summary-label">Model aliases</span>
+                        <h3>Create intent-based virtual models</h3>
+                        <p>Each alias can override routing and reliability limits, require capabilities, and limit which
+                          configured providers may handle it.</p>
+                      </div>
+                      <span id="model-alias-count" class="routing-policy-badge">0 active</span>
+                    </div>
+
+                    <div class="model-alias-create">
+                      <label for="new-alias-id">Alias ID
+                        <input id="new-alias-id" maxlength="64" placeholder="translation-router" autocomplete="off" />
+                      </label>
+                      <label for="new-alias-name">Display name
+                        <input id="new-alias-name" maxlength="80" placeholder="Translation Router" autocomplete="off" />
+                      </label>
+                      <label for="new-alias-preset">Start from
+                        <select id="new-alias-preset">
+                          <option value="inherit">General router</option>
+                          <option value="fastest">Fastest</option>
+                          <option value="reliability">Reliable</option>
+                          <option value="coding">Coding</option>
+                          <option value="vision">Vision</option>
+                          <option value="reasoning">Reasoning</option>
+                          <option value="structured">Structured output</option>
+                        </select>
+                      </label>
+                      <button id="add-model-alias" class="secondary" type="button">Add alias</button>
+                    </div>
+
+                    <div id="model-alias-list" class="model-alias-list"></div>
+                  </section>
+                </section>
+
+                <section class="router-settings-subpanel" data-router-settings-panel="capabilities" hidden>
+                  <section class="settings-card capability-registry-card router-settings-full-card">
+                    <div class="settings-card-heading">
+                      <div>
+                        <span class="summary-label">Capability registry</span>
+                        <h3>Know what each configured model can handle</h3>
+                        <p>Capability-aware routing skips models that are explicitly incompatible and prefers verified
+                          support over unverified support.</p>
+                      </div>
+                      <label class="capability-unknown-mode-control">
+                        Unknown capability handling
+                        <select id="capability-unknown-mode">
+                          <option value="flexible">Flexible — rank below verified support</option>
+                          <option value="strict">Strict — skip unknown capabilities</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div class="capability-registry-guidance">
+                      <span><strong>Provider layer</strong> describes API transport support.</span>
+                      <span><strong>Model layer</strong> is the source of truth for tools, vision, JSON, reasoning, and
+                        other request features.</span>
+                      <span><strong>Runtime learning</strong> records clear successful or unsupported evidence without
+                        learning from rate limits or server failures.</span>
+                    </div>
+                    <div id="provider-capability-registry" class="provider-capability-registry"></div>
+                  </section>
+                </section>
+
+                <div class="router-settings-actions">
+                  <span id="routing-save-hint">Changes apply to new API requests.</span>
+                  <button id="save-router-settings" class="primary" type="submit">Save router settings</button>
+                </div>
+              </form>
+            </section>
+
+            <section id="settings-logs-tab" class="settings-tab-panel" data-settings-panel="logs" hidden>
+              <div class="settings-grid logs-settings-grid">
+                <article class="settings-card">
+                  <span class="summary-label">Storage</span>
+                  <h3 id="settings-storage-mode">Encrypted</h3>
+                  <p>Provider credentials are encrypted before they are written to hosted storage.</p>
+                </article>
+                <article class="settings-card">
+                  <span class="summary-label">Security</span>
+                  <h3 id="settings-security-mode">API keys hidden</h3>
+                  <p>Actual provider-key values are never shown in the dashboard or analytics logs.</p>
+                </article>
+                <article class="settings-card">
+                  <span class="summary-label">Request logs</span>
+                  <h3 id="settings-usage-mode">Detailed analysis</h3>
+                  <p>The router keeps up to 250 recent request records for debugging and analytics.</p>
+                </article>
+              </div>
+
+              <section class="settings-actions-card">
+                <div class="section-heading compact-heading">
+                  <div>
+                    <h3>Stored data</h3>
+                    <p>Manage request history without affecting your router or provider keys.</p>
+                  </div>
+                </div>
+
+                <div class="settings-action-list">
+                  <article class="settings-action-item danger-zone">
+                    <div>
+                      <strong>Analytics and request logs</strong>
+                      <p>Delete all stored request and response records for this router. Provider keys are not affected.
+                      </p>
+                    </div>
+                    <button id="settings-clear-analytics" class="secondary danger" type="button">Clear logs</button>
+                  </article>
+                </div>
+              </section>
+            </section>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="key-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <section class="modal-card provider-wizard" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" type="button" data-close-modal aria-label="Close">×</button>
+      <p class="step">Provider setup</p>
+      <h2 id="modal-title">Add provider key</h2>
+      <p id="modal-description"></p>
+      <form id="key-form">
+        <input id="modal-provider-id" type="hidden" />
+        <div class="selected-provider-card">
+          <div id="modal-provider-logo"></div>
+          <div>
+            <span class="summary-label">Selected provider</span>
+            <strong id="modal-provider-name">Provider</strong>
+            <p id="modal-provider-model">Model</p>
+          </div>
+        </div>
+
+        <label for="provider-key">API key</label>
+        <input id="provider-key" type="password" autocomplete="off" placeholder="Paste the provider API key" required />
+        <div class="modal-actions">
+          <a id="provider-website" target="_blank" rel="noreferrer">Get a key ↗</a>
+          <button class="primary" type="submit">Save provider</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="model-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <section class="modal-card provider-model-modal-card" role="dialog" aria-modal="true"
+      aria-labelledby="model-modal-title">
+      <button class="modal-close" type="button" data-close-modal aria-label="Close">×</button>
+      <p class="step">Provider model catalog</p>
+      <h2 id="model-modal-title">Provider models</h2>
+      <p id="model-modal-description">Save model IDs offered by this provider and choose exactly one active model for
+        routing.</p>
+      <input id="model-provider-id" type="hidden" />
+      <div class="selected-provider-card model-selected-provider">
+        <div id="model-provider-logo"></div>
+        <div>
+          <span class="summary-label">Selected provider</span>
+          <strong id="model-provider-name">Provider</strong>
+          <p id="model-active-summary">One active model</p>
+        </div>
+      </div>
+      <div id="provider-model-list" class="provider-model-list"></div>
+      <form id="provider-model-add-form" class="provider-model-add-form">
+        <label for="provider-model-id">Add a provider model ID</label>
+        <div class="provider-model-add-row">
+          <input id="provider-model-id" type="text" maxlength="240" autocomplete="off"
+            placeholder="For example, qwen/qwen3-coder-next" required />
+          <button class="secondary" type="submit" data-model-add-action="add">Add</button>
+          <button class="primary" type="submit" data-model-add-action="activate">Add &amp; activate</button>
+        </div>
+        <p class="provider-model-note">Only the active model is used. Saved inactive models are never tried
+          automatically.</p>
+      </form>
+    </section>
+  </div>
+
+  <div id="quota-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <section class="modal-card quota-modal-card" role="dialog" aria-modal="true" aria-labelledby="quota-modal-title">
+      <button class="modal-close" type="button" data-close-modal aria-label="Close">×</button>
+      <p class="step">Free-tier protection</p>
+      <h2 id="quota-modal-title">Provider quota</h2>
+      <p id="quota-modal-description">Track provider usage and stop routing when a configured limit is reached.</p>
+      <form id="quota-form">
+        <input id="quota-provider-id" type="hidden" />
+        <div class="selected-provider-card quota-selected-provider">
+          <div id="quota-provider-logo"></div>
+          <div>
+            <span class="summary-label">Selected provider</span>
+            <strong id="quota-provider-name">Provider</strong>
+            <p id="quota-provider-model">Model</p>
+          </div>
+        </div>
+        <div id="quota-current-usage" class="quota-current-usage"></div>
+        <div class="quota-form-grid">
+          <label>Daily request limit<input id="quota-daily-requests" type="number" min="1" step="1"
+              placeholder="For example, 1000" /></label>
+          <label>Monthly request limit<input id="quota-monthly-requests" type="number" min="1" step="1"
+              placeholder="For example, 30000" /></label>
+          <label>Daily token limit<input id="quota-daily-tokens" type="number" min="1" step="1"
+              placeholder="For example, 100000" /></label>
+          <label>Monthly token limit<input id="quota-monthly-tokens" type="number" min="1" step="1"
+              placeholder="For example, 3000000" /></label>
+        </div>
+        <label for="quota-warning-threshold">Warning threshold</label>
+        <div class="quota-threshold-input"><input id="quota-warning-threshold" type="number" min="1" max="99" step="1"
+            value="80" /><span>% used</span></div>
+        <p class="quota-form-note">Request counts include every upstream attempt. Token counts use provider-reported
+          usage when available and an input estimate otherwise.</p>
+        <div class="modal-actions quota-modal-actions">
+          <span>
+            <button id="quota-reset-usage" class="secondary" type="button">Reset usage</button>
+            <button id="quota-remove" class="secondary danger" type="button">Remove limits</button>
+          </span>
+          <button class="primary" type="submit">Save quota</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <aside id="request-drawer" class="request-drawer" hidden aria-label="Request details">
+    <div class="drawer-backdrop" data-close-drawer></div>
+    <section class="drawer-card">
+      <button class="modal-close" type="button" data-close-drawer aria-label="Close">×</button>
+      <p class="step">Request details</p>
+      <h2 id="drawer-title">Request</h2>
+      <div id="drawer-meta" class="drawer-meta"></div>
+      <section id="drawer-routing-headers-section" class="drawer-section drawer-routing-headers-section" hidden>
+      </section>
+      <section id="drawer-performance-section" class="drawer-section drawer-performance-section" hidden></section>
+      <section id="drawer-timeline-section" class="drawer-section drawer-timeline-section" hidden></section>
+      <section id="drawer-routing-decision" class="drawer-routing-decision" hidden></section>
+      <section id="drawer-attempts-section" class="drawer-section drawer-attempts-section" hidden></section>
+      <section id="drawer-deduplication-section" class="drawer-section drawer-deduplication-section" hidden></section>
+      <section id="drawer-usage-section" class="drawer-section drawer-usage-section" hidden></section>
+      <section id="drawer-tool-analytics-section" class="drawer-section drawer-tool-analytics-section" hidden></section>
+      <div class="drawer-section">
+        <div class="drawer-section-heading">
+          <h3>API request</h3>
+          <button class="copy-button" type="button" data-copy="drawer-request">Copy</button>
+        </div>
+        <pre><code id="drawer-request"></code></pre>
+      </div>
+      <div class="drawer-section">
+        <div class="drawer-section-heading">
+          <h3>API response</h3>
+          <button class="copy-button" type="button" data-copy="drawer-response">Copy</button>
+        </div>
+        <pre><code id="drawer-response"></code></pre>
+      </div>
+    </section>
+  </aside>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+
+</html>
