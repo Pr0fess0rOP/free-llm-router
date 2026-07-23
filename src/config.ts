@@ -84,7 +84,7 @@ export async function loadProviders(
     .filter((provider) => {
       if (provider.apiKeyEnv && !provider.apiKeyValue) {
         console.warn(
-          `Skipping ${provider.id}: environment variable ${provider.apiKeyEnv} is empty`,
+          `Skipping ${provider.id}: environment variable is empty`,
         );
         return false;
       }
