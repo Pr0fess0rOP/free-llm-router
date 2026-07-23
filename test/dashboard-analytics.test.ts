@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+// @ts-ignore
 import {
   summarizeApiAndModelDashboard,
   summarizeApplicationDashboard,
@@ -49,8 +50,8 @@ const requests = [
 
 test("provider dashboard separates attempts, completions, recoveries, and deduplicated usage", () => {
   const providers = summarizeProviderDashboard(requests);
-  const mistral = providers.find((provider) => provider.providerId === "mistral");
-  const groq = providers.find((provider) => provider.providerId === "groq");
+  const mistral = providers.find((provider: any) => provider.providerId === "mistral");
+  const groq = providers.find((provider: any) => provider.providerId === "groq");
 
   assert.equal(mistral?.completedRequests, 1);
   assert.equal(mistral?.tokens, 100);
@@ -63,8 +64,8 @@ test("provider dashboard separates attempts, completions, recoveries, and dedupl
 
 test("API and alias dashboards include client demand but avoid duplicate provider accounting", () => {
   const dashboards = summarizeApiAndModelDashboard(requests);
-  const chat = dashboards.apis.find((item) => item.id === "openai-compatible");
-  const freeRouter = dashboards.aliases.find((item) => item.id === "free-router");
+  const chat = dashboards.apis.find((item: any) => item.id === "openai-compatible");
+  const freeRouter = dashboards.aliases.find((item: any) => item.id === "free-router");
 
   assert.equal(chat?.requests, 2);
   assert.equal(chat?.upstreamRequests, 1);
@@ -75,8 +76,8 @@ test("API and alias dashboards include client demand but avoid duplicate provide
 
 test("application dashboard reports safe client dimensions and API mix", () => {
   const applications = summarizeApplicationDashboard(requests);
-  const curl = applications.find((item) => item.id === "curl");
-  const codex = applications.find((item) => item.id === "codex-cli");
+  const curl = applications.find((item: any) => item.id === "curl");
+  const codex = applications.find((item: any) => item.id === "codex-cli");
 
   assert.equal(curl?.requests, 2);
   assert.equal(curl?.tokens, 100);
