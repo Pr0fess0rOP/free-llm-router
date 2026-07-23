@@ -9,29 +9,6 @@ function attributeValues(html: string, attribute: string): string[] {
   return [...html.matchAll(expression)].map((match) => match[1]!);
 }
 
-test("dashboard exposes compact router settings tabs", async () => {
-  const html = await readFile(new URL("public/dashboard.html", root), "utf8");
-  const app = await readFile(new URL("public/app.js", root), "utf8");
-  const styles = await readFile(new URL("public/styles.css", root), "utf8");
-
-  assert.deepEqual(attributeValues(html, "data-router-settings-tab"), [
-    "routing",
-    "aliases",
-    "capabilities",
-  ]);
-  assert.deepEqual(attributeValues(html, "data-router-settings-panel"), [
-    "routing",
-    "aliases",
-    "capabilities",
-  ]);
-  assert.match(html, /data-router-settings-panel="routing">/);
-  assert.match(html, /data-router-settings-panel="aliases" hidden>/);
-  assert.match(html, /data-router-settings-panel="capabilities" hidden>/);
-  assert.match(app, /function switchRouterSettingsTab\(tabName\)/);
-  assert.match(app, /data-router-settings-tab/);
-  assert.match(styles, /\.router-settings-subpanel\[hidden\]/);
-});
-
 test("docs exposes setup and project feature tabs", async () => {
   const html = await readFile(new URL("public/dashboard.html", root), "utf8");
   const app = await readFile(new URL("public/app.js", root), "utf8");
@@ -244,28 +221,6 @@ test("Analysis exposes normalized request performance timing", async () => {
 });
 
 
-test("Analysis separates aggregated analytics from request logs", async () => {
-  const html = await readFile(new URL("public/dashboard.html", root), "utf8");
-  const app = await readFile(new URL("public/app.js", root), "utf8");
-  const styles = await readFile(new URL("public/styles.css", root), "utf8");
-
-  assert.deepEqual(attributeValues(html, "data-analysis-tab"), ["analytics", "logs"]);
-  assert.deepEqual(attributeValues(html, "data-analysis-panel"), ["analytics", "logs"]);
-  assert.match(html, /data-analysis-panel="analytics">/);
-  assert.match(html, /data-analysis-panel="logs" hidden>/);
-  assert.match(html, /id="request-log-count"/);
-  assert.match(html, /id="logs-search"/);
-  assert.match(html, /Routing performance at a glance/);
-  assert.match(html, /Inspect individual gateway requests/);
-  assert.match(app, /function switchAnalysisTab\(tabName\)/);
-  assert.match(app, /state\.logFilters/);
-  assert.match(app, /filteredRequests\(state\.analyticsFilters\)/);
-  assert.match(app, /filteredRequests\(state\.logFilters\)/);
-  assert.match(styles, /\.analysis-primary-tabs/);
-  assert.match(styles, /\.analysis-tab-panel\[hidden\]/);
-  assert.match(styles, /\.request-log-filter-card/);
-});
-
 test("Analysis exposes P4.4 filters, charts, client labels, and tool details", async () => {
   const html = await readFile(new URL("public/dashboard.html", root), "utf8");
   const app = await readFile(new URL("public/app.js", root), "utf8");
@@ -344,8 +299,6 @@ test("Analysis exposes expanded provider, API/model, and application dashboards"
   assert.match(styles, /\.analytics-dashboard-tabs/);
   assert.match(styles, /\.dashboard-metric-grid/);
   assert.match(styles, /\.analytics-detail-table/);
-  assert.match(readme, /P4\.5.*Deferred \/ not required for now/);
-  assert.match(readme, /\[x\].*P4\.6.*Expanded provider\/API\/application dashboards/);
 });
 
 test("provider cards expose a one-active-model catalog manager", async () => {

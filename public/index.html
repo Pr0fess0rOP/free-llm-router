@@ -1,314 +1,606 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="A self-hosted LLM gateway for routing OpenAI, Anthropic, Codex, Claude Code, and OpenAI-compatible requests across 26 providers with automatic failover."
+    />
+    <meta name="theme-color" content="#07110e" />
+    <link rel="icon" href="/assets/favicon.ico" sizes="any" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/assets/brand/favicon-32x32.png"
+    />
+    <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png" />
+    <title>LLM Router · One API for every provider</title>
+    <link rel="stylesheet" href="/landing.css" />
+    <script type="module" src="/landing.js"></script>
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description"
-    content="A self-hosted LLM gateway for routing OpenAI, Anthropic, Codex, Claude Code, and OpenAI-compatible requests across 26 providers with automatic failover." />
-  <meta name="theme-color" content="#07110e" />
-  <link rel="icon" href="/assets/favicon.ico" sizes="any" />
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png" />
-  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png" />
-  <title>LLM Router · One API for every provider</title>
-  <link rel="stylesheet" href="/landing.css" />
-  <script type="module" src="/landing.js"></script>
-</head>
-
-<body>
-  <div class="scroll-progress" aria-hidden="true"><span data-scroll-progress></span></div>
-  <header class="site-header" data-site-header>
-    <div class="shell header-inner">
-      <a class="site-brand" href="/" aria-label="Free LLM Router home">
-        <span class="site-brand-mark"
-          style="background-color: #f8f9fa; border-radius: 8px; display: inline-block; padding: 5px;">
-          <img src="/assets/brand/logo-mark.png" alt="" />
-        </span>
-        <span>LLM Router</span>
-      </a>
-
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" data-menu-toggle>
-        <span></span><span></span><span></span><span class="sr-only">Toggle navigation</span>
-      </button>
-
-      <nav id="site-nav" class="site-nav" aria-label="Primary navigation" data-site-nav>
-        <a href="#providers">Providers</a>
-        <a href="#features">Features</a>
-        <a href="#workflow">How it works</a>
-        <a href="/docs">Docs</a>
-        <a class="header-cta" href="/dashboard">Open dashboard <span aria-hidden="true">↗</span></a>
-      </nav>
+  <body>
+    <div class="scroll-progress" aria-hidden="true">
+      <span data-scroll-progress></span>
     </div>
-  </header>
+    <header class="site-header" data-site-header>
+      <div class="shell header-inner">
+        <a class="site-brand" href="/" aria-label="Free LLM Router home">
+          <span
+            class="site-brand-mark"
+            style="
+              background-color: #f8f9fa;
+              border-radius: 8px;
+              display: inline-block;
+              padding: 5px;
+            "
+          >
+            <img src="/assets/brand/logo-mark.png" alt="" />
+          </span>
+          <span>LLM Router</span>
+        </a>
 
-  <main>
-    <section class="hero section-dark">
-      <div class="hero-orb hero-orb-one"></div>
-      <div class="hero-orb hero-orb-two"></div>
-      <div class="shell hero-grid">
-        <div class="hero-copy" data-reveal data-reveal-delay="40">
-          <div class="hero-kicker"><span class="pulse-dot"></span> Self-hosted · Bring your own keys</div>
-          <h1>One API for every <span>AI provider.</span></h1>
-          <p class="hero-lede">Route OpenAI, Claude Code, Codex, and compatible SDKs through one stable gateway.
-            Automatically fail over when models, quotas, or providers let you down.</p>
-          <div class="hero-actions">
-            <a class="button button-primary" href="/dashboard">Start routing <span aria-hidden="true">→</span></a>
-            <a class="button button-secondary" href="/docs">Read the docs</a>
+        <button
+          class="menu-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="site-nav"
+          data-menu-toggle
+        >
+          <span></span><span></span><span></span
+          ><span class="sr-only">Toggle navigation</span>
+        </button>
+
+        <nav
+          id="site-nav"
+          class="site-nav"
+          aria-label="Primary navigation"
+          data-site-nav
+        >
+          <a href="#providers">Providers</a>
+          <a href="#features">Features</a>
+          <a href="#workflow">How it works</a>
+          <a href="/docs">Docs</a>
+          <a class="header-cta" href="/dashboard"
+            >Open dashboard <span aria-hidden="true">↗</span></a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero section-dark">
+        <div class="hero-orb hero-orb-one"></div>
+        <div class="hero-orb hero-orb-two"></div>
+        <div class="shell hero-grid">
+          <div class="hero-copy" data-reveal data-reveal-delay="40">
+            <div class="hero-kicker">
+              <span class="pulse-dot"></span> Self-hosted · Bring your own keys
+            </div>
+            <h1>One API for every <span>AI provider.</span></h1>
+            <p class="hero-lede">
+              Route OpenAI, Claude Code, Codex, and compatible SDKs through one
+              stable gateway. Automatically fail over when models, quotas, or
+              providers let you down.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="/dashboard"
+                >Start routing <span aria-hidden="true">→</span></a
+              >
+              <a class="button button-secondary" href="/docs">Read the docs</a>
+            </div>
+            <div class="hero-proof" aria-label="Project highlights">
+              <span
+                ><strong data-counter data-counter-value="26">26</strong>
+                providers</span
+              >
+              <span
+                ><strong data-counter data-counter-value="3">3</strong> API
+                formats</span
+              >
+              <span
+                ><strong data-counter data-counter-value="1">1</strong> stable
+                endpoint</span
+              >
+            </div>
           </div>
-          <div class="hero-proof" aria-label="Project highlights">
-            <span><strong data-counter data-counter-value="26">26</strong> providers</span>
-            <span><strong data-counter data-counter-value="3">3</strong> API formats</span>
-            <span><strong data-counter data-counter-value="1">1</strong> stable endpoint</span>
+
+          <div
+            class="router-visual"
+            aria-label="Example provider failover timeline"
+            data-route-demo
+            data-parallax
+            data-reveal
+            data-reveal-delay="140"
+          >
+            <div class="visual-window">
+              <div class="visual-titlebar">
+                <span class="window-dots"><i></i><i></i><i></i></span>
+                <span class="trace-title">live routing trace</span>
+                <button
+                  class="trace-replay"
+                  type="button"
+                  data-route-replay
+                  aria-label="Replay the provider failover trace"
+                >
+                  Replay <span aria-hidden="true">↻</span>
+                </button>
+                <span class="live-pill"><i></i> Live</span>
+              </div>
+              <span
+                class="sr-only"
+                data-route-announcer
+                aria-live="polite"
+              ></span>
+              <div class="request-chip" data-route-step="request">
+                <span>POST</span> /v1/chat/completions
+              </div>
+              <div class="route-model" data-route-step="model">
+                <div>
+                  <small>Virtual model</small>
+                  <strong>free-router</strong>
+                </div>
+                <span class="strategy-pill">priority routing</span>
+              </div>
+              <div class="route-line" data-route-line></div>
+              <div class="provider-attempt failed" data-route-step="failure">
+                <span class="attempt-number">01</span>
+                <img src="/assets/providers/openrouter.svg" alt="" />
+                <span class="attempt-name"
+                  ><strong>OpenRouter</strong
+                  ><small>qwen/qwen3-coder:free</small></span
+                >
+                <span class="attempt-status">429 · failover</span>
+              </div>
+              <div class="provider-attempt success" data-route-step="success">
+                <span class="attempt-number">02</span>
+                <img src="/assets/providers/groq.svg" alt="" />
+                <span class="attempt-name"
+                  ><strong>Groq</strong
+                  ><small>llama-3.3-70b-versatile</small></span
+                >
+                <span class="attempt-status">200 · 438 ms</span>
+              </div>
+              <div class="response-row" data-route-step="response">
+                <span class="response-check">✓</span>
+                <span
+                  ><strong>Response returned</strong
+                  ><small>Automatic recovery, no app changes</small></span
+                >
+                <code>req_9e1109</code>
+              </div>
+            </div>
+            <div class="floating-card floating-health">
+              <span class="health-icon">↗</span>
+              <span
+                ><strong>99.9%</strong><small>router availability</small></span
+              >
+            </div>
+            <div class="floating-card floating-capability">
+              <span class="capability-icon">◇</span>
+              <span
+                ><strong>Capability aware</strong
+                ><small>tools · vision · JSON</small></span
+              >
+            </div>
           </div>
         </div>
+      </section>
 
-        <div class="router-visual" aria-label="Example provider failover timeline" data-route-demo data-parallax
-          data-reveal data-reveal-delay="140">
-          <div class="visual-window">
-            <div class="visual-titlebar">
-              <span class="window-dots"><i></i><i></i><i></i></span>
-              <span class="trace-title">live routing trace</span>
-              <button class="trace-replay" type="button" data-route-replay
-                aria-label="Replay the provider failover trace">Replay <span aria-hidden="true">↻</span></button>
-              <span class="live-pill"><i></i> Live</span>
+      <section id="providers" class="provider-section" data-observe-section>
+        <div class="shell">
+          <p class="section-label centered">
+            Connect the providers you already use
+          </p>
+          <div
+            class="provider-cloud"
+            aria-label="Supported providers"
+            data-reveal
+            data-provider-cloud
+          >
+            <div class="provider-logo">
+              <img src="/assets/providers/openai.svg" alt="OpenAI" /><span
+                >OpenAI</span
+              >
             </div>
-            <span class="sr-only" data-route-announcer aria-live="polite"></span>
-            <div class="request-chip" data-route-step="request"><span>POST</span> /v1/chat/completions</div>
-            <div class="route-model" data-route-step="model">
+            <div class="provider-logo">
+              <img src="/assets/providers/anthropic.svg" alt="Anthropic" /><span
+                >Anthropic</span
+              >
+            </div>
+            <div class="provider-logo">
+              <img
+                src="/assets/providers/gemini.svg"
+                alt="Google Gemini"
+              /><span>Gemini</span>
+            </div>
+            <div class="provider-logo">
+              <img
+                src="/assets/providers/openrouter.svg"
+                alt="OpenRouter"
+              /><span>OpenRouter</span>
+            </div>
+            <div class="provider-logo">
+              <img src="/assets/providers/groq.svg" alt="Groq" /><span
+                >Groq</span
+              >
+            </div>
+            <div class="provider-logo">
+              <img src="/assets/providers/nvidia.svg" alt="NVIDIA" /><span
+                >NVIDIA</span
+              >
+            </div>
+            <div class="provider-logo">
+              <img
+                src="/assets/providers/together.svg"
+                alt="Together AI"
+              /><span>Together</span>
+            </div>
+            <div class="provider-logo">
+              <img
+                src="/assets/providers/fireworks.svg"
+                alt="Fireworks AI"
+              /><span>Fireworks</span>
+            </div>
+            <div class="provider-logo">
+              <img src="/assets/providers/deepinfra.svg" alt="DeepInfra" /><span
+                >DeepInfra</span
+              >
+            </div>
+            <div class="provider-logo">
+              <img src="/assets/providers/xai.svg" alt="xAI" /><span>xAI</span>
+            </div>
+            <div class="provider-logo">
+              <img src="/assets/providers/deepseek.svg" alt="DeepSeek" /><span
+                >DeepSeek</span
+              >
+            </div>
+            <div class="provider-logo">
+              <img
+                src="/assets/providers/perplexity.svg"
+                alt="Perplexity"
+              /><span>Perplexity</span>
+            </div>
+            <div class="provider-logo">
+              <img src="/assets/providers/cohere.svg" alt="Cohere" /><span
+                >Cohere</span
+              >
+            </div>
+            <div class="provider-logo">
+              <img src="/assets/providers/cerebras.svg" alt="Cerebras" /><span
+                >Cerebras</span
+              >
+            </div>
+            <div class="provider-logo">
+              <img src="/assets/providers/mistral.svg" alt="Mistral AI" /><span
+                >Mistral</span
+              >
+            </div>
+            <div class="provider-logo">
+              <img src="/assets/providers/novita.svg" alt="Novita AI" /><span
+                >Novita</span
+              >
+            </div>
+            <div class="provider-logo">
+              <img src="/assets/providers/baseten.svg" alt="Baseten" /><span
+                >Baseten</span
+              >
+            </div>
+            <div class="provider-logo">
+              <img src="/assets/providers/friendli.svg" alt="FriendliAI" /><span
+                >FriendliAI</span
+              >
+            </div>
+          </div>
+          <p class="provider-more">
+            Plus Hugging Face, SambaNova, SiliconFlow, ModelScope, GitHub
+            Models, Kilo Code, Aion Labs, and Z.ai.
+          </p>
+        </div>
+      </section>
+
+      <section
+        id="features"
+        class="section feature-section"
+        data-observe-section
+      >
+        <div class="shell">
+          <div class="section-heading" data-reveal>
+            <div>
+              <p class="section-label">Built for unreliable upstreams</p>
+              <h2>Your application should not care which provider answers.</h2>
+            </div>
+            <p>
+              Keep provider-specific complexity inside the gateway. Your
+              application calls one model alias while the router handles
+              availability, compatibility, and recovery.
+            </p>
+          </div>
+
+          <div class="feature-grid">
+            <article
+              class="feature-card feature-card-wide feature-card-dark"
+              data-reveal
+              data-reveal-delay="0"
+              data-interactive-card
+            >
+              <span class="feature-index">01</span>
+              <div class="feature-icon">⇄</div>
+              <h3>Automatic failover</h3>
+              <p>
+                Retry transient failures, respect rate-limit cooldowns, open
+                circuits around unhealthy providers, and continue through the
+                next eligible model.
+              </p>
+              <div class="mini-route">
+                <span>OpenRouter <i class="bad"></i></span><b>→</b
+                ><span>Groq <i class="good"></i></span><b>→</b
+                ><span>Response</span>
+              </div>
+            </article>
+
+            <article
+              class="feature-card"
+              data-reveal
+              data-reveal-delay="70"
+              data-interactive-card
+            >
+              <span class="feature-index">02</span>
+              <div class="feature-icon">◇</div>
+              <h3>Model-aware capabilities</h3>
+              <p>
+                Route tools, JSON mode, structured output, vision, reasoning,
+                streaming, and embeddings only to compatible active models.
+              </p>
+            </article>
+
+            <article
+              class="feature-card"
+              data-reveal
+              data-reveal-delay="140"
+              data-interactive-card
+            >
+              <span class="feature-index">03</span>
+              <div class="feature-icon">⌁</div>
+              <h3>One virtual model</h3>
+              <p>
+                Create aliases such as <code>free-router</code> or
+                <code>vision-router</code> with their own provider order and
+                routing strategy.
+              </p>
+            </article>
+
+            <article
+              class="feature-card"
+              data-reveal
+              data-reveal-delay="0"
+              data-interactive-card
+            >
+              <span class="feature-index">04</span>
+              <div class="feature-icon">⌗</div>
+              <h3>Full request timeline</h3>
+              <p>
+                See every eligibility check, provider attempt, failover
+                decision, response timing, token count, and returned routing
+                header.
+              </p>
+            </article>
+
+            <article
+              class="feature-card feature-card-wide feature-card-accent"
+              data-reveal
+              data-reveal-delay="70"
+              data-interactive-card
+            >
+              <span class="feature-index">05</span>
+              <div class="feature-icon">▦</div>
+              <h3>Quotas without surprises</h3>
+              <p>
+                Track daily and monthly requests or tokens per provider. Stop
+                routing before a free tier is exhausted and see exactly when
+                capacity resets.
+              </p>
+              <div class="quota-visual">
+                <span><i></i></span>
+                <strong
+                  ><span data-counter data-counter-value="7420">7,420</span>
+                  <small>/ 10,000 requests</small></strong
+                >
+              </div>
+            </article>
+
+            <article
+              class="feature-card"
+              data-reveal
+              data-reveal-delay="140"
+              data-interactive-card
+            >
+              <span class="feature-index">06</span>
+              <div class="feature-icon">⌾</div>
+              <h3>Bring your own keys</h3>
+              <p>
+                Your provider credentials stay on your deployment. The dashboard
+                never displays a saved provider key again.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+      <section class="section observability-section">
+        <div class="shell observability-grid">
+          <div class="analytics-preview" data-analytics-preview data-reveal>
+            <div class="preview-topline">
+              <span>Request analytics</span>
+              <span>Last 24 hours ▾</span>
+            </div>
+            <div class="metric-row">
               <div>
-                <small>Virtual model</small>
-                <strong>free-router</strong>
+                <small>Requests</small
+                ><strong data-counter data-counter-value="12489">12,489</strong
+                ><span>↑ 18.2%</span>
               </div>
-              <span class="strategy-pill">priority routing</span>
-            </div>
-            <div class="route-line" data-route-line></div>
-            <div class="provider-attempt failed" data-route-step="failure">
-              <span class="attempt-number">01</span>
-              <img src="/assets/providers/openrouter.svg" alt="" />
-              <span class="attempt-name"><strong>OpenRouter</strong><small>qwen/qwen3-coder:free</small></span>
-              <span class="attempt-status">429 · failover</span>
-            </div>
-            <div class="provider-attempt success" data-route-step="success">
-              <span class="attempt-number">02</span>
-              <img src="/assets/providers/groq.svg" alt="" />
-              <span class="attempt-name"><strong>Groq</strong><small>llama-3.3-70b-versatile</small></span>
-              <span class="attempt-status">200 · 438 ms</span>
-            </div>
-            <div class="response-row" data-route-step="response">
-              <span class="response-check">✓</span>
-              <span><strong>Response returned</strong><small>Automatic recovery, no app changes</small></span>
-              <code>req_9e1109</code>
-            </div>
-          </div>
-          <div class="floating-card floating-health">
-            <span class="health-icon">↗</span>
-            <span><strong>99.9%</strong><small>router availability</small></span>
-          </div>
-          <div class="floating-card floating-capability">
-            <span class="capability-icon">◇</span>
-            <span><strong>Capability aware</strong><small>tools · vision · JSON</small></span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="providers" class="provider-section" data-observe-section>
-      <div class="shell">
-        <p class="section-label centered">Connect the providers you already use</p>
-        <div class="provider-cloud" aria-label="Supported providers" data-reveal data-provider-cloud>
-          <div class="provider-logo"><img src="/assets/providers/openai.svg" alt="OpenAI" /><span>OpenAI</span></div>
-          <div class="provider-logo"><img src="/assets/providers/anthropic.svg" alt="Anthropic" /><span>Anthropic</span>
-          </div>
-          <div class="provider-logo"><img src="/assets/providers/gemini.svg" alt="Google Gemini" /><span>Gemini</span>
-          </div>
-          <div class="provider-logo"><img src="/assets/providers/openrouter.svg"
-              alt="OpenRouter" /><span>OpenRouter</span></div>
-          <div class="provider-logo"><img src="/assets/providers/groq.svg" alt="Groq" /><span>Groq</span></div>
-          <div class="provider-logo"><img src="/assets/providers/nvidia.svg" alt="NVIDIA" /><span>NVIDIA</span></div>
-          <div class="provider-logo"><img src="/assets/providers/together.svg" alt="Together AI" /><span>Together</span>
-          </div>
-          <div class="provider-logo"><img src="/assets/providers/fireworks.svg"
-              alt="Fireworks AI" /><span>Fireworks</span></div>
-          <div class="provider-logo"><img src="/assets/providers/deepinfra.svg" alt="DeepInfra" /><span>DeepInfra</span>
-          </div>
-          <div class="provider-logo"><img src="/assets/providers/xai.svg" alt="xAI" /><span>xAI</span></div>
-          <div class="provider-logo"><img src="/assets/providers/deepseek.svg" alt="DeepSeek" /><span>DeepSeek</span>
-          </div>
-          <div class="provider-logo"><img src="/assets/providers/perplexity.svg"
-              alt="Perplexity" /><span>Perplexity</span></div>
-          <div class="provider-logo"><img src="/assets/providers/cohere.svg" alt="Cohere" /><span>Cohere</span></div>
-          <div class="provider-logo"><img src="/assets/providers/cerebras.svg" alt="Cerebras" /><span>Cerebras</span>
-          </div>
-          <div class="provider-logo"><img src="/assets/providers/mistral.svg" alt="Mistral AI" /><span>Mistral</span>
-          </div>
-          <div class="provider-logo"><img src="/assets/providers/novita.svg" alt="Novita AI" /><span>Novita</span></div>
-          <div class="provider-logo"><img src="/assets/providers/baseten.svg" alt="Baseten" /><span>Baseten</span></div>
-          <div class="provider-logo"><img src="/assets/providers/friendli.svg"
-              alt="FriendliAI" /><span>FriendliAI</span></div>
-        </div>
-        <p class="provider-more">Plus Hugging Face, SambaNova, SiliconFlow, ModelScope, GitHub Models, Kilo Code, Aion
-          Labs, and Z.ai.</p>
-      </div>
-    </section>
-
-    <section id="features" class="section feature-section" data-observe-section>
-      <div class="shell">
-        <div class="section-heading" data-reveal>
-          <div>
-            <p class="section-label">Built for unreliable upstreams</p>
-            <h2>Your application should not care which provider answers.</h2>
-          </div>
-          <p>Keep provider-specific complexity inside the gateway. Your application calls one model alias while the
-            router handles availability, compatibility, and recovery.</p>
-        </div>
-
-        <div class="feature-grid">
-          <article class="feature-card feature-card-wide feature-card-dark" data-reveal data-reveal-delay="0"
-            data-interactive-card>
-            <span class="feature-index">01</span>
-            <div class="feature-icon">⇄</div>
-            <h3>Automatic failover</h3>
-            <p>Retry transient failures, respect rate-limit cooldowns, open circuits around unhealthy providers, and
-              continue through the next eligible model.</p>
-            <div class="mini-route">
-              <span>OpenRouter <i class="bad"></i></span><b>→</b><span>Groq <i
-                  class="good"></i></span><b>→</b><span>Response</span>
-            </div>
-          </article>
-
-          <article class="feature-card" data-reveal data-reveal-delay="70" data-interactive-card>
-            <span class="feature-index">02</span>
-            <div class="feature-icon">◇</div>
-            <h3>Model-aware capabilities</h3>
-            <p>Route tools, JSON mode, structured output, vision, reasoning, streaming, and embeddings only to
-              compatible active models.</p>
-          </article>
-
-          <article class="feature-card" data-reveal data-reveal-delay="140" data-interactive-card>
-            <span class="feature-index">03</span>
-            <div class="feature-icon">⌁</div>
-            <h3>One virtual model</h3>
-            <p>Create aliases such as <code>free-router</code> or <code>vision-router</code> with their own provider
-              order and routing strategy.</p>
-          </article>
-
-          <article class="feature-card" data-reveal data-reveal-delay="0" data-interactive-card>
-            <span class="feature-index">04</span>
-            <div class="feature-icon">⌗</div>
-            <h3>Full request timeline</h3>
-            <p>See every eligibility check, provider attempt, failover decision, response timing, token count, and
-              returned routing header.</p>
-          </article>
-
-          <article class="feature-card feature-card-wide feature-card-accent" data-reveal data-reveal-delay="70"
-            data-interactive-card>
-            <span class="feature-index">05</span>
-            <div class="feature-icon">▦</div>
-            <h3>Quotas without surprises</h3>
-            <p>Track daily and monthly requests or tokens per provider. Stop routing before a free tier is exhausted and
-              see exactly when capacity resets.</p>
-            <div class="quota-visual">
-              <span><i></i></span>
-              <strong><span data-counter data-counter-value="7420">7,420</span> <small>/ 10,000
-                  requests</small></strong>
-            </div>
-          </article>
-
-          <article class="feature-card" data-reveal data-reveal-delay="140" data-interactive-card>
-            <span class="feature-index">06</span>
-            <div class="feature-icon">⌾</div>
-            <h3>Bring your own keys</h3>
-            <p>Your provider credentials stay on your deployment. The dashboard never displays a saved provider key
-              again.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-    <section class="section observability-section">
-      <div class="shell observability-grid">
-        <div class="analytics-preview" data-analytics-preview data-reveal>
-          <div class="preview-topline">
-            <span>Request analytics</span>
-            <span>Last 24 hours ▾</span>
-          </div>
-          <div class="metric-row">
-            <div><small>Requests</small><strong data-counter data-counter-value="12489">12,489</strong><span>↑
-                18.2%</span></div>
-            <div><small>Success rate</small><strong data-counter data-counter-value="98.7" data-counter-decimals="1"
-                data-counter-suffix="%">98.7%</strong><span>↑ 1.4%</span></div>
-            <div><small>Avg. latency</small><strong data-counter data-counter-value="624" data-counter-suffix=" ms">624
-                ms</strong><span>↓ 82 ms</span></div>
-          </div>
-          <div class="chart-area" aria-hidden="true">
-            <div class="chart-grid-lines"></div>
-            <svg viewBox="0 0 700 220" role="img" aria-label="Example request volume chart">
-              <path class="chart-fill"
-                d="M0,180 C55,170 75,118 130,132 C185,146 190,82 250,95 C310,108 330,58 390,74 C450,90 490,42 535,54 C590,67 620,22 700,36 L700,220 L0,220 Z">
-              </path>
-              <path class="chart-line"
-                d="M0,180 C55,170 75,118 130,132 C185,146 190,82 250,95 C310,108 330,58 390,74 C450,90 490,42 535,54 C590,67 620,22 700,36">
-              </path>
-            </svg>
-          </div>
-          <div class="provider-bars">
-            <span><b>Groq</b><i><em class="bar-42"></em></i><small>42%</small></span>
-            <span><b>OpenRouter</b><i><em class="bar-31"></em></i><small>31%</small></span>
-            <span><b>Cerebras</b><i><em class="bar-18"></em></i><small>18%</small></span>
-          </div>
-        </div>
-        <div class="observability-copy" data-reveal data-reveal-delay="100">
-          <p class="section-label">Understand every decision</p>
-          <h2>Observability designed for routing.</h2>
-          <p>General API logs tell you that a request failed. LLM router shows which providers were considered, why
-            they were skipped, what was retried, and where the response came from.</p>
-          <ul class="check-list">
-            <li>Provider, API format, model alias, and client dashboards</li>
-            <li>Router, provider, first-token, and stream timing</li>
-            <li>Request IDs and routing headers end to end</li>
-            <li>Fallback, tool-call, token, and deduplication analytics</li>
-          </ul>
-          <a class="text-link" href="/dashboard">Explore the dashboard <span>→</span></a>
-        </div>
-      </div>
-    </section>
-
-    <section id="workflow" class="section workflow-section" data-observe-section>
-      <div class="shell workflow-grid">
-        <div class="workflow-copy" data-reveal>
-          <p class="section-label">Three steps, one endpoint</p>
-          <h2>Connect once. Route everywhere.</h2>
-          <p>Use the provider keys and models you already have. No application-specific adapters and no provider SDK
-            lock-in.</p>
-          <ol class="workflow-list">
-            <li data-reveal data-reveal-delay="40"><span>1</span>
-              <div><strong>Add provider keys</strong>
-                <p>Connect one or more providers and select an active model for each.</p>
+              <div>
+                <small>Success rate</small
+                ><strong
+                  data-counter
+                  data-counter-value="98.7"
+                  data-counter-decimals="1"
+                  data-counter-suffix="%"
+                  >98.7%</strong
+                ><span>↑ 1.4%</span>
               </div>
-            </li>
-            <li data-reveal data-reveal-delay="100"><span>2</span>
-              <div><strong>Choose a routing policy</strong>
-                <p>Use priority, round-robin, weighted, random, or lowest-latency routing.</p>
+              <div>
+                <small>Avg. latency</small
+                ><strong
+                  data-counter
+                  data-counter-value="624"
+                  data-counter-suffix=" ms"
+                  >624 ms</strong
+                ><span>↓ 82 ms</span>
               </div>
-            </li>
-            <li data-reveal data-reveal-delay="160"><span>3</span>
-              <div><strong>Point your SDK at the router</strong>
-                <p>Keep your existing OpenAI, Codex, or Claude Code client.</p>
-              </div>
-            </li>
-          </ol>
-        </div>
-
-        <div class="code-demo" data-code-demo data-reveal data-reveal-delay="120">
-          <div class="code-tabs" role="tablist" aria-label="API examples">
-            <button class="active" type="button" role="tab" aria-selected="true" data-code-tab="openai">OpenAI
-              SDK</button>
-            <button type="button" role="tab" aria-selected="false" data-code-tab="codex">Codex</button>
-            <button type="button" role="tab" aria-selected="false" data-code-tab="claude">Claude Code</button>
+            </div>
+            <div class="chart-area" aria-hidden="true">
+              <div class="chart-grid-lines"></div>
+              <svg
+                viewBox="0 0 700 220"
+                role="img"
+                aria-label="Example request volume chart"
+              >
+                <path
+                  class="chart-fill"
+                  d="M0,180 C55,170 75,118 130,132 C185,146 190,82 250,95 C310,108 330,58 390,74 C450,90 490,42 535,54 C590,67 620,22 700,36 L700,220 L0,220 Z"
+                ></path>
+                <path
+                  class="chart-line"
+                  d="M0,180 C55,170 75,118 130,132 C185,146 190,82 250,95 C310,108 330,58 390,74 C450,90 490,42 535,54 C590,67 620,22 700,36"
+                ></path>
+              </svg>
+            </div>
+            <div class="provider-bars">
+              <span
+                ><b>Groq</b><i><em class="bar-42"></em></i
+                ><small>42%</small></span
+              >
+              <span
+                ><b>OpenRouter</b><i><em class="bar-31"></em></i
+                ><small>31%</small></span
+              >
+              <span
+                ><b>Cerebras</b><i><em class="bar-18"></em></i
+                ><small>18%</small></span
+              >
+            </div>
           </div>
-          <div class="code-panel" data-code-panel="openai">
-            <div class="code-heading"><span>JavaScript</span><button type="button"
-                data-copy-target="landing-openai-code">Copy</button></div>
-            <pre><code id="landing-openai-code">import OpenAI from "openai";
+          <div class="observability-copy" data-reveal data-reveal-delay="100">
+            <p class="section-label">Understand every decision</p>
+            <h2>Observability designed for routing.</h2>
+            <p>
+              General API logs tell you that a request failed. LLM router shows
+              which providers were considered, why they were skipped, what was
+              retried, and where the response came from.
+            </p>
+            <ul class="check-list">
+              <li>Provider, API format, model alias, and client dashboards</li>
+              <li>Router, provider, first-token, and stream timing</li>
+              <li>Request IDs and routing headers end to end</li>
+              <li>Fallback, tool-call, token, and deduplication analytics</li>
+            </ul>
+            <a class="text-link" href="/dashboard"
+              >Explore the dashboard <span>→</span></a
+            >
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="workflow"
+        class="section workflow-section"
+        data-observe-section
+      >
+        <div class="shell workflow-grid">
+          <div class="workflow-copy" data-reveal>
+            <p class="section-label">Three steps, one endpoint</p>
+            <h2>Connect once. Route everywhere.</h2>
+            <p>
+              Use the provider keys and models you already have. No
+              application-specific adapters and no provider SDK lock-in.
+            </p>
+            <ol class="workflow-list">
+              <li data-reveal data-reveal-delay="40">
+                <span>1</span>
+                <div>
+                  <strong>Add provider keys</strong>
+                  <p>
+                    Connect one or more providers and select an active model for
+                    each.
+                  </p>
+                </div>
+              </li>
+              <li data-reveal data-reveal-delay="100">
+                <span>2</span>
+                <div>
+                  <strong>Choose a routing policy</strong>
+                  <p>
+                    Use priority, round-robin, weighted, random, or
+                    lowest-latency routing.
+                  </p>
+                </div>
+              </li>
+              <li data-reveal data-reveal-delay="160">
+                <span>3</span>
+                <div>
+                  <strong>Point your SDK at the router</strong>
+                  <p>
+                    Keep your existing OpenAI, Codex, or Claude Code client.
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          <div
+            class="code-demo"
+            data-code-demo
+            data-reveal
+            data-reveal-delay="120"
+          >
+            <div class="code-tabs" role="tablist" aria-label="API examples">
+              <button
+                class="active"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                data-code-tab="openai"
+              >
+                OpenAI SDK
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-code-tab="codex"
+              >
+                Codex
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-code-tab="claude"
+              >
+                Claude Code
+              </button>
+            </div>
+            <div class="code-panel" data-code-panel="openai">
+              <div class="code-heading">
+                <span>JavaScript</span
+                ><button type="button" data-copy-target="landing-openai-code">
+                  Copy
+                </button>
+              </div>
+              <pre><code id="landing-openai-code">import OpenAI from "openai";
 
 const client = new OpenAI({
   baseURL: "https://llmrouter.dpdns.org/v1",
@@ -319,28 +611,39 @@ const response = await client.chat.completions.create({
   model: "free-router", // Your Model alias
   messages: [{ role: "user", content: "Hello!" }],
 });</code></pre>
-          </div>
-          <div class="code-panel" data-code-panel="codex" hidden>
-            <div class="code-heading"><span>Terminal</span><button type="button"
-                data-copy-target="landing-codex-code">Copy</button></div>
-            <pre><code id="landing-codex-code">export OPENAI_BASE_URL="https://llmrouter.dpdns.org/v1"
+            </div>
+            <div class="code-panel" data-code-panel="codex" hidden>
+              <div class="code-heading">
+                <span>Terminal</span
+                ><button type="button" data-copy-target="landing-codex-code">
+                  Copy
+                </button>
+              </div>
+              <pre><code id="landing-codex-code">export OPENAI_BASE_URL="https://llmrouter.dpdns.org/v1"
 export OPENAI_API_KEY="flm_YOUR_KEY_HERE"
 
 codex</code></pre>
-          </div>
-          <div class="code-panel" data-code-panel="claude" hidden>
-            <div class="code-heading"><span>Terminal</span><button type="button"
-                data-copy-target="landing-claude-code">Copy</button></div>
-            <pre><code id="landing-claude-code">export ANTHROPIC_BASE_URL="https://llmrouter.dpdns.org/v1"
+            </div>
+            <div class="code-panel" data-code-panel="claude" hidden>
+              <div class="code-heading">
+                <span>Terminal</span
+                ><button type="button" data-copy-target="landing-claude-code">
+                  Copy
+                </button>
+              </div>
+              <pre><code id="landing-claude-code">export ANTHROPIC_BASE_URL="https://llmrouter.dpdns.org/v1"
 export ANTHROPIC_AUTH_TOKEN="flm_YOUR_KEY_HERE"
 
 claude</code></pre>
+            </div>
+            <div class="code-footer">
+              <span class="pulse-dot"></span> OpenAI Chat · Responses ·
+              Anthropic Messages
+            </div>
           </div>
-          <div class="code-footer"><span class="pulse-dot"></span> OpenAI Chat · Responses · Anthropic Messages</div>
         </div>
-      </div>
-    </section>
-    <!-- 
+      </section>
+      <!-- 
     <section class="section compatibility-section">
       <div class="shell">
         <div class="compatibility-card" data-reveal>
@@ -359,33 +662,47 @@ claude</code></pre>
       </div>
     </section> -->
 
-    <section class="cta-section section-dark">
-      <div class="cta-grid-lines"></div>
-      <div class="shell cta-inner" data-reveal>
-        <p class="section-label">Stop hardcoding provider failures</p>
-        <h2>Give your application a routing layer.</h2>
-        <p>Deploy the gateway, connect your keys, and keep one stable endpoint as providers and models change.</p>
-        <div class="hero-actions centered-actions">
-          <a class="button button-primary" href="/dashboard">Open dashboard <span aria-hidden="true">→</span></a>
-          <a class="button button-secondary" href="/docs">View quick start</a>
+      <section class="cta-section section-dark">
+        <div class="cta-grid-lines"></div>
+        <div class="shell cta-inner" data-reveal>
+          <p class="section-label">Stop hardcoding provider failures</p>
+          <h2>Give your application a routing layer.</h2>
+          <p>
+            Deploy the gateway, connect your keys, and keep one stable endpoint
+            as providers and models change.
+          </p>
+          <div class="hero-actions centered-actions">
+            <a class="button button-primary" href="/dashboard"
+              >Open dashboard <span aria-hidden="true">→</span></a
+            >
+            <a class="button button-secondary" href="/docs">View quick start</a>
+          </div>
         </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-inner">
+        <a class="site-brand footer-brand" href="/"
+          ><span class="site-brand-mark"
+            ><img
+              src="/assets/brand/logo-mark.png"
+              style="
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                display: inline-block;
+                padding: 5px;
+              "
+              alt="" /></span
+          ><span>LLM Router</span></a
+        >
+        <p>Self-hosted LLM routing with your provider keys.</p>
+        <nav aria-label="Footer navigation">
+          <a href="/docs">Docs</a>
+          <a href="/dashboard">Dashboard</a>
+          <a href="#providers">Providers</a>
+        </nav>
       </div>
-    </section>
-  </main>
-
-  <footer class="site-footer">
-    <div class="shell footer-inner">
-      <a class="site-brand footer-brand" href="/"><span class="site-brand-mark"><img src="/assets/brand/logo-mark.png"
-            style="background-color: #f8f9fa; border-radius: 8px; display: inline-block; padding: 5px;"
-            alt="" /></span><span>LLM Router</span></a>
-      <p>Self-hosted LLM routing with your provider keys.</p>
-      <nav aria-label="Footer navigation">
-        <a href="/docs">Docs</a>
-        <a href="/dashboard">Dashboard</a>
-        <a href="#providers">Providers</a>
-      </nav>
-    </div>
-  </footer>
-</body>
-
+    </footer>
+  </body>
 </html>

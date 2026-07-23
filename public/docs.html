@@ -1,116 +1,180 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Quick-start documentation for deploying and integrating LLM Router."
+    />
+    <meta name="theme-color" content="#07110e" />
+    <link rel="icon" href="/assets/favicon.ico" sizes="any" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/assets/brand/favicon-32x32.png"
+    />
+    <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png" />
+    <title>Documentation · LLM Router</title>
+    <link rel="stylesheet" href="/landing.css" />
+    <script type="module" src="/landing.js"></script>
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Quick-start documentation for deploying and integrating LLM Router." />
-  <meta name="theme-color" content="#07110e" />
-  <link rel="icon" href="/assets/favicon.ico" sizes="any" />
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png" />
-  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png" />
-  <title>Documentation · LLM Router</title>
-  <link rel="stylesheet" href="/landing.css" />
-  <script type="module" src="/landing.js"></script>
-</head>
-
-<body class="docs-body">
-  <header class="site-header site-header-solid" data-site-header>
-    <div class="shell header-inner">
-      <a class="site-brand" href="/" aria-label="Free LLM Router home">
-        <span class="site-brand-mark"
-          style="background-color: #f8f9fa; border-radius: 8px; display: inline-block; padding: 5px;">
-          <img src="/assets/brand/logo-mark.png" alt="" />
-        </span>
-        <span>LLM Router</span>
-      </a>
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" data-menu-toggle>
-        <span></span><span></span><span></span><span class="sr-only">Toggle navigation</span>
-      </button>
-      <nav id="site-nav" class="site-nav" aria-label="Primary navigation" data-site-nav>
-        <a href="/#providers">Providers</a>
-        <a href="/#features">Features</a>
-        <a href="/#workflow">How it works</a>
-        <a class="active-link" href="/docs">Docs</a>
-        <a class="header-cta" href="/dashboard">Open dashboard <span aria-hidden="true">↗</span></a>
-      </nav>
-      <!-- <nav id="site-nav" class="site-nav" aria-label="Primary navigation" data-site-nav>
+  <body class="docs-body">
+    <header class="site-header site-header-solid" data-site-header>
+      <div class="shell header-inner">
+        <a class="site-brand" href="/" aria-label="Free LLM Router home">
+          <span
+            class="site-brand-mark"
+            style="
+              background-color: #f8f9fa;
+              border-radius: 8px;
+              display: inline-block;
+              padding: 5px;
+            "
+          >
+            <img src="/assets/brand/logo-mark.png" alt="" />
+          </span>
+          <span>LLM Router</span>
+        </a>
+        <button
+          class="menu-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="site-nav"
+          data-menu-toggle
+        >
+          <span></span><span></span><span></span
+          ><span class="sr-only">Toggle navigation</span>
+        </button>
+        <nav
+          id="site-nav"
+          class="site-nav"
+          aria-label="Primary navigation"
+          data-site-nav
+        >
+          <a href="/#providers">Providers</a>
+          <a href="/#features">Features</a>
+          <a href="/#workflow">How it works</a>
+          <a class="active-link" href="/docs">Docs</a>
+          <a class="header-cta" href="/dashboard"
+            >Open dashboard <span aria-hidden="true">↗</span></a
+          >
+        </nav>
+        <!-- <nav id="site-nav" class="site-nav" aria-label="Primary navigation" data-site-nav>
         <a href="/#features">Features</a>
         <a href="/#providers">Providers</a>
         <a class="active-link" href="/docs">Docs</a>
         <a class="header-cta" href="/dashboard">Open dashboard <span aria-hidden="true">↗</span></a>
       </nav> -->
-    </div>
-  </header>
-
-  <main class="docs-main">
-    <section class="docs-hero section-dark">
-      <div class="shell docs-hero-inner">
-        <p class="hero-kicker"><span class="pulse-dot"></span> Quick-start documentation</p>
-        <h1>From deployment to first routed request.</h1>
-        <p>Connect provider keys, create a private router, and point an existing OpenAI or Anthropic-compatible client
-          at one stable endpoint. Detailed documentation available withing the app.</p>
       </div>
-    </section>
+    </header>
 
-    <div class="shell docs-layout">
-      <aside class="docs-sidebar" aria-label="Documentation sections">
-        <strong>Get started</strong>
-        <a href="#overview">Overview</a>
+    <main class="docs-main">
+      <section class="docs-hero section-dark">
+        <div class="shell docs-hero-inner">
+          <p class="hero-kicker">
+            <span class="pulse-dot"></span> Quick-start documentation
+          </p>
+          <h1>From deployment to first routed request.</h1>
+          <p>
+            Connect provider keys, create a private router, and point an
+            existing OpenAI or Anthropic-compatible client at one stable
+            endpoint. Detailed documentation available withing the app.
+          </p>
+        </div>
+      </section>
 
-        <a href="#configure">Configure providers</a>
-        <a href="#first-request">First request</a>
-        <strong>API surfaces</strong>
-        <a href="#chat-completions">Chat Completions</a>
-        <a href="#responses">Responses / Codex</a>
-        <a href="#messages">Messages / Claude Code</a>
-        <strong>Routing</strong>
-        <a href="#aliases">Model aliases</a>
-        <a href="#reliability">Reliability</a>
-        <a href="#security">Security</a>
-      </aside>
+      <div class="shell docs-layout">
+        <aside class="docs-sidebar" aria-label="Documentation sections">
+          <strong>Get started</strong>
+          <a href="#overview">Overview</a>
 
-      <article class="docs-content">
-        <section id="overview" class="docs-section">
-          <p class="section-label">Overview</p>
-          <h2>One gateway, multiple providers</h2>
-          <p>LLM Router exposes OpenAI Chat Completions, OpenAI Responses, and Anthropic Messages endpoints. Each
-            request resolves a virtual model alias, filters active provider models by capability and health, and tries
-            eligible providers according to your routing policy.</p>
-          <div class="docs-callout"><strong>Base URL</strong><code>https://your-router-domain.com/v1</code></div>
-        </section>
+          <a href="#configure">Configure providers</a>
+          <a href="#first-request">First request</a>
+          <strong>API surfaces</strong>
+          <a href="#chat-completions">Chat Completions</a>
+          <a href="#responses">Responses / Codex</a>
+          <a href="#messages">Messages / Claude Code</a>
+          <strong>Routing</strong>
+          <a href="#aliases">Model aliases</a>
+          <a href="#reliability">Reliability</a>
+          <a href="#security">Security</a>
+        </aside>
 
-        <section id="configure" class="docs-section">
-          <p class="section-label">Step 1</p>
-          <h2>Create a router and add providers</h2>
-          <ol class="docs-steps">
-            <li><span>1</span>
-              <p>Open <a href="/dashboard">the dashboard</a> and sign in with Clerk.</p>
-            </li>
-            <li><span>2</span>
-              <p>Create a private router key and store the complete key immediately.</p>
-            </li>
-            <li><span>3</span>
-              <p>Add one or more provider API keys.</p>
-            </li>
-            <li><span>4</span>
-              <p>Open each provider’s model catalog, save the exact model slug, test it, and activate one model.</p>
-            </li>
-            <li><span>5</span>
-              <p>Choose a router-wide policy or configure a model alias with its own provider order.</p>
-            </li>
-          </ol>
-          <div class="docs-note"><strong>Provider identity and model are separate.</strong> For example, the provider ID
-            is <code>openrouter</code>, while <code>qwen/qwen3-coder:free</code> belongs to its model catalog.</div>
-        </section>
+        <article class="docs-content">
+          <section id="overview" class="docs-section">
+            <p class="section-label">Overview</p>
+            <h2>One gateway, multiple providers</h2>
+            <p>
+              LLM Router exposes OpenAI Chat Completions, OpenAI Responses, and
+              Anthropic Messages endpoints. Each request resolves a virtual
+              model alias, filters active provider models by capability and
+              health, and tries eligible providers according to your routing
+              policy.
+            </p>
+            <div class="docs-callout">
+              <strong>Base URL</strong
+              ><code>https://your-router-domain.com/v1</code>
+            </div>
+          </section>
 
-        <section id="first-request" class="docs-section">
-          <p class="section-label">Step 2</p>
-          <h2>Send the first request</h2>
-          <div class="docs-code">
-            <div class="code-heading"><span>curl</span><button type="button"
-                data-copy-target="docs-first-request">Copy</button></div>
-            <pre><code id="docs-first-request">curl https://llmrouter.dpdns.org/v1/chat/completions \
+          <section id="configure" class="docs-section">
+            <p class="section-label">Step 1</p>
+            <h2>Create a router and add providers</h2>
+            <ol class="docs-steps">
+              <li>
+                <span>1</span>
+                <p>
+                  Open <a href="/dashboard">the dashboard</a> and sign in with
+                  Clerk.
+                </p>
+              </li>
+              <li>
+                <span>2</span>
+                <p>
+                  Create a private router key and store the complete key
+                  immediately.
+                </p>
+              </li>
+              <li>
+                <span>3</span>
+                <p>Add one or more provider API keys.</p>
+              </li>
+              <li>
+                <span>4</span>
+                <p>
+                  Open each provider’s model catalog, save the exact model slug,
+                  test it, and activate one model.
+                </p>
+              </li>
+              <li>
+                <span>5</span>
+                <p>
+                  Choose a router-wide policy or configure a model alias with
+                  its own provider order.
+                </p>
+              </li>
+            </ol>
+            <div class="docs-note">
+              <strong>Provider identity and model are separate.</strong> For
+              example, the provider ID is <code>openrouter</code>, while
+              <code>qwen/qwen3-coder:free</code> belongs to its model catalog.
+            </div>
+          </section>
+
+          <section id="first-request" class="docs-section">
+            <p class="section-label">Step 2</p>
+            <h2>Send the first request</h2>
+            <div class="docs-code">
+              <div class="code-heading">
+                <span>curl</span
+                ><button type="button" data-copy-target="docs-first-request">
+                  Copy
+                </button>
+              </div>
+              <pre><code id="docs-first-request">curl https://llmrouter.dpdns.org/v1/chat/completions \
   -H "Authorization: Bearer YOUR_ROUTER_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -119,19 +183,28 @@
       { "role": "user", "content": "Explain provider failover." }
     ]
   }'</code></pre>
-          </div>
-          <p>Successful responses include routing headers such as the request ID, selected provider, attempt count, and
-            timing breakdown.</p>
-        </section>
+            </div>
+            <p>
+              Successful responses include routing headers such as the request
+              ID, selected provider, attempt count, and timing breakdown.
+            </p>
+          </section>
 
-        <section id="chat-completions" class="docs-section">
-          <p class="section-label">API surface</p>
-          <h2>OpenAI Chat Completions</h2>
-          <p>Use the standard OpenAI SDK and replace only the base URL and API key.</p>
-          <div class="docs-code">
-            <div class="code-heading"><span>JavaScript</span><button type="button"
-                data-copy-target="docs-openai-js">Copy</button></div>
-            <pre><code id="docs-openai-js">import OpenAI from "openai";
+          <section id="chat-completions" class="docs-section">
+            <p class="section-label">API surface</p>
+            <h2>OpenAI Chat Completions</h2>
+            <p>
+              Use the standard OpenAI SDK and replace only the base URL and API
+              key.
+            </p>
+            <div class="docs-code">
+              <div class="code-heading">
+                <span>JavaScript</span
+                ><button type="button" data-copy-target="docs-openai-js">
+                  Copy
+                </button>
+              </div>
+              <pre><code id="docs-openai-js">import OpenAI from "openai";
 
 const client = new OpenAI({
   baseURL: "https://llmrouter.dpdns.org/v1",
@@ -143,120 +216,176 @@ const result = await client.chat.completions.create({
   messages: [{ role: "user", content: "Hello" }],
   stream: true,
 });</code></pre>
-          </div>
-        </section>
+            </div>
+          </section>
 
-        <section id="responses" class="docs-section">
-          <p class="section-label">API surface</p>
-          <h2>OpenAI Responses and Codex</h2>
-          <p>The router translates Responses API requests into compatible upstream chat requests, then converts the
-            result back into the expected Responses format.</p>
-          <div class="docs-callout"><strong>Endpoint</strong><code>POST /v1/responses</code></div>
-          <div class="docs-code">
-            <div class="code-heading"><span>Terminal</span><button type="button"
-                data-copy-target="docs-codex-env">Copy</button></div>
-            <pre><code id="docs-codex-env">export OPENAI_BASE_URL="https://llmrouter.dpdns.org/v1"
+          <section id="responses" class="docs-section">
+            <p class="section-label">API surface</p>
+            <h2>OpenAI Responses and Codex</h2>
+            <p>
+              The router translates Responses API requests into compatible
+              upstream chat requests, then converts the result back into the
+              expected Responses format.
+            </p>
+            <div class="docs-callout">
+              <strong>Endpoint</strong><code>POST /v1/responses</code>
+            </div>
+            <div class="docs-code">
+              <div class="code-heading">
+                <span>Terminal</span
+                ><button type="button" data-copy-target="docs-codex-env">
+                  Copy
+                </button>
+              </div>
+              <pre><code id="docs-codex-env">export OPENAI_BASE_URL="https://llmrouter.dpdns.org/v1"
 export OPENAI_API_KEY="flm_YOUR_KEY_HERE"
 
 codex</code></pre>
-          </div>
-        </section>
+            </div>
+          </section>
 
-        <section id="messages" class="docs-section">
-          <p class="section-label">API surface</p>
-          <h2>Anthropic Messages and Claude Code</h2>
-          <p>Claude Code can call the router’s <code>/v1/messages</code> endpoint while the router selects an eligible
-            active provider model.</p>
-          <div class="docs-callout"><strong>Endpoint</strong><code>POST /v1/messages</code></div>
-          <div class="docs-code">
-            <div class="code-heading"><span>Terminal</span><button type="button"
-                data-copy-target="docs-claude-env">Copy</button></div>
-            <pre><code id="docs-claude-env">export ANTHROPIC_BASE_URL="https://llmrouter.dpdns.org/v1"
+          <section id="messages" class="docs-section">
+            <p class="section-label">API surface</p>
+            <h2>Anthropic Messages and Claude Code</h2>
+            <p>
+              Claude Code can call the router’s
+              <code>/v1/messages</code> endpoint while the router selects an
+              eligible active provider model.
+            </p>
+            <div class="docs-callout">
+              <strong>Endpoint</strong><code>POST /v1/messages</code>
+            </div>
+            <div class="docs-code">
+              <div class="code-heading">
+                <span>Terminal</span
+                ><button type="button" data-copy-target="docs-claude-env">
+                  Copy
+                </button>
+              </div>
+              <pre><code id="docs-claude-env">export ANTHROPIC_BASE_URL="https://llmrouter.dpdns.org/v1"
 export ANTHROPIC_AUTH_TOKEN="flm_YOUR_KEY_HERE"
 
 claude</code></pre>
-          </div>
-        </section>
+            </div>
+          </section>
 
-        <section id="aliases" class="docs-section">
-          <p class="section-label">Routing</p>
-          <h2>Model aliases</h2>
-          <p>A model alias is the stable model name your applications use. It can define its own routing strategy,
-            provider allowlist, capability requirements, and reliability overrides.</p>
-          <div class="docs-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Alias</th>
-                  <th>Purpose</th>
-                  <th>Typical requirement</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><code>free-router</code></td>
-                  <td>General chat and coding</td>
-                  <td>Streaming</td>
-                </tr>
-                <tr>
-                  <td><code>vision-router</code></td>
-                  <td>Image-aware requests</td>
-                  <td>Vision</td>
-                </tr>
-                <tr>
-                  <td><code>tool-router</code></td>
-                  <td>Agent and function calls</td>
-                  <td>Tools</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
+          <section id="aliases" class="docs-section">
+            <p class="section-label">Routing</p>
+            <h2>Model aliases</h2>
+            <p>
+              A model alias is the stable model name your applications use. It
+              can define its own routing strategy, provider allowlist,
+              capability requirements, and reliability overrides.
+            </p>
+            <div class="docs-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Alias</th>
+                    <th>Purpose</th>
+                    <th>Typical requirement</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>free-router</code></td>
+                    <td>General chat and coding</td>
+                    <td>Streaming</td>
+                  </tr>
+                  <tr>
+                    <td><code>vision-router</code></td>
+                    <td>Image-aware requests</td>
+                    <td>Vision</td>
+                  </tr>
+                  <tr>
+                    <td><code>tool-router</code></td>
+                    <td>Agent and function calls</td>
+                    <td>Tools</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-        <section id="reliability" class="docs-section">
-          <p class="section-label">Routing</p>
-          <h2>Reliability controls</h2>
-          <p>The gateway combines retries, total request deadlines, provider-specific timeouts, persistent rate-limit
-            cooldowns, circuit breakers, quotas, and request deduplication.</p>
-          <ul class="docs-list">
-            <li><strong>Retries:</strong> transient status codes and network failures can move to another provider.</li>
-            <li><strong>Cooldowns:</strong> provider rate-limit windows persist across requests and instances.</li>
-            <li><strong>Circuits:</strong> repeated failures temporarily remove unhealthy providers from routing.</li>
-            <li><strong>Quotas:</strong> daily and monthly request or token limits protect free tiers.</li>
-            <li><strong>Capabilities:</strong> incompatible active models are skipped before an upstream call.</li>
-          </ul>
-        </section>
+          <section id="reliability" class="docs-section">
+            <p class="section-label">Routing</p>
+            <h2>Reliability controls</h2>
+            <p>
+              The gateway combines retries, total request deadlines,
+              provider-specific timeouts, persistent rate-limit cooldowns,
+              circuit breakers, quotas, and request deduplication.
+            </p>
+            <ul class="docs-list">
+              <li>
+                <strong>Retries:</strong> transient status codes and network
+                failures can move to another provider.
+              </li>
+              <li>
+                <strong>Cooldowns:</strong> provider rate-limit windows persist
+                across requests and instances.
+              </li>
+              <li>
+                <strong>Circuits:</strong> repeated failures temporarily remove
+                unhealthy providers from routing.
+              </li>
+              <li>
+                <strong>Quotas:</strong> daily and monthly request or token
+                limits protect free tiers.
+              </li>
+              <li>
+                <strong>Capabilities:</strong> incompatible active models are
+                skipped before an upstream call.
+              </li>
+            </ul>
+          </section>
 
-        <section id="security" class="docs-section">
-          <p class="section-label">Security</p>
-          <h2>Keep secrets on your deployment</h2>
-          <p>Clerk protects dashboard access. Router keys authenticate API traffic, and provider keys are stored against
-            the router account and never returned in dashboard responses after saving.</p>
-          <div class="docs-note"><strong>NOTE:</strong> <code>Detailed Docs</code> are available inside the dashboard
-            for micro adjustment with examples.
-          </div>
-        </section>
+          <section id="security" class="docs-section">
+            <p class="section-label">Security</p>
+            <h2>Keep secrets on your deployment</h2>
+            <p>
+              Clerk protects dashboard access. Router keys authenticate API
+              traffic, and provider keys are stored against the router account
+              and never returned in dashboard responses after saving.
+            </p>
+            <div class="docs-note">
+              <strong>NOTE:</strong> <code>Detailed Docs</code> are available
+              inside the dashboard for micro adjustment with examples.
+            </div>
+          </section>
 
-        <section class="docs-next">
-          <div>
-            <p class="section-label">Ready to route?</p>
-            <h2>Configure your first provider.</h2>
-          </div>
-          <a class="button button-primary" href="/dashboard">Open dashboard →</a>
-        </section>
-      </article>
-    </div>
-  </main>
+          <section class="docs-next">
+            <div>
+              <p class="section-label">Ready to route?</p>
+              <h2>Configure your first provider.</h2>
+            </div>
+            <a class="button button-primary" href="/dashboard"
+              >Open dashboard →</a
+            >
+          </section>
+        </article>
+      </div>
+    </main>
 
-  <footer class="site-footer">
-    <div class="shell footer-inner">
-      <a class="site-brand footer-brand" href="/"><span class="site-brand-mark"><img src="/assets/brand/logo-mark.png"
-            style="background-color: #f8f9fa; border-radius: 8px; display: inline-block; padding: 5px;"
-            alt="" /></span><span>LLM Router</span></a>
-      <p>Self-hosted LLM routing with your provider keys.</p>
-      <nav aria-label="Footer navigation"><a href="/">Home</a><a href="/dashboard">Dashboard</a></nav>
-    </div>
-  </footer>
-</body>
-
+    <footer class="site-footer">
+      <div class="shell footer-inner">
+        <a class="site-brand footer-brand" href="/"
+          ><span class="site-brand-mark"
+            ><img
+              src="/assets/brand/logo-mark.png"
+              style="
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                display: inline-block;
+                padding: 5px;
+              "
+              alt="" /></span
+          ><span>LLM Router</span></a
+        >
+        <p>Self-hosted LLM routing with your provider keys.</p>
+        <nav aria-label="Footer navigation">
+          <a href="/">Home</a><a href="/dashboard">Dashboard</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
 </html>

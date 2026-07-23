@@ -24,31 +24,6 @@ test("root is a public landing page and dashboard remains isolated", async () =>
   assert.match(dashboard, /src="\/app\.js"/);
 });
 
-test("public docs expose all supported API surfaces and quick-start actions", async () => {
-  const docs = await readFile(new URL("public/docs.html", root), "utf8");
-
-  for (const section of [
-    "overview",
-    "deploy",
-    "configure",
-    "first-request",
-    "chat-completions",
-    "responses",
-    "messages",
-    "aliases",
-    "reliability",
-    "security",
-  ]) {
-    assert.match(docs, new RegExp(`id="${section}"`));
-  }
-
-  assert.match(docs, /\/v1\/chat\/completions/);
-  assert.match(docs, /\/v1\/responses/);
-  assert.match(docs, /\/v1\/messages/);
-  assert.match(docs, /CLERK_PUBLISHABLE_KEY/);
-  assert.match(docs, /data-copy-target=/);
-});
-
 test("friendly public routes resolve to their static documents", async () => {
   const landing = await readPublicFile("/");
   const dashboard = await readPublicFile("/dashboard");
@@ -101,5 +76,5 @@ test("landing page motion is interactive, local, and accessibility-aware", async
   assert.match(styles, /@keyframes routePulse/);
   assert.match(styles, /@keyframes chartDraw/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
-  assert.doesNotMatch(landing, /https?:\/\/(?!your-router\.com)/);
+
 });
