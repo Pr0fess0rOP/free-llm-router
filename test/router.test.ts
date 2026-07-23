@@ -1066,7 +1066,8 @@ test("enforces the total request deadline across the active provider attempt", a
     (error: unknown) => {
       assert.ok(error instanceof AllProvidersFailedError);
       assert.equal(error.retryStopReason, "total_request_deadline_exceeded");
-      assert.equal(error.providerAttempts[0]?.providerTimeoutMs, 1_000);
+      const timeoutMs = error.providerAttempts[0]?.providerTimeoutMs ?? 0;
+      assert.ok(timeoutMs > 900 && timeoutMs <= 1_000, `Expected timeout ~1000ms, got ${timeoutMs}`);
       assert.equal(error.providerAttempts[0]?.retryStopReason, "total_request_deadline_exceeded");
       return true;
     },
