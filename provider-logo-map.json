@@ -1,0 +1,158 @@
+{
+  "openrouter": {
+    "name": "OpenRouter",
+    "logo": "/assets/providers/openrouter.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "OpenRouter"
+  },
+  "groq": {
+    "name": "Groq",
+    "logo": "/assets/providers/groq.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "Groq"
+  },
+  "nvidia": {
+    "name": "NVIDIA",
+    "logo": "/assets/providers/nvidia.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "Nvidia"
+  },
+  "cerebras": {
+    "name": "Cerebras",
+    "logo": "/assets/providers/cerebras.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "Cerebras"
+  },
+  "mistral": {
+    "name": "Mistral",
+    "logo": "/assets/providers/mistral.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "Mistral"
+  },
+  "aion": {
+    "name": "AionLabs",
+    "logo": "/assets/providers/aion.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "AionLabs"
+  },
+  "zai": {
+    "name": "Z.ai",
+    "logo": "/assets/providers/zai.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "ZAI"
+  },
+  "github": {
+    "name": "GitHub",
+    "logo": "/assets/providers/github.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "Github"
+  },
+  "hugging-face": {
+    "name": "Hugging Face",
+    "logo": "/assets/providers/hugging-face.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "HuggingFace"
+  },
+  "kilo-code": {
+    "name": "Kilo Code",
+    "logo": "/assets/providers/kilo-code.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "KiloCode"
+  },
+  "modelscope": {
+    "name": "ModelScope",
+    "logo": "/assets/providers/modelscope.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "ModelScope"
+  },
+  "sambanova": {
+    "name": "SambaNova",
+    "logo": "/assets/providers/sambanova.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "SambaNova"
+  },
+  "siliconflow": {
+    "name": "SiliconFlow",
+    "logo": "/assets/providers/siliconflow.svg",
+    "source": "@lobehub/icons",
+    "packageIcon": "SiliconCloud"
+  },
+  "together": {
+    "name": "Together AI",
+    "logo": "/assets/providers/together.svg",
+    "source": "project-generated",
+    "packageIcon": "T"
+  },
+  "fireworks": {
+    "name": "Fireworks AI",
+    "logo": "/assets/providers/fireworks.svg",
+    "source": "project-generated",
+    "packageIcon": "F"
+  },
+  "deepinfra": {
+    "name": "DeepInfra",
+    "logo": "/assets/providers/deepinfra.svg",
+    "source": "project-generated",
+    "packageIcon": "DI"
+  },
+  "gemini": {
+    "name": "Google Gemini",
+    "logo": "/assets/providers/gemini.svg",
+    "source": "project-generated",
+    "packageIcon": "G"
+  },
+  "xai": {
+    "name": "xAI",
+    "logo": "/assets/providers/xai.svg",
+    "source": "project-generated",
+    "packageIcon": "x"
+  },
+  "novita": {
+    "name": "Novita AI",
+    "logo": "/assets/providers/novita.svg",
+    "source": "project-generated",
+    "packageIcon": "N"
+  },
+  "baseten": {
+    "name": "Baseten",
+    "logo": "/assets/providers/baseten.svg",
+    "source": "project-generated",
+    "packageIcon": "B"
+  },
+  "cohere": {
+    "name": "Cohere",
+    "logo": "/assets/providers/cohere.svg",
+    "source": "project-generated",
+    "packageIcon": "C"
+  },
+  "anthropic": {
+    "name": "Anthropic",
+    "logo": "/assets/providers/anthropic.svg",
+    "source": "project-generated",
+    "packageIcon": "A"
+  },
+  "openai": {
+    "name": "OpenAI",
+    "logo": "/assets/providers/openai.svg",
+    "source": "project-generated",
+    "packageIcon": "O"
+  },
+  "deepseek": {
+    "name": "DeepSeek",
+    "logo": "/assets/providers/deepseek.svg",
+    "source": "project-generated",
+    "packageIcon": "DS"
+  },
+  "perplexity": {
+    "name": "Perplexity",
+    "logo": "/assets/providers/perplexity.svg",
+    "source": "project-generated",
+    "packageIcon": "P"
+  },
+  "friendli": {
+    "name": "FriendliAI",
+    "logo": "/assets/providers/friendli.svg",
+    "source": "project-generated",
+    "packageIcon": "F"
+  }
+}

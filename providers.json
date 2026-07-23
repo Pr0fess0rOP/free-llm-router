@@ -1,0 +1,212 @@
+{
+  "providers": [
+    {
+      "id": "openrouter",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "model": "qwen/qwen3-coder:free",
+      "priority": 10,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "groq",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "apiKeyEnv": "GROQ_API_KEY",
+      "model": "llama-3.3-70b-versatile",
+      "priority": 20,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "nvidia",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "apiKeyEnv": "NVIDIA_API_KEY",
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "priority": 30,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "cerebras",
+      "baseUrl": "https://api.cerebras.ai/v1",
+      "apiKeyEnv": "CEREBRAS_API_KEY",
+      "model": "gpt-oss-120b",
+      "priority": 40,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "mistral",
+      "baseUrl": "https://api.mistral.ai/v1",
+      "apiKeyEnv": "MISTRAL_API_KEY",
+      "model": "mistral-small-2603",
+      "priority": 50,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "aion",
+      "baseUrl": "https://api.aionlabs.ai/v1",
+      "apiKeyEnv": "AION_API_KEY",
+      "model": "aion-2.5",
+      "priority": 60,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "zai",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+      "apiKeyEnv": "ZAI_API_KEY",
+      "model": "glm-4.7-flash",
+      "priority": 70,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "github",
+      "baseUrl": "https://models.github.ai/inference",
+      "apiKeyEnv": "GITHUB_MODELS_TOKEN",
+      "model": "openai/gpt-4.1-mini",
+      "priority": 80,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "hugging-face",
+      "baseUrl": "https://router.huggingface.co/v1",
+      "apiKeyEnv": "HUGGINGFACE_API_KEY",
+      "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+      "priority": 90,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "kilo-code",
+      "baseUrl": "https://api.kilo.ai/api/gateway",
+      "apiKeyEnv": "KILO_API_KEY",
+      "model": "kilo-auto/free",
+      "priority": 100,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "modelscope",
+      "baseUrl": "https://api-inference.modelscope.cn/v1",
+      "apiKeyEnv": "MODELSCOPE_API_KEY",
+      "model": "Qwen/Qwen3.5-35B-A3B",
+      "priority": 110,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "sambanova",
+      "baseUrl": "https://api.sambanova.ai/v1",
+      "apiKeyEnv": "SAMBANOVA_API_KEY",
+      "model": "Meta-Llama-3.3-70B-Instruct",
+      "priority": 120,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "siliconflow",
+      "baseUrl": "https://api.siliconflow.cn/v1",
+      "apiKeyEnv": "SILICONFLOW_API_KEY",
+      "model": "Qwen/Qwen3-8B",
+      "priority": 130,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "together",
+      "baseUrl": "https://api.together.ai/v1",
+      "apiKeyEnv": "TOGETHER_API_KEY",
+      "model": "openai/gpt-oss-20b",
+      "priority": 140,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "fireworks",
+      "baseUrl": "https://api.fireworks.ai/inference/v1",
+      "apiKeyEnv": "FIREWORKS_API_KEY",
+      "model": "accounts/fireworks/models/deepseek-v3p1",
+      "priority": 150,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "deepinfra",
+      "baseUrl": "https://api.deepinfra.com/v1/openai",
+      "apiKeyEnv": "DEEPINFRA_API_KEY",
+      "model": "deepseek-ai/DeepSeek-V3",
+      "priority": 160,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "gemini",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "apiKeyEnv": "GEMINI_API_KEY",
+      "model": "gemini-3.5-flash",
+      "priority": 170,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "xai",
+      "baseUrl": "https://api.x.ai/v1",
+      "apiKeyEnv": "XAI_API_KEY",
+      "model": "grok-4.5",
+      "priority": 180,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "novita",
+      "baseUrl": "https://api.novita.ai/openai/v1",
+      "apiKeyEnv": "NOVITA_API_KEY",
+      "model": "deepseek/deepseek-v3.1",
+      "priority": 190,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "baseten",
+      "baseUrl": "https://inference.baseten.co/v1",
+      "apiKeyEnv": "BASETEN_API_KEY",
+      "model": "deepseek-ai/DeepSeek-V4-Pro",
+      "priority": 200,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "cohere",
+      "baseUrl": "https://api.cohere.ai/compatibility/v1",
+      "apiKeyEnv": "COHERE_API_KEY",
+      "model": "command-a-03-2025",
+      "priority": 210,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "anthropic",
+      "baseUrl": "https://api.anthropic.com/v1",
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "model": "claude-sonnet-4-6",
+      "priority": 220,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "openai",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "model": "gpt-5.4",
+      "priority": 230,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "deepseek",
+      "baseUrl": "https://api.deepseek.com",
+      "apiKeyEnv": "DEEPSEEK_API_KEY",
+      "model": "deepseek-v4-flash",
+      "priority": 240,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "perplexity",
+      "baseUrl": "https://api.perplexity.ai",
+      "apiKeyEnv": "PERPLEXITY_API_KEY",
+      "model": "sonar-pro",
+      "priority": 250,
+      "cooldownMs": 30000
+    },
+    {
+      "id": "friendli",
+      "baseUrl": "https://api.friendli.ai/serverless/v1",
+      "apiKeyEnv": "FRIENDLI_API_KEY",
+      "model": "zai-org/GLM-5.2",
+      "priority": 260,
+      "cooldownMs": 30000
+    }
+  ]
+}

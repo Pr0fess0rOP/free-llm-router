@@ -1,0 +1,67 @@
+{
+  "name": "free-llm-router",
+  "version": "0.6.0",
+  "description": "Bring your own LLM API keys and route OpenAI Chat Completions, OpenAI Responses/Codex, and Claude Code through one gateway.",
+  "type": "module",
+  "bin": {
+    "free-llm": "dist/src/cli.js",
+    "free-llm-router": "dist/src/cli.js"
+  },
+  "files": [
+    "dist",
+    "public",
+    "providers.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "cli": "tsx src/cli.ts",
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "keywords": [
+    "llm",
+    "openai-compatible",
+    "api-router",
+    "free-tier",
+    "groq",
+    "openrouter",
+    "local-ai",
+    "claude-code",
+    "anthropic-compatible",
+    "openai-responses",
+    "codex",
+    "codex-cli",
+    "circuit-breaker",
+    "provider-failover",
+    "llm-gateway",
+    "request-deduplication",
+    "idempotency"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR_USERNAME/free-llm-router.git"
+  },
+  "bugs": {
+    "url": "https://github.com/YOUR_USERNAME/free-llm-router/issues"
+  },
+  "homepage": "https://github.com/YOUR_USERNAME/free-llm-router#readme",
+  "dependencies": {
+    "@clerk/backend": "^3.8.3",
+    "@upstash/redis": "^1.38.0",
+    "dotenv": "^16.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

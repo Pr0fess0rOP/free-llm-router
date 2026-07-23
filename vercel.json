@@ -1,0 +1,95 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "npm run build",
+  "functions": {
+    "api/handler.ts": {
+      "includeFiles": "providers.json"
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://clerk.llmrouter.dpdns.org https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://clerk.llmrouter.dpdns.org https://api.clerk.com https://clerk-telemetry.com https://*.clerk-telemetry.com; img-src 'self' data: https://img.clerk.com; worker-src 'self' blob:; frame-src 'self' https://*.clerk.accounts.dev https://clerk.llmrouter.dpdns.org https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://*.clerk.accounts.dev https://clerk.llmrouter.dpdns.org"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/dashboard",
+      "destination": "/dashboard.html"
+    },
+    {
+      "source": "/dashboard/",
+      "destination": "/dashboard.html"
+    },
+    {
+      "source": "/sign-in",
+      "destination": "/dashboard.html"
+    },
+    {
+      "source": "/sign-in/",
+      "destination": "/dashboard.html"
+    },
+    {
+      "source": "/docs",
+      "destination": "/docs.html"
+    },
+    {
+      "source": "/docs/",
+      "destination": "/docs.html"
+    },
+    {
+      "source": "/health",
+      "destination": "/api/handler?__route=/health"
+    },
+    {
+      "source": "/api/auth/config",
+      "destination": "/api/handler?__route=/api/auth/config"
+    },
+    {
+      "source": "/api/user/router",
+      "destination": "/api/handler?__route=/api/user/router"
+    },
+    {
+      "source": "/api/accounts",
+      "destination": "/api/handler?__route=/api/accounts"
+    },
+    {
+      "source": "/api/me",
+      "destination": "/api/handler?__route=/api/me"
+    },
+    {
+      "source": "/api/providers/:path*",
+      "destination": "/api/handler?__route=/api/providers/:path*"
+    },
+    {
+      "source": "/api/analytics",
+      "destination": "/api/handler?__route=/api/analytics"
+    },
+    {
+      "source": "/api/router/settings",
+      "destination": "/api/handler?__route=/api/router/settings"
+    },
+    {
+      "source": "/v1/:path*",
+      "destination": "/api/handler?__route=/v1/:path*"
+    }
+  ]
+}

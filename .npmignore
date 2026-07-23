@@ -1,0 +1,9 @@
+.env
+.env.*
+.freellm
+test
+src
+coverage
+.github
+*.log
+*.tgz

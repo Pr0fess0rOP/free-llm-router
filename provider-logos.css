@@ -1,0 +1,16 @@
+/* Provider company logos */
+.provider-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  padding: 8px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+.provider-card-header, .provider-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

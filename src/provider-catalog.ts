@@ -1,0 +1,193 @@
+export interface ProviderMetadata {
+  name: string;
+  website: string;
+  description: string;
+  freeTier: string;
+  category: "Model maker" | "Inference platform";
+}
+
+export const PROVIDER_CATALOG: Record<string, ProviderMetadata> = {
+  "openrouter": {
+    name: "OpenRouter",
+    website: "https://openrouter.ai/settings/keys",
+    description: "A broad catalog with multiple models marked as permanently free.",
+    freeTier: "20 RPM · 200 requests/day",
+    category: "Inference platform",
+  },
+  "groq": {
+    name: "Groq",
+    website: "https://console.groq.com/keys",
+    description: "Very fast inference across Llama, Qwen, and GPT-OSS models.",
+    freeTier: "30 RPM · 1,000 requests/day",
+    category: "Inference platform",
+  },
+  "nvidia": {
+    name: "NVIDIA",
+    website: "https://build.nvidia.com/",
+    description: "More than 100 hosted models through NVIDIA's developer program.",
+    freeTier: "About 40 requests/minute",
+    category: "Inference platform",
+  },
+  "cerebras": {
+    name: "Cerebras",
+    website: "https://cloud.cerebras.ai/",
+    description: "Ultra-fast inference with a generous daily token allowance.",
+    freeTier: "30 RPM · 1M tokens/day",
+    category: "Inference platform",
+  },
+  mistral: {
+    name: "Mistral",
+    website: "https://console.mistral.ai/api-keys",
+    description: "Mistral's experiment plan for text, vision, and code models.",
+    freeTier: "~1 RPS · 500K tokens/minute",
+    category: "Model maker",
+  },
+  aion: {
+    name: "Aion Labs",
+    website: "https://www.aionlabs.ai/",
+    description: "Models specialized for roleplay and storytelling.",
+    freeTier: "15 RPM · 20K tokens/day",
+    category: "Model maker",
+  },
+  zai: {
+    name: "Z AI",
+    website: "https://open.bigmodel.cn/usercenter/apikeys",
+    description: "Permanent free GLM text and vision models.",
+    freeTier: "1 concurrent request",
+    category: "Model maker",
+  },
+  "github": {
+    name: "GitHub",
+    website: "https://github.com/marketplace/models",
+    description: "Free prototyping with dozens of models for GitHub users.",
+    freeTier: "Up to 15 RPM · 150 requests/day",
+    category: "Inference platform",
+  },
+  "hugging-face": {
+    name: "Hugging Face",
+    website: "https://huggingface.co/settings/tokens",
+    description: "One token routes to thousands of community-hosted models.",
+    freeTier: "100K inference credits/month",
+    category: "Inference platform",
+  },
+  "kilo-code": {
+    name: "Kilo Code",
+    website: "https://app.kilo.ai/",
+    description: "A changing set of free coding and reasoning models.",
+    freeTier: "About 200 requests/hour",
+    category: "Inference platform",
+  },
+  modelscope: {
+    name: "ModelScope",
+    website: "https://modelscope.cn/my/myaccesstoken",
+    description: "Free API inference for registered and verified users.",
+    freeTier: "2,000 requests/day total",
+    category: "Inference platform",
+  },
+  sambanova: {
+    name: "SambaNova",
+    website: "https://cloud.sambanova.ai/",
+    description: "Fast inference for several large open-weight models.",
+    freeTier: "20 RPM · 200K tokens/day",
+    category: "Inference platform",
+  },
+  siliconflow: {
+    name: "SiliconFlow",
+    website: "https://cloud.siliconflow.cn/account/ak",
+    description: "Permanently free Qwen and DeepSeek-family models.",
+    freeTier: "30 RPM · 60K tokens/minute",
+    category: "Inference platform",
+  },
+  together: {
+    name: "Together AI",
+    website: "https://api.together.ai/settings/api-keys",
+    description: "OpenAI-compatible inference across a broad catalog of hosted open models.",
+    freeTier: "Provider credits or paid usage",
+    category: "Inference platform",
+  },
+  fireworks: {
+    name: "Fireworks AI",
+    website: "https://app.fireworks.ai/api-keys",
+    description: "Fast serverless and on-demand inference with OpenAI-compatible APIs.",
+    freeTier: "Provider credits or paid usage",
+    category: "Inference platform",
+  },
+  deepinfra: {
+    name: "DeepInfra",
+    website: "https://deepinfra.com/dash/api_keys",
+    description: "OpenAI-compatible hosting for language, embedding, and multimodal models.",
+    freeTier: "Provider credits or paid usage",
+    category: "Inference platform",
+  },
+  gemini: {
+    name: "Google Gemini",
+    website: "https://aistudio.google.com/apikey",
+    description: "Google's Gemini models through its OpenAI compatibility endpoint.",
+    freeTier: "Google AI Studio limits vary by model",
+    category: "Model maker",
+  },
+  xai: {
+    name: "xAI",
+    website: "https://console.x.ai/",
+    description: "Grok text, reasoning, vision, and tool-capable models.",
+    freeTier: "Paid usage",
+    category: "Model maker",
+  },
+  novita: {
+    name: "Novita AI",
+    website: "https://novita.ai/settings/key-management",
+    description: "OpenAI-compatible inference for a wide catalog of hosted models.",
+    freeTier: "Provider credits or paid usage",
+    category: "Inference platform",
+  },
+  baseten: {
+    name: "Baseten",
+    website: "https://app.baseten.co/settings/api_keys",
+    description: "Managed Model APIs and dedicated model deployments.",
+    freeTier: "Provider credits or paid usage",
+    category: "Inference platform",
+  },
+  cohere: {
+    name: "Cohere",
+    website: "https://dashboard.cohere.com/api-keys",
+    description: "Command-family models and embeddings through an OpenAI compatibility API.",
+    freeTier: "Trial and production keys available",
+    category: "Model maker",
+  },
+  anthropic: {
+    name: "Anthropic",
+    website: "https://console.anthropic.com/settings/keys",
+    description: "Claude models through Anthropic's OpenAI-compatible Chat Completions surface.",
+    freeTier: "Paid usage",
+    category: "Model maker",
+  },
+  openai: {
+    name: "OpenAI",
+    website: "https://platform.openai.com/api-keys",
+    description: "Direct access to OpenAI models through the official API.",
+    freeTier: "Paid usage",
+    category: "Model maker",
+  },
+  deepseek: {
+    name: "DeepSeek",
+    website: "https://platform.deepseek.com/api_keys",
+    description: "Direct OpenAI-compatible access to DeepSeek chat and reasoning models.",
+    freeTier: "Paid usage",
+    category: "Model maker",
+  },
+  perplexity: {
+    name: "Perplexity",
+    website: "https://www.perplexity.ai/settings/api",
+    description: "Web-grounded Sonar models through an OpenAI-compatible endpoint.",
+    freeTier: "Paid usage",
+    category: "Model maker",
+  },
+  friendli: {
+    name: "FriendliAI",
+    website: "https://suite.friendli.ai/",
+    description: "Serverless and dedicated OpenAI-compatible model inference.",
+    freeTier: "Provider credits or paid usage",
+    category: "Inference platform",
+  },
+
+};
