@@ -1,0 +1,75 @@
+name: Feature request
+description: Suggest an improvement to LLM Router
+title: "[Feature]: "
+labels:
+  - feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Explain the problem first, then describe the behavior you would like to see.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and Discussions for a similar request.
+          required: true
+        - label: This request is about LLM Router rather than an upstream provider.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Provider integration
+        - Routing strategy
+        - Model aliases
+        - Reliability or circuit breaker
+        - Quotas, limits, or cost controls
+        - Analytics or observability
+        - Dashboard or playground
+        - API compatibility
+        - Deployment or CLI
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Describe the workflow or limitation that motivated this request.
+      placeholder: Today, I cannot...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed behavior
+      description: Show what a successful user experience would look like.
+      placeholder: The router should...
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: Include an API request, configuration example, or short workflow when useful.
+      render: shell
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Explain any current workaround or alternative design.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context

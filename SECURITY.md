@@ -2,78 +2,108 @@
 
 ## Supported Versions
 
-We provide security updates for the latest stable release of Free LLM Router.
+Security fixes are provided for the latest release and the current `main` branch.
+Older releases may not receive security updates.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.6.x   | :white_check_mark: |
-| < 0.6.0 | :x:                |
+| Version | Supported |
+| --- | --- |
+| Latest release | Yes |
+| `main` branch | Yes |
+| Older releases | No |
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Free LLM Router, please report it responsibly by:
+Please **do not** report security vulnerabilities through public GitHub Issues,
+GitHub Discussions, pull requests, or social media.
 
-1. **Do not** disclose the vulnerability publicly until it has been addressed.
-2. Email the maintainer at `pathik.viramgama@email.com`.
-3. Include as much detail as possible about the vulnerability, including steps to reproduce.
-4. Allow reasonable time for us to respond and address the issue.
+Use GitHub's private vulnerability reporting feature instead:
 
-We will acknowledge receipt of your report within 48 hours and provide regular updates on our progress toward fixing the issue.
+1. Open the repository's **Security** tab.
+2. Select **Report a vulnerability**.
+3. Submit the report privately.
 
-## Security Practices
+If private vulnerability reporting is unavailable, contact the repository owner
+privately through their GitHub profile and ask for a secure reporting channel.
+Do not include exploit details or sensitive data in a public message.
 
-### API Key Security
+## What to Include
 
-- Provider API keys are never displayed again after saving in the dashboard.
-- Keys are encrypted at rest using AES-256-GCM when `ACCOUNT_ENCRYPTION_KEY` is set in your environment.
-- Keys are stored separately for each router/account.
-- Keys are never forwarded to upstream providers in request headers.
+A useful report should include:
 
-### Authentication
+- A clear description of the vulnerability and its potential impact
+- The affected route, component, file, or version
+- Reproduction steps or a minimal proof of concept
+- Any required configuration or deployment assumptions
+- Suggested remediation, when available
+- Whether the issue is already being actively exploited
 
-- Dashboard authentication is handled securely by Clerk.
-- Router authentication uses private `flm_...` keys generated securely per router.
-- Router keys should be treated like API keys and kept confidential.
-- Session tokens are validated using `@clerk/backend`.
+Remove all real API keys, tokens, prompts, customer data, and other secrets from
+screenshots, logs, and proof-of-concept material.
 
-### Data Protection & Analytics
+## Response Process
 
-- Request and response bodies are sanitized before storage in analytics.
-- Sensitive fields like authorization headers, API keys, tokens, and passwords are redacted.
-- Very long strings are truncated in stored analytics to prevent denial of service.
-- Object depth and array sizes are strictly limited in stored analytics.
+We aim to acknowledge complete reports within **three business days**. After
+triage, we will share whether the issue is accepted, request additional details
+when necessary, and coordinate a reasonable disclosure timeline.
 
-### Rate Limiting & Protections
+Please allow time for investigation, remediation, testing, and deployment before
+publishing vulnerability details. We will credit reporters in the advisory or
+release notes when requested and appropriate.
 
-- Persistent rate-limit cooldowns are stored per-router/provider.
-- The router honors upstream `Retry-After` headers and implements exponential backoff.
-- A Circuit breaker pattern protects against repeatedly failing providers.
-- Quota tracking prevents exceeding provider limits.
-- Request deduplication coalesces identical in-flight requests to prevent duplicate provider calls.
+## Security-Relevant Architecture
 
-### Network Security
+LLM Router handles credentials and may process sensitive model inputs. Important
+security properties include:
 
-- It is highly recommended to run this service behind a reverse proxy handling HTTPS.
-- Implements proper CORS headers.
-- Validates and sanitizes request IDs.
-- Strictly strips sensitive headers (authorization, keys, etc.) before sending to upstream providers.
+- Provider credentials can be encrypted at rest with `ACCOUNT_ENCRYPTION_KEY`.
+- Router API keys are sensitive credentials and must not be committed or shared.
+- Dashboard authentication is handled through Clerk in hosted deployments.
+- Provider requests are sent only to configured provider endpoints.
+- Reliability features such as retry handling, cooldowns, circuit breakers,
+  quotas, and request deduplication reduce accidental request amplification.
 
-### Dependencies
+These controls do not replace secure deployment practices.
 
-We monitor dependencies for known vulnerabilities and recommend keeping dependencies up to date:
-- `@clerk/backend`
-- `@upstash/redis`
-- `dotenv`
+## Data and Analytics Warning
 
-## Best Practices for Deployments
+Depending on configuration and the feature being used, request analytics may
+contain model inputs, outputs, tool arguments, identifiers, timing information,
+and provider errors. Do not send secrets in prompts or tool arguments. Operators
+should restrict datastore access, configure an appropriate retention policy, and
+avoid enabling detailed payload storage unless it is required.
 
-1. **Always set `ACCOUNT_ENCRYPTION_KEY`** in production to encrypt stored provider keys.
-2. **Keep your router keys (`flm_...`) secure** - treat them like API keys.
-3. **Regularly rotate provider API keys** through the dashboard if you suspect any leaks.
-4. **Monitor provider quotas** and set appropriate usage limits.
-5. **Keep Node.js updated** to the latest active LTS version.
-6. **Review dependencies** regularly using `npm audit`.
+## Deployment Recommendations
 
-## Policy Updates
+Production operators should:
 
-This security policy may be updated from time to time as the project evolves. Please check back periodically.
+1. Set a strong, randomly generated `ACCOUNT_ENCRYPTION_KEY`.
+2. Store Clerk, Redis, provider, and deployment credentials only in a trusted
+   secret manager or the hosting platform's encrypted environment settings.
+3. Keep `.env` files, local provider configuration, logs, and backups out of Git.
+4. Rotate any credential that may have been exposed, even if it was later removed
+   from the repository.
+5. Enforce HTTPS at the reverse proxy or hosting platform.
+6. Restrict access to Redis and other persistent storage.
+7. Review analytics retention and redact sensitive request data.
+8. Keep Node.js and npm dependencies updated.
+9. Enable GitHub secret scanning, push protection, Dependabot, and code scanning.
+10. Apply request-rate, concurrency, token, and spending limits appropriate for
+    the deployment.
+
+## Out of Scope
+
+The following are generally not considered vulnerabilities unless they create a
+meaningful security impact:
+
+- Missing security headers without a demonstrated exploit
+- Reports based only on automated scanner output
+- Denial-of-service reports requiring unrealistic resources
+- Social engineering or physical attacks
+- Vulnerabilities in unsupported versions
+- Provider outages, pricing changes, or upstream model behavior
+
+## Safe Harbor
+
+Good-faith security research that avoids privacy violations, data destruction,
+service disruption, and unauthorized access beyond what is necessary to prove
+the issue is welcome. Do not access or retain data belonging to other users.

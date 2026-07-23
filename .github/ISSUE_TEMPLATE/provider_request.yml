@@ -1,0 +1,101 @@
+name: Provider integration request
+description: Request support for a new LLM provider or provider capability
+title: "[Provider]: "
+labels:
+  - provider
+  - feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Submit one provider per request. Do not include a real provider API key.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I confirmed this provider is not already supported.
+          required: true
+        - label: I linked official API documentation.
+          required: true
+        - label: I did not include credentials or private account information.
+          required: true
+
+  - type: input
+    id: provider
+    attributes:
+      label: Provider name
+      placeholder: Example AI
+    validations:
+      required: true
+
+  - type: input
+    id: docs
+    attributes:
+      label: Official API documentation
+      placeholder: https://...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: compatibility
+    attributes:
+      label: API compatibility
+      options:
+        - OpenAI-compatible
+        - Anthropic-compatible
+        - Custom API
+        - Unknown
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: capabilities
+    attributes:
+      label: Requested capabilities
+      options:
+        - label: Chat completions
+        - label: Responses API
+        - label: Streaming
+        - label: Tool or function calling
+        - label: Structured output or JSON mode
+        - label: Vision or image input
+        - label: Audio input or output
+        - label: Embeddings
+        - label: Reasoning models
+        - label: Claude Code compatibility
+
+  - type: textarea
+    id: models
+    attributes:
+      label: Important models
+      description: List the model IDs or families that should be supported first.
+      placeholder: |
+        - example-chat-large
+        - example-vision-fast
+    validations:
+      required: true
+
+  - type: textarea
+    id: auth
+    attributes:
+      label: Authentication and base URL
+      description: Describe the documented authentication header and API base URL. Do not include a real key.
+      placeholder: "Authorization: Bearer PROVIDER_API_KEY"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: Why should this provider be added?
+      description: Mention the use case, unique models, pricing model, latency, or compatibility benefit.
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional implementation notes
+      description: Include rate-limit documentation, error formats, or known API differences.
