@@ -5,6 +5,7 @@ Thank you for using Free LLM Router! If you run into issues or have questions, h
 ## 1. Check the Documentation
 
 Before reaching out, please check the existing documentation:
+
 - [Readme / Quickstart](README.md)
 - [Detailed Manual & Features](docs/MANUAL.md)
 - [Architecture & Flow](docs/ARCHITECTURE.md)
@@ -12,9 +13,10 @@ Before reaching out, please check the existing documentation:
 
 ## 2. GitHub Issues
 
-If you've found a bug or have a feature request, please [open an issue](https://github.com/your-username/free-llm-router/issues) on GitHub. 
+If you've found a bug or have a feature request, please [open an issue](https://github.com/your-username/free-llm-router/issues) on GitHub.
 
 When opening an issue, please include:
+
 - A clear and descriptive title.
 - Steps to reproduce the behavior (if reporting a bug).
 - Expected behavior vs. what actually happened.
@@ -27,7 +29,7 @@ If you have a general question about how to use a feature, how to configure a sp
 
 ## 4. Security Vulnerabilities
 
-If you discover a security vulnerability, please **DO NOT** open a public issue. Instead, follow our [Security Policy](SECURITY.md) and report it directly to `pathik.viramgama@email.com`.
+If you discover a security vulnerability, please **DO NOT** open a public issue. Instead, follow our [Security Policy](SECURITY.md) and report it privately
 
 ## 5. Commercial Support
 
