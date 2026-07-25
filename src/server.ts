@@ -47,6 +47,7 @@ import {
   getRoutingStats,
   nextRoundRobinCursor,
   prepareProviderCircuitRetry,
+  recordProviderRequestUsage,
   recordProviderTokenUsage,
   recordRoutingAttempt,
   resetProviderCircuit,
@@ -577,6 +578,7 @@ async function testProviderModel(params: {
   ok: boolean;
   status: number;
   message: string;
+  latencyMs: number;
   catalog: ProviderModelCatalog;
 }> {
   params.providerId = normalizeProviderId(params.providerId);
@@ -595,6 +597,7 @@ async function testProviderModel(params: {
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(new Error("Model test timed out")), 15_000);
+  const startedAt = Date.now();
   let status = 502;
   let message = "Model test failed";
   try {
@@ -628,7 +631,260 @@ async function testProviderModel(params: {
   });
   const refreshed = await findAccount(params.routerKey);
   const refreshedCatalog = normalizeProviderModelCatalogMap(refreshed?.providerModels, configs)[params.providerId]!;
-  return { ok: status >= 200 && status < 300, status, message, catalog: refreshedCatalog };
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    message,
+    latencyMs: Date.now() - startedAt,
+    catalog: refreshedCatalog,
+  };
+}
+
+const PLAYGROUND_API_FORMATS = new Set<ApiFormat>([
+  "openai-compatible",
+  "openai-responses-compatible",
+  "claude-code-compatible",
+]);
+
+function playgroundApiFormat(value: unknown): ApiFormat {
+  if (typeof value === "string" && PLAYGROUND_API_FORMATS.has(value as ApiFormat)) {
+    return value as ApiFormat;
+  }
+  throw new Error("Unknown playground API compatibility mode");
+}
+
+function playgroundUpstreamBody(
+  apiFormat: ApiFormat,
+  requestBody: Record<string, unknown>,
+  modelId: string,
+): Record<string, unknown> {
+  const converted = apiFormat === "claude-code-compatible"
+    ? anthropicToOpenAI(requestBody)
+    : apiFormat === "openai-responses-compatible"
+      ? responsesToOpenAI(requestBody)
+      : { ...requestBody };
+  return {
+    ...converted,
+    model: modelId,
+    stream: false,
+  };
+}
+
+function playgroundResponsePayload(
+  apiFormat: ApiFormat,
+  payload: unknown,
+  modelId: string,
+  requestBody: Record<string, unknown>,
+): unknown {
+  if (apiFormat === "claude-code-compatible") {
+    return openAIToAnthropic(payload, modelId);
+  }
+  if (apiFormat === "openai-responses-compatible") {
+    return openAIToResponses(payload, modelId, requestBody);
+  }
+  return payload;
+}
+
+export async function directProviderPlaygroundRequest(params: {
+  routerKey: string;
+  providerId: string;
+  modelId: string;
+  apiFormat: ApiFormat;
+  requestBody: Record<string, unknown>;
+  requestSignal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  status: number;
+  message: string;
+  providerId: string;
+  modelId: string;
+  apiFormat: ApiFormat;
+  latencyMs: number;
+  requiredCapabilities: ProviderCapabilityName[];
+  response?: unknown;
+  usage?: TokenUsage;
+}> {
+  const providerId = normalizeProviderId(params.providerId);
+  const configs = await loadProviderConfigs();
+  const provider = configs.find((candidate) => candidate.id === providerId);
+  if (!provider) throw new Error("Unknown provider");
+
+  const account = await findAccount(params.routerKey);
+  if (!account) throw new Error("Invalid router key");
+  const routerKeyHash = hashRouterKey(params.routerKey);
+  const providerKeys = await getProviderKeys(params.routerKey);
+  const apiKey = providerKeys?.[providerId];
+  if (!apiKey) throw new Error("Provider key is not configured");
+
+  const catalogs = normalizeProviderModelCatalogMap(account.providerModels, configs);
+  const catalog = catalogs[providerId];
+  if (!catalog?.models.some((model) => model.id === params.modelId)) {
+    throw new Error("Save the provider model before using direct playground mode");
+  }
+
+  const routingStats = await getRoutingStats(routerKeyHash);
+  const quota = providerQuotaStatus(
+    account.providerQuotas[providerId],
+    routingStats[providerId]?.quotaUsage,
+  );
+  if (quota?.exhausted) {
+    return {
+      ok: false,
+      status: 429,
+      message: "This provider has exhausted its configured router quota",
+      providerId,
+      modelId: params.modelId,
+      apiFormat: params.apiFormat,
+      latencyMs: 0,
+      requiredCapabilities: detectCapabilityRequirements(params.requestBody).required,
+    };
+  }
+
+  const reliability = effectiveReliabilitySettings(account.reliabilitySettings);
+  const timeoutMs = reliability.providerTimeoutOverrides[providerId]
+    ?? reliability.providerTimeoutMs;
+  const controller = new AbortController();
+  const abortFromRequest = () => controller.abort(
+    params.requestSignal?.reason ?? new Error("Playground request aborted"),
+  );
+  params.requestSignal?.addEventListener("abort", abortFromRequest, { once: true });
+  const timeout = setTimeout(
+    () => controller.abort(new Error("Direct provider request timed out")),
+    timeoutMs,
+  );
+  const startedAt = Date.now();
+  let status = 502;
+  let message = "Direct provider request failed";
+  let requestUsageRecorded = false;
+  const requiredCapabilities = detectCapabilityRequirements(params.requestBody).required;
+  const recordRequestUsage = async (success: boolean): Promise<void> => {
+    if (requestUsageRecorded) return;
+    requestUsageRecorded = true;
+    await recordProviderRequestUsage(routerKeyHash, providerId, success);
+  };
+
+  try {
+    const upstream = await fetch(`${provider.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        authorization: `Bearer ${apiKey}`,
+        ...provider.headers,
+      },
+      body: JSON.stringify(playgroundUpstreamBody(
+        params.apiFormat,
+        params.requestBody,
+        params.modelId,
+      )),
+      signal: controller.signal,
+    });
+    status = upstream.status;
+    message = upstream.ok
+      ? "Provider responded successfully"
+      : await providerModelTestMessage(upstream);
+
+    if (!upstream.ok) {
+      if (upstream.body) await upstream.body.cancel().catch(() => undefined);
+      await recordRequestUsage(false);
+      await updateProviderModelHealthByHash(routerKeyHash, providerId, params.modelId, {
+        status: statusFromHttpStatus(status),
+        lastStatus: status,
+        lastError: message,
+      });
+      return {
+        ok: false,
+        status,
+        message,
+        providerId,
+        modelId: params.modelId,
+        apiFormat: params.apiFormat,
+        latencyMs: Date.now() - startedAt,
+        requiredCapabilities,
+      };
+    }
+
+    const text = upstream.body ? await upstream.text() : "";
+    let payload: unknown;
+    try {
+      payload = text ? JSON.parse(text) as unknown : {};
+    } catch {
+      status = 502;
+      message = "Provider returned invalid JSON";
+      await recordRequestUsage(false);
+      await updateProviderModelHealthByHash(routerKeyHash, providerId, params.modelId, {
+        status: "error",
+        lastStatus: status,
+        lastError: message,
+      });
+      return {
+        ok: false,
+        status,
+        message,
+        providerId,
+        modelId: params.modelId,
+        apiFormat: params.apiFormat,
+        latencyMs: Date.now() - startedAt,
+        requiredCapabilities,
+      };
+    }
+
+    const responsePayload = playgroundResponsePayload(
+      params.apiFormat,
+      payload,
+      params.modelId,
+      params.requestBody,
+    );
+    await recordRequestUsage(true);
+    const fallbackInputTokens = params.apiFormat === "claude-code-compatible"
+      ? approximateAnthropicInputTokens(params.requestBody)
+      : params.apiFormat === "openai-responses-compatible"
+        ? approximateResponsesInputTokens(params.requestBody)
+        : approximateInputTokens(params.requestBody);
+    const usage = await captureProviderUsage({
+      routerKeyHash,
+      providerId,
+      payload: responsePayload,
+      fallbackInputTokens,
+    });
+    await updateProviderModelHealthByHash(routerKeyHash, providerId, params.modelId, {
+      status: "healthy",
+      lastStatus: status,
+    });
+    return {
+      ok: true,
+      status,
+      message,
+      providerId,
+      modelId: params.modelId,
+      apiFormat: params.apiFormat,
+      latencyMs: Date.now() - startedAt,
+      requiredCapabilities,
+      response: responsePayload,
+      ...(usage ? { usage } : {}),
+    };
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+    await recordRequestUsage(false).catch(() => undefined);
+    await updateProviderModelHealthByHash(routerKeyHash, providerId, params.modelId, {
+      status: "error",
+      lastStatus: status,
+      lastError: message,
+    });
+    return {
+      ok: false,
+      status,
+      message,
+      providerId,
+      modelId: params.modelId,
+      apiFormat: params.apiFormat,
+      latencyMs: Date.now() - startedAt,
+      requiredCapabilities,
+    };
+  } finally {
+    clearTimeout(timeout);
+    params.requestSignal?.removeEventListener("abort", abortFromRequest);
+  }
 }
 
 const CAPABILITY_PROBE_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=";
@@ -1752,7 +2008,8 @@ async function handleRequestCore(
     if (
       url.pathname === "/api/me" ||
       url.pathname.startsWith("/api/providers") ||
-      url.pathname.startsWith("/api/router")
+      url.pathname.startsWith("/api/router") ||
+      url.pathname.startsWith("/api/playground")
     ) {
       const routerKey = bearerToken(request);
       const userId = await sessionUserId(request);
@@ -1863,6 +2120,39 @@ async function handleRequestCore(
           ...(modelAliases ? { modelAliases } : {}),
         });
         sendJson(response, account ? 200 : 401, account ?? { error: "Invalid router key" });
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/playground/direct") {
+        const body = await readJsonBody(request);
+        const providerId = typeof body.providerId === "string" ? body.providerId.trim() : "";
+        const modelId = typeof body.modelId === "string" ? body.modelId.trim() : "";
+        const requestBody = body.requestBody;
+        if (!providerId || !modelId) {
+          sendJson(response, 400, { error: "Select a provider and model" });
+          return;
+        }
+        if (!requestBody || typeof requestBody !== "object" || Array.isArray(requestBody)) {
+          sendJson(response, 400, { error: "Playground request body must be an object" });
+          return;
+        }
+        try {
+          const controller = new AbortController();
+          request.once("aborted", () => controller.abort(new Error("Client disconnected")));
+          const result = await directProviderPlaygroundRequest({
+            routerKey,
+            providerId,
+            modelId,
+            apiFormat: playgroundApiFormat(body.apiFormat),
+            requestBody: requestBody as Record<string, unknown>,
+            requestSignal: controller.signal,
+          });
+          sendJson(response, 200, result);
+        } catch (error) {
+          sendJson(response, 400, {
+            error: error instanceof Error ? error.message : "Direct playground request failed",
+          });
+        }
         return;
       }
 

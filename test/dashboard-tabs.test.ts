@@ -336,3 +336,61 @@ test("capability registry exposes model-level overrides, probes, and strict rout
   assert.match(styles, /\.model-capability-control-grid/);
   assert.match(styles, /\.model-capability-limit-grid/);
 });
+
+test("playground separates routed and direct provider-model requests", async () => {
+  const html = await readFile(new URL("public/dashboard.html", root), "utf8");
+  const app = await readFile(new URL("public/app.js", root), "utf8");
+  const server = await readFile(new URL("src/server.ts", root), "utf8");
+
+  assert.match(html, /data-playground-mode="router"/);
+  assert.match(html, /data-playground-mode="direct"/);
+  assert.match(html, /id="test-direct-provider"/);
+  assert.match(html, /id="test-direct-model"/);
+  assert.match(html, /Output token cap/);
+  assert.match(app, /function switchPlaygroundMode\(mode\)/);
+  assert.match(app, /\/api\/playground\/direct/);
+  assert.match(app, /ranking, fallback, cooldown, and circuit selection are bypassed/i);
+  assert.match(server, /directProviderPlaygroundRequest/);
+  assert.match(server, /url\.pathname === "\/api\/playground\/direct"/);
+});
+
+test("provider playground exposes an all-model health check with bounded concurrency", async () => {
+  const html = await readFile(new URL("public/dashboard.html", root), "utf8");
+  const app = await readFile(new URL("public/app.js", root), "utf8");
+  const styles = await readFile(new URL("public/styles.css", root), "utf8");
+
+  for (const id of [
+    "test-all-models-button",
+    "model-health-test-results",
+    "model-health-test-summary",
+    "model-health-test-progress",
+    "model-health-test-list",
+  ]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+
+  assert.match(app, /function configuredProviderModelTargets\(\)/);
+  assert.match(app, /async function testAllProviderModels\(\)/);
+  assert.match(app, /Math\.min\(3, targets\.length\)/);
+  assert.match(app, /\/api\/providers\/\$\{encodeURIComponent\(target\.providerId\)\}\/models\/test/);
+  assert.match(app, /applyProviderModelCatalog\(target\.providerId, result\.catalog\)/);
+  assert.match(styles, /\.model-health-test-results/);
+  assert.match(styles, /\.model-health-test-progress-track/);
+  assert.match(styles, /\.model-health-test-row/);
+});
+
+test("playground uses compact request-mode tabs and a split parameters/results workspace", async () => {
+  const html = await readFile(new URL("public/dashboard.html", root), "utf8");
+  const app = await readFile(new URL("public/app.js", root), "utf8");
+  const styles = await readFile(new URL("public/styles.css", root), "utf8");
+
+  assert.deepEqual(attributeValues(html, "data-playground-mode"), ["router", "direct"]);
+  assert.match(html, /class="playground-mode-intro" data-playground-router-only/);
+  assert.match(html, /class="playground-workspace"/);
+  assert.match(html, /class="playground-parameters-panel"/);
+  assert.match(html, /class="playground-output-panel"/);
+  assert.match(html, /id="test-result-empty"/);
+  assert.match(styles, /\.playground-mode-switch\s*\{[\s\S]*display:\s*inline-flex/);
+  assert.match(styles, /\.playground-workspace\s*\{[\s\S]*grid-template-columns:/);
+  assert.match(app, /function updatePlaygroundResultEmptyState\(\)/);
+});

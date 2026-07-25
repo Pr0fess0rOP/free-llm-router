@@ -20,6 +20,9 @@ const state = {
   activeAnalyticsDashboard: "overview",
   activeSettingsTab: "account",
   activeRouterSettingsTab: "routing",
+  playgroundMode: "router",
+  modelHealthTestRunning: false,
+  modelHealthTestResults: [],
   routingProviderOrder: [],
   routingDragProvider: null,
   modelAliasesDraft: [],
@@ -3327,6 +3330,246 @@ function renderPlaygroundModelOptions(forceProtocolDefault = false) {
   if (selected) select.value = selected;
 }
 
+function configuredPlaygroundProviders() {
+  return state.providers.filter((provider) => provider.configured);
+}
+
+function configuredProviderModelTargets() {
+  return configuredPlaygroundProviders().flatMap((provider) =>
+    providerModelCatalog(provider).models.map((model) => ({
+      providerId: provider.id,
+      providerName: provider.name,
+      modelId: model.id,
+      state: "queued",
+      healthStatus: model.status ?? "unknown",
+      httpStatus: model.lastStatus,
+      message: model.lastError ?? "Waiting to be tested",
+      latencyMs: undefined,
+    })),
+  );
+}
+
+function applyProviderModelCatalog(providerId, catalog) {
+  const provider = providerById(providerId);
+  if (!provider || !catalog) return;
+  provider.modelCatalog = catalog;
+  provider.model = catalog.activeModelId;
+}
+
+function bulkModelTestTone(result) {
+  if (result.state === "testing") return "testing";
+  if (result.state === "queued") return "queued";
+  return providerModelStatusTone(result.healthStatus);
+}
+
+function bulkModelTestLabel(result) {
+  if (result.state === "testing") return "Testing";
+  if (result.state === "queued") return "Queued";
+  return providerModelStatusLabel(result.healthStatus);
+}
+
+function updatePlaygroundResultEmptyState() {
+  const empty = $("#test-result-empty");
+  const singleResult = $("#test-result");
+  const bulkResult = $("#model-health-test-results");
+  if (!empty) return;
+
+  const hasSingleResult = Boolean(singleResult && !singleResult.hidden);
+  const hasBulkResult = Boolean(bulkResult && !bulkResult.hidden);
+  empty.hidden = hasSingleResult || hasBulkResult;
+}
+
+function renderModelHealthTestResults() {
+  const panel = $("#model-health-test-results");
+  const list = $("#model-health-test-list");
+  const summary = $("#model-health-test-summary");
+  const progress = $("#model-health-test-progress");
+  if (!panel || !list || !summary || !progress) return;
+
+  const results = state.modelHealthTestResults;
+  const visible = state.playgroundMode === "direct" && results.length > 0;
+  panel.hidden = !visible;
+  updatePlaygroundResultEmptyState();
+  if (!visible) return;
+
+  const completed = results.filter((result) => result.state === "complete").length;
+  const healthy = results.filter((result) =>
+    result.state === "complete" && result.healthStatus === "healthy",
+  ).length;
+  const failed = completed - healthy;
+  const percent = results.length ? Math.round((completed / results.length) * 100) : 0;
+
+  summary.textContent = state.modelHealthTestRunning
+    ? `${completed} of ${results.length} checked · ${healthy} healthy · ${failed} failed`
+    : `${completed} checked · ${healthy} healthy · ${failed} failed`;
+  progress.style.width = `${percent}%`;
+  progress.parentElement?.setAttribute("aria-valuenow", String(percent));
+
+  list.innerHTML = results.map((result) => {
+    const statusDetail = Number.isFinite(result.httpStatus)
+      ? `HTTP ${result.httpStatus}`
+      : result.state === "complete"
+        ? "Request failed"
+        : "Not started";
+    const timing = Number.isFinite(result.latencyMs) ? ` · ${result.latencyMs} ms` : "";
+    return `
+      <article class="model-health-test-row ${escapeHtml(bulkModelTestTone(result))}">
+        <span class="model-health-test-target">
+          <strong>${escapeHtml(result.providerName)}</strong>
+          <small title="${escapeHtml(result.modelId)}">${escapeHtml(result.modelId)}</small>
+        </span>
+        <span class="model-health-test-detail">
+          <span class="status ${escapeHtml(bulkModelTestTone(result))}">${escapeHtml(bulkModelTestLabel(result))}</span>
+          <small>${escapeHtml(statusDetail + timing)}</small>
+          <em title="${escapeHtml(result.message)}">${escapeHtml(result.message)}</em>
+        </span>
+      </article>
+    `;
+  }).join("");
+}
+
+function updateTestAllModelsButton() {
+  const button = $("#test-all-models-button");
+  if (!button) return;
+  const count = configuredProviderModelTargets().length;
+  const completed = state.modelHealthTestResults.filter((result) => result.state === "complete").length;
+  button.disabled = state.modelHealthTestRunning || count === 0;
+  button.textContent = state.modelHealthTestRunning
+    ? `Testing ${completed}/${state.modelHealthTestResults.length}…`
+    : `Test all models${count ? ` (${count})` : ""}`;
+}
+
+async function testAllProviderModels() {
+  if (state.modelHealthTestRunning) return;
+  const targets = configuredProviderModelTargets();
+  if (!targets.length) {
+    notify("Connect a provider and save at least one model first.");
+    return;
+  }
+
+  state.modelHealthTestRunning = true;
+  state.modelHealthTestResults = targets;
+  const singleResult = $("#test-result");
+  if (singleResult) singleResult.hidden = true;
+  updateTestAllModelsButton();
+  renderModelHealthTestResults();
+  updatePlaygroundResultEmptyState();
+
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < targets.length) {
+      const target = targets[nextIndex];
+      nextIndex += 1;
+      if (!target) continue;
+      target.state = "testing";
+      target.message = "Sending a lightweight health request";
+      updateTestAllModelsButton();
+      renderModelHealthTestResults();
+
+      const startedAt = performance.now();
+      try {
+        const result = await api(`/api/providers/${encodeURIComponent(target.providerId)}/models/test`, {
+          method: "POST",
+          body: JSON.stringify({ modelId: target.modelId }),
+        });
+        applyProviderModelCatalog(target.providerId, result.catalog);
+        const refreshedModel = result.catalog?.models?.find((model) => model.id === target.modelId);
+        target.healthStatus = refreshedModel?.status ?? (result.ok ? "healthy" : "error");
+        target.httpStatus = result.status;
+        target.message = result.message ?? (result.ok ? "Model responded successfully" : "Model test failed");
+        target.latencyMs = Number.isFinite(result.latencyMs)
+          ? result.latencyMs
+          : Math.round(performance.now() - startedAt);
+      } catch (error) {
+        target.healthStatus = "error";
+        target.httpStatus = undefined;
+        target.message = error instanceof Error ? error.message : "Model test failed";
+        target.latencyMs = Math.round(performance.now() - startedAt);
+      } finally {
+        target.state = "complete";
+        updateTestAllModelsButton();
+        renderModelHealthTestResults();
+      }
+    }
+  };
+
+  const concurrency = Math.min(3, targets.length);
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+  state.modelHealthTestRunning = false;
+
+  await loadDashboard().catch(() => undefined);
+  updateTestAllModelsButton();
+  renderModelHealthTestResults();
+
+  const healthy = targets.filter((target) => target.healthStatus === "healthy").length;
+  notify(`Model health check complete: ${healthy}/${targets.length} healthy.`);
+}
+
+function renderPlaygroundDirectModelOptions(forceActiveModel = false) {
+  const providerSelect = $("#test-direct-provider");
+  const modelSelect = $("#test-direct-model");
+  if (!providerSelect || !modelSelect) return;
+
+  const provider = providerById(providerSelect.value)
+    ?? configuredPlaygroundProviders()[0];
+  if (!provider) {
+    modelSelect.innerHTML = "";
+    return;
+  }
+
+  const catalog = providerModelCatalog(provider);
+  const previous = forceActiveModel
+    ? catalog.activeModelId
+    : modelSelect.value || catalog.activeModelId;
+  modelSelect.innerHTML = catalog.models.map((model) => `
+    <option value="${escapeHtml(model.id)}">${escapeHtml(model.id)} · ${escapeHtml(providerModelStatusLabel(model.status))}</option>
+  `).join("");
+
+  const selected = catalog.models.some((model) => model.id === previous)
+    ? previous
+    : catalog.activeModelId || catalog.models[0]?.id;
+  if (selected) modelSelect.value = selected;
+}
+
+function renderPlaygroundDirectProviderOptions(forceFirst = false) {
+  const select = $("#test-direct-provider");
+  if (!select) return;
+  const providers = configuredPlaygroundProviders();
+  const previous = forceFirst ? providers[0]?.id : select.value || providers[0]?.id;
+
+  select.innerHTML = providers.map((provider) => `
+    <option value="${escapeHtml(provider.id)}">${escapeHtml(provider.name)}</option>
+  `).join("");
+
+  const selected = providers.some((provider) => provider.id === previous)
+    ? previous
+    : providers[0]?.id;
+  if (selected) select.value = selected;
+  renderPlaygroundDirectModelOptions(forceFirst);
+}
+
+function switchPlaygroundMode(mode) {
+  state.playgroundMode = mode === "direct" ? "direct" : "router";
+  $$('[data-playground-mode]').forEach((button) => {
+    const active = button.dataset.playgroundMode === state.playgroundMode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  $$('[data-playground-router-only]').forEach((element) => {
+    element.hidden = state.playgroundMode !== "router";
+  });
+  $$('[data-playground-direct-only]').forEach((element) => {
+    element.hidden = state.playgroundMode !== "direct";
+  });
+  if (state.playgroundMode === "direct") {
+    renderPlaygroundDirectProviderOptions();
+  }
+  updateTestAllModelsButton();
+  renderModelHealthTestResults();
+  updatePlaygroundResultEmptyState();
+  updatePlaygroundHint();
+}
+
 function switchSettingsTab(tabName) {
   state.activeSettingsTab = tabName;
   $$('[data-settings-tab]').forEach((button) => {
@@ -3683,36 +3926,48 @@ function renderPlaygroundCapabilityPreview() {
   if (!preview) return;
   const apiFormat = $("#test-api-format")?.value ?? "openai-compatible";
   const scenario = $("#test-capability")?.value ?? "basic";
+  const directMode = state.playgroundMode === "direct";
+  const directProvider = directMode ? providerById($("#test-direct-provider")?.value) : undefined;
+  const directModel = directMode ? $("#test-direct-model")?.value : undefined;
   const aliasId = $("#test-model-alias")?.value ?? defaultModelForApi(apiFormat);
   const alias = modelAliasById(aliasId, state.account?.modelAliases ?? []);
   const requirements = [...new Set([
     ...playgroundRequiredCapabilities(apiFormat, scenario),
-    ...(alias?.requiredCapabilities ?? []),
+    ...(directMode ? [] : alias?.requiredCapabilities ?? []),
   ])];
 
   preview.innerHTML = `
-    <span class="playground-preview-label">Router requirements</span>
+    <span class="playground-preview-label">${directMode ? "Direct target" : "Router requirements"}</span>
     <span class="playground-preview-chips">
-      <span class="model-alias-preview-chip">${escapeHtml(alias?.name ?? aliasId)}</span>
+      <span class="model-alias-preview-chip">${escapeHtml(directMode
+        ? `${directProvider?.name ?? "Provider"} · ${directModel ?? "Select a model"}`
+        : alias?.name ?? aliasId)}</span>
       ${requirements.length
       ? requirements.map((capability) => `<span class="capability-requirement-chip">${escapeHtml(capabilityLabel(capability))}</span>`).join("")
       : `<span class="capability-neutral-chip">No special capability required</span>`}
     </span>
-    <small>${escapeHtml(alias ? `${aliasStrategyLabel(alias.routingStrategy)} · ${modelAliasProviderSummary(alias)}` : "The router-wide policy will be used.")}</small>
+    <small>${escapeHtml(directMode
+      ? "The exact provider model is called once. Ranking, fallback, cooldown, and circuit selection are bypassed for this diagnostic request. Configured provider quotas still apply."
+      : alias ? `${aliasStrategyLabel(alias.routingStrategy)} · ${modelAliasProviderSummary(alias)}` : "The router-wide policy will be used.")}</small>
   `;
 }
 
 function updatePlaygroundHint() {
   const count = state.account?.configuredProviderIds?.length ?? 0;
   const apiFormat = $("#test-api-format")?.value ?? "openai-compatible";
+  const directMode = state.playgroundMode === "direct";
   const aliasId = $("#test-model-alias")?.value ?? defaultModelForApi(apiFormat);
+  const directProvider = providerById($("#test-direct-provider")?.value);
+  const directModel = $("#test-direct-model")?.value;
   const endpoint = apiFormat === "claude-code-compatible"
     ? "/v1/messages"
     : apiFormat === "openai-responses-compatible"
       ? "/v1/responses"
       : "/v1/chat/completions";
   $("#test-hint").textContent = count
-    ? `${apiFormatLabel(apiFormat)} · ${aliasId} · POST ${endpoint}`
+    ? directMode
+      ? `${apiFormatLabel(apiFormat)} · ${directProvider?.name ?? "Provider"} · ${directModel ?? "Select a model"} · direct diagnostic`
+      : `${apiFormatLabel(apiFormat)} · ${aliasId} · POST ${endpoint}`
     : "Connect a provider to run a test.";
   renderPlaygroundCapabilityPreview();
 }
@@ -3727,8 +3982,11 @@ function render() {
   $("#provider-summary").textContent = count ? "Ready to route requests" : "Add your first provider";
   $("#overview-empty").hidden = count > 0;
   $("#test-button").disabled = count === 0;
+  updateTestAllModelsButton();
+  renderModelHealthTestResults();
   renderPlaygroundModelOptions();
-  updatePlaygroundHint();
+  renderPlaygroundDirectProviderOptions();
+  switchPlaygroundMode(state.playgroundMode);
   $("#base-url").textContent = `${location.origin}/v1`;
   $("#router-key-preview").textContent = `${state.account.routerKeyPrefix}••••••••••••`;
 
@@ -4610,8 +4868,17 @@ $("#test-api-format").addEventListener("change", () => {
   renderPlaygroundModelOptions(true);
   updatePlaygroundHint();
 });
+$$("[data-playground-mode]").forEach((button) => {
+  button.addEventListener("click", () => switchPlaygroundMode(button.dataset.playgroundMode));
+});
 $("#test-model-alias").addEventListener("change", updatePlaygroundHint);
+$("#test-direct-provider")?.addEventListener("change", () => {
+  renderPlaygroundDirectModelOptions(true);
+  updatePlaygroundHint();
+});
+$("#test-direct-model")?.addEventListener("change", updatePlaygroundHint);
 $("#test-capability").addEventListener("change", updatePlaygroundHint);
+$("#test-all-models-button")?.addEventListener("click", testAllProviderModels);
 
 $("#test-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -4631,18 +4898,31 @@ $("#test-form").addEventListener("submit", async (event) => {
       ? "/v1/responses"
       : "/v1/chat/completions";
   const apiLabel = apiFormatLabel(apiFormat);
-  const selectedModel = $("#test-model-alias").value || defaultModelForApi(apiFormat);
+  const directMode = state.playgroundMode === "direct";
+  const selectedProviderId = directMode ? $("#test-direct-provider")?.value : undefined;
+  const selectedModel = directMode
+    ? $("#test-direct-model")?.value
+    : $("#test-model-alias").value || defaultModelForApi(apiFormat);
   const prompt = $("#test-prompt").value.trim();
   const temperature = Number($("#test-temperature").value || 0.2);
-  const maxTokens = Number($("#test-max-tokens").value || 256);
+  const maxTokensValue = $("#test-max-tokens").value.trim();
+  const parsedMaxTokens = maxTokensValue ? Number(maxTokensValue) : undefined;
+  const maxTokens = Number.isFinite(parsedMaxTokens) && parsedMaxTokens > 0
+    ? Math.floor(parsedMaxTokens)
+    : undefined;
   const enhancements = playgroundRequestEnhancements(apiFormat, scenario);
+
+  if (directMode && (!selectedProviderId || !selectedModel)) {
+    notify("Select a configured provider and saved model.");
+    return;
+  }
 
   const requestBody = isClaudeCompatible
     ? {
       model: selectedModel,
       stream: false,
       temperature,
-      max_tokens: maxTokens,
+      max_tokens: maxTokens ?? 256,
       messages: [{ role: "user", content: prompt }],
       ...enhancements,
     }
@@ -4651,7 +4931,7 @@ $("#test-form").addEventListener("submit", async (event) => {
         model: selectedModel,
         stream: false,
         temperature,
-        max_output_tokens: maxTokens,
+        ...(maxTokens ? { max_output_tokens: maxTokens } : {}),
         input: [{
           type: "message",
           role: "user",
@@ -4663,33 +4943,79 @@ $("#test-form").addEventListener("submit", async (event) => {
         model: selectedModel,
         stream: false,
         temperature,
-        max_tokens: maxTokens,
+        ...(maxTokens ? { max_tokens: maxTokens } : {}),
         messages: [{ role: "user", content: prompt }],
         ...enhancements,
       };
 
+  state.modelHealthTestResults = [];
+  renderModelHealthTestResults();
   button.disabled = true;
   button.textContent = "Sending…";
   result.hidden = false;
+  updatePlaygroundResultEmptyState();
   result.classList.remove("error");
   routingDecision.hidden = true;
   routingDecision.innerHTML = "";
   status.textContent = `Testing ${apiLabel}`;
-  provider.textContent = endpoint;
+  provider.textContent = directMode
+    ? `${providerDisplayName(selectedProviderId)} · ${selectedModel}`
+    : endpoint;
   output.textContent = "";
 
   try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${state.routerKey}`,
-        "content-type": "application/json",
-        ...(isClaudeCompatible ? { "anthropic-version": "2023-06-01" } : {}),
-      },
-      body: JSON.stringify(requestBody),
-    });
-    const body = await response.json();
-    if (!response.ok) throw new Error(body.error?.message ?? "Test request failed");
+    let body;
+    let handledBy;
+    let routingPolicy;
+    let capabilityMatch;
+    let resolvedAlias;
+    let resolvedProviderModel;
+    let requiredCapabilities = [];
+    let directLatencyMs;
+
+    if (directMode) {
+      const directResult = await api("/api/playground/direct", {
+        method: "POST",
+        body: JSON.stringify({
+          providerId: selectedProviderId,
+          modelId: selectedModel,
+          apiFormat,
+          requestBody,
+        }),
+      });
+      if (!directResult.ok) {
+        throw new Error(
+          `${directResult.status ?? "Upstream"} · ${directResult.message ?? "Direct provider request failed"}`,
+        );
+      }
+      body = directResult.response;
+      handledBy = directResult.providerId;
+      resolvedProviderModel = directResult.modelId;
+      requiredCapabilities = directResult.requiredCapabilities ?? [];
+      directLatencyMs = directResult.latencyMs;
+    } else {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${state.routerKey}`,
+          "content-type": "application/json",
+          ...(isClaudeCompatible ? { "anthropic-version": "2023-06-01" } : {}),
+        },
+        body: JSON.stringify(requestBody),
+      });
+      body = await response.json();
+      if (!response.ok) throw new Error(body.error?.message ?? "Test request failed");
+
+      handledBy = response.headers.get("x-free-llm-provider");
+      routingPolicy = response.headers.get("x-free-llm-routing-policy");
+      capabilityMatch = response.headers.get("x-free-llm-capability-match");
+      resolvedAlias = response.headers.get("x-free-llm-model-alias");
+      resolvedProviderModel = response.headers.get("x-free-llm-provider-model");
+      const requiredHeader = response.headers.get("x-free-llm-required-capabilities");
+      requiredCapabilities = requiredHeader && requiredHeader !== "none"
+        ? requiredHeader.split(",").map((item) => item.trim()).filter(Boolean)
+        : [];
+    }
 
     const content = isClaudeCompatible
       ? (Array.isArray(body.content)
@@ -4709,30 +5035,33 @@ $("#test-form").addEventListener("submit", async (event) => {
           : "")
         : body.choices?.[0]?.message?.content;
 
-    const handledBy = response.headers.get("x-free-llm-provider");
-    const routingPolicy = response.headers.get("x-free-llm-routing-policy");
-    const capabilityMatch = response.headers.get("x-free-llm-capability-match");
-    const resolvedAlias = response.headers.get("x-free-llm-model-alias");
-    const resolvedProviderModel = response.headers.get("x-free-llm-provider-model");
-    const requiredHeader = response.headers.get("x-free-llm-required-capabilities");
-    const requiredCapabilities = requiredHeader && requiredHeader !== "none"
-      ? requiredHeader.split(",").map((item) => item.trim()).filter(Boolean)
-      : [];
-
-    status.textContent = `${apiLabel} endpoint is working`;
-    provider.textContent = handledBy
-      ? `${endpoint} · Handled by ${providerDisplayName(handledBy)}`
-      : `${endpoint} · Request completed`;
+    status.textContent = directMode
+      ? `${apiLabel} direct request is working`
+      : `${apiLabel} endpoint is working`;
+    provider.textContent = directMode
+      ? `${providerDisplayName(handledBy)} · ${resolvedProviderModel}${directLatencyMs !== undefined ? ` · ${directLatencyMs} ms` : ""}`
+      : handledBy
+        ? `${endpoint} · Handled by ${providerDisplayName(handledBy)}`
+        : `${endpoint} · Request completed`;
 
     routingDecision.hidden = false;
-    routingDecision.innerHTML = `
-      <span><small>Model alias</small><strong>${escapeHtml(resolvedAlias && resolvedAlias !== "none" ? resolvedAlias : selectedModel)}</strong></span>
-      <span><small>Selected provider</small><strong>${escapeHtml(handledBy ? providerDisplayName(handledBy) : "Unknown")}</strong></span>
-      <span><small>Provider model</small><strong>${escapeHtml(resolvedProviderModel ?? "Unknown")}</strong></span>
-      <span><small>Routing policy</small><strong>${escapeHtml(routingPolicy ? routingStrategyLabel(routingPolicy) : "Unknown")}</strong></span>
-      <span><small>Capability match</small><strong>${escapeHtml(capabilityMatchLabel(capabilityMatch ?? "full"))}</strong></span>
-      <span><small>Required</small><strong>${escapeHtml(requiredCapabilities.length ? requiredCapabilities.map(capabilityLabel).join(", ") : "Basic text")}</strong></span>
-    `;
+    routingDecision.innerHTML = directMode
+      ? `
+        <span><small>Request mode</small><strong>Direct provider</strong></span>
+        <span><small>Selected provider</small><strong>${escapeHtml(handledBy ? providerDisplayName(handledBy) : "Unknown")}</strong></span>
+        <span><small>Provider model</small><strong>${escapeHtml(resolvedProviderModel ?? "Unknown")}</strong></span>
+        <span><small>Routing</small><strong>Bypassed</strong></span>
+        <span><small>Fallback</small><strong>Disabled</strong></span>
+        <span><small>Required</small><strong>${escapeHtml(requiredCapabilities.length ? requiredCapabilities.map(capabilityLabel).join(", ") : "Basic text")}</strong></span>
+      `
+      : `
+        <span><small>Model alias</small><strong>${escapeHtml(resolvedAlias && resolvedAlias !== "none" ? resolvedAlias : selectedModel)}</strong></span>
+        <span><small>Selected provider</small><strong>${escapeHtml(handledBy ? providerDisplayName(handledBy) : "Unknown")}</strong></span>
+        <span><small>Provider model</small><strong>${escapeHtml(resolvedProviderModel ?? "Unknown")}</strong></span>
+        <span><small>Routing policy</small><strong>${escapeHtml(routingPolicy ? routingStrategyLabel(routingPolicy) : "Unknown")}</strong></span>
+        <span><small>Capability match</small><strong>${escapeHtml(capabilityMatchLabel(capabilityMatch ?? "full"))}</strong></span>
+        <span><small>Required</small><strong>${escapeHtml(requiredCapabilities.length ? requiredCapabilities.map(capabilityLabel).join(", ") : "Basic text")}</strong></span>
+      `;
 
     output.textContent = typeof content === "string" && content
       ? content
@@ -4741,7 +5070,9 @@ $("#test-form").addEventListener("submit", async (event) => {
   } catch (error) {
     result.classList.add("error");
     status.textContent = `${apiLabel} test failed`;
-    provider.textContent = endpoint;
+    provider.textContent = directMode
+      ? `${providerDisplayName(selectedProviderId)} · ${selectedModel}`
+      : endpoint;
     routingDecision.hidden = true;
     output.textContent = error instanceof Error ? error.message : "Request failed";
   } finally {

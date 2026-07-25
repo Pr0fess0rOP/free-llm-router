@@ -319,6 +319,23 @@ export async function recordProviderTokenUsage(
   });
 }
 
+export async function recordProviderRequestUsage(
+  routerKeyHash: string,
+  providerId: string,
+  success: boolean,
+): Promise<ProviderRoutingStats> {
+  providerId = normalizeProviderId(providerId);
+  return mutateRouterState(routerKeyHash, (state) => {
+    const current = state.providers[providerId] ?? initialStats(providerId);
+    const updated: ProviderRoutingStats = {
+      ...current,
+      quotaUsage: addProviderAttemptUsage(current.quotaUsage, success),
+    };
+    state.providers[providerId] = updated;
+    return updated;
+  });
+}
+
 export async function clearProviderUsage(
   routerKeyHash: string,
   providerId: string,

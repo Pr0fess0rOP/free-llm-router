@@ -297,101 +297,252 @@
             </section>
 
             <section id="playground-panel" class="tab-panel page-panel" hidden>
-              <section class="tester">
-                <div class="tester-copy">
+              <div class="section-heading playground-page-heading">
+                <div>
                   <p class="eyebrow">Live check</p>
                   <h2>Test your router</h2>
                   <p>
-                    Send a real request through your connected providers before
-                    using the endpoint in another app.
+                    Validate the complete routing path or call one exact provider
+                    model before using the endpoint in another app.
                   </p>
                 </div>
-                <form id="test-form" class="tester-form">
-                  <div class="form-grid playground-form-grid">
-                    <label for="test-api-format"
-                      >API compatibility
-                      <select id="test-api-format">
-                        <option value="openai-compatible">OpenAI</option>
-                        <option value="openai-responses-compatible">
-                          Codex
-                        </option>
-                        <option value="claude-code-compatible">Claude</option>
-                      </select>
-                    </label>
-                    <label for="test-model-alias"
-                      >Model alias
-                      <select id="test-model-alias">
-                        <option value="free-router">Free Router</option>
-                      </select>
-                    </label>
-                    <label for="test-capability"
-                      >Request type
-                      <select id="test-capability">
-                        <option value="basic">Basic text</option>
-                        <option value="json">JSON response</option>
-                        <option value="schema">Structured output</option>
-                        <option value="tools">Tool calling</option>
-                        <option value="reasoning">Reasoning</option>
-                      </select>
-                    </label>
-                    <label for="test-temperature"
-                      >Temperature
-                      <input
-                        id="test-temperature"
-                        type="number"
-                        min="0"
-                        max="2"
-                        step="0.1"
-                        value="0.2"
-                      />
-                    </label>
-                    <label for="test-max-tokens"
-                      >Max tokens
-                      <input
-                        id="test-max-tokens"
-                        type="number"
-                        min="16"
-                        max="4096"
-                        step="16"
-                        value="256"
-                      />
-                    </label>
-                  </div>
-                  <div
-                    id="test-capability-preview"
-                    class="playground-capability-preview"
-                    aria-live="polite"
-                  ></div>
-                  <label for="test-prompt">Prompt</label>
-                  <textarea id="test-prompt" rows="5" maxlength="4000" required>
-Reply with exactly: Router is working.</textarea
-                  >
-                  <div class="tester-actions">
-                    <span id="test-hint"
-                      >Connect a provider to run a test.</span
-                    >
-                    <button id="test-button" class="primary" type="submit">
-                      Send test request
-                    </button>
-                  </div>
-                </form>
+              </div>
+
+              <section class="tester playground-shell">
                 <div
-                  id="test-result"
-                  class="test-result"
-                  aria-live="polite"
+                  class="playground-mode-switch"
+                  role="tablist"
+                  aria-label="Playground request mode"
+                >
+                  <button
+                    class="playground-mode-button active"
+                    type="button"
+                    role="tab"
+                    aria-selected="true"
+                    data-playground-mode="router"
+                  >
+                    Router request
+                  </button>
+                  <button
+                    class="playground-mode-button"
+                    type="button"
+                    role="tab"
+                    aria-selected="false"
+                    data-playground-mode="direct"
+                  >
+                    Provider + model
+                  </button>
+                </div>
+
+                <div class="playground-mode-intro" data-playground-router-only>
+                  <div>
+                    <span class="feature-kicker">Router request</span>
+                    <h3>Test the full routing pipeline</h3>
+                    <p>
+                      Send through a model alias and observe capability filtering,
+                      ranking, protection, fallback, and the provider that wins.
+                    </p>
+                  </div>
+                  <span class="playground-mode-badge">Routing enabled</span>
+                </div>
+
+                <div
+                  class="playground-mode-intro"
+                  data-playground-direct-only
                   hidden
                 >
-                  <div class="test-result-heading">
-                    <strong id="test-status">Response</strong>
-                    <span id="test-provider"></span>
+                  <div>
+                    <span class="feature-kicker">Provider + model</span>
+                    <h3>Test one exact provider model</h3>
+                    <p>
+                      Bypass ranking and fallback to diagnose one saved model, or
+                      run a lightweight health check against every saved model.
+                    </p>
                   </div>
-                  <div
-                    id="test-routing-decision"
-                    class="test-routing-decision"
-                    hidden
-                  ></div>
-                  <pre><code id="test-output"></code></pre>
+                  <span class="playground-mode-badge neutral">Direct diagnostic</span>
                 </div>
+
+                <form id="test-form" class="tester-form">
+                  <div class="playground-workspace">
+                    <section class="playground-parameters-panel">
+                      <div class="playground-column-heading">
+                        <div>
+                          <span class="feature-kicker">Request setup</span>
+                          <h3>Test parameters</h3>
+                        </div>
+                        <small>Configure the request sent by the playground.</small>
+                      </div>
+
+                      <div class="form-grid playground-form-grid">
+                        <label for="test-api-format"
+                          >API compatibility
+                          <select id="test-api-format">
+                            <option value="openai-compatible">OpenAI</option>
+                            <option value="openai-responses-compatible">
+                              Codex
+                            </option>
+                            <option value="claude-code-compatible">Claude</option>
+                          </select>
+                        </label>
+                        <label for="test-model-alias" data-playground-router-only
+                          >Model alias
+                          <select id="test-model-alias">
+                            <option value="free-router">Free Router</option>
+                          </select>
+                        </label>
+                        <label
+                          for="test-direct-provider"
+                          data-playground-direct-only
+                          hidden
+                          >Provider
+                          <select id="test-direct-provider"></select>
+                        </label>
+                        <label
+                          for="test-direct-model"
+                          data-playground-direct-only
+                          hidden
+                          >Provider model
+                          <select id="test-direct-model"></select>
+                        </label>
+                        <label for="test-capability"
+                          >Request type
+                          <select id="test-capability">
+                            <option value="basic">Basic text</option>
+                            <option value="json">JSON response</option>
+                            <option value="schema">Structured output</option>
+                            <option value="tools">Tool calling</option>
+                            <option value="reasoning">Reasoning</option>
+                          </select>
+                        </label>
+                        <label for="test-temperature"
+                          >Temperature
+                          <input
+                            id="test-temperature"
+                            type="number"
+                            min="0"
+                            max="2"
+                            step="0.1"
+                            value="0.2"
+                          />
+                        </label>
+                        <label for="test-max-tokens"
+                          >Output token cap
+                          <span class="optional-field">Optional</span>
+                          <input
+                            id="test-max-tokens"
+                            type="number"
+                            min="1"
+                            max="65536"
+                            step="1"
+                            value="256"
+                            placeholder="Provider default"
+                          />
+                          <small class="field-help"
+                            >Limits generated output for safer tests. Clear it to
+                            use the protocol or provider fallback.</small
+                          >
+                        </label>
+                      </div>
+
+                      <div
+                        id="test-capability-preview"
+                        class="playground-capability-preview"
+                        aria-live="polite"
+                      ></div>
+
+                      <label class="playground-prompt-field" for="test-prompt">
+                        Prompt
+                        <textarea id="test-prompt" rows="6" maxlength="4000" required>Reply with exactly: Router is working.</textarea>
+                      </label>
+
+                      <div class="tester-actions">
+                        <span id="test-hint"
+                          >Connect a provider to run a test.</span
+                        >
+                        <div class="tester-action-buttons">
+                          <button
+                            id="test-all-models-button"
+                            class="secondary"
+                            type="button"
+                            data-playground-direct-only
+                            hidden
+                          >
+                            Test all models
+                          </button>
+                          <button id="test-button" class="primary" type="submit">
+                            Send test request
+                          </button>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section class="playground-output-panel">
+                      <div class="playground-column-heading">
+                        <div>
+                          <span class="feature-kicker">Test output</span>
+                          <h3>Result</h3>
+                        </div>
+                        <small>Response details appear here without shifting the form.</small>
+                      </div>
+
+                      <div id="test-result-empty" class="playground-result-empty">
+                        <span class="playground-result-empty-mark" aria-hidden="true"></span>
+                        <strong>No request sent yet</strong>
+                        <p>
+                          Choose your parameters and send a test. The response,
+                          selected provider, model, latency, and routing decision
+                          will appear in this column.
+                        </p>
+                      </div>
+
+                      <section
+                        id="model-health-test-results"
+                        class="model-health-test-results"
+                        aria-live="polite"
+                        hidden
+                      >
+                        <div class="model-health-test-heading">
+                          <span>All-model health check</span>
+                          <strong id="model-health-test-summary">Preparing tests…</strong>
+                        </div>
+                        <div
+                          class="model-health-test-progress-track"
+                          role="progressbar"
+                          aria-label="Model health-check progress"
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                          aria-valuenow="0"
+                        >
+                          <span id="model-health-test-progress"></span>
+                        </div>
+                        <p>
+                          One tiny direct request is sent to every saved model, with
+                          up to three checks running at once. Routing and fallback
+                          are bypassed.
+                        </p>
+                        <div id="model-health-test-list" class="model-health-test-list"></div>
+                      </section>
+
+                      <div
+                        id="test-result"
+                        class="test-result"
+                        aria-live="polite"
+                        hidden
+                      >
+                        <div class="test-result-heading">
+                          <strong id="test-status">Response</strong>
+                          <span id="test-provider"></span>
+                        </div>
+                        <div
+                          id="test-routing-decision"
+                          class="test-routing-decision"
+                          hidden
+                        ></div>
+                        <pre><code id="test-output"></code></pre>
+                      </div>
+                    </section>
+                  </div>
+                </form>
               </section>
             </section>
 
@@ -2719,17 +2870,29 @@ Python SDK     172 requests · 94% success · 14% fallback · Chat Completions</
                       </div>
                       <div class="feature-two-column">
                         <div>
-                          <h4>What you can test</h4>
+                          <h4>Router request mode</h4>
                           <p>
                             Select an API compatibility mode, choose an enabled
                             alias, enter a prompt, and send the request using
                             the same routing path as production traffic.
                           </p>
+                          <h4>Provider + model mode</h4>
+                          <p>
+                            Select one configured provider and one of its saved
+                            models to make an exact diagnostic request without
+                            ranking or fallback. Configured provider quotas still
+                            apply and usage is counted.
+                          </p>
                           <h4>What you learn</h4>
                           <p>
                             The result shows the endpoint, response, latency,
-                            and provider used. The same request also appears in
-                            Analysis.
+                            provider, and provider model used. Routed requests
+                            also appear in Analysis with their routing decision.
+                          </p>
+                          <p>
+                            The output-token cap is optional for OpenAI-style
+                            requests. Compatibility adapters may apply a safe
+                            fallback when their protocol requires one.
                           </p>
                         </div>
                         <div class="feature-example-card">
@@ -2741,6 +2904,10 @@ Python SDK     172 requests · 94% success · 14% fallback · Chat Completions</
                             <li>
                               Open Analysis to inspect the winner and fallback
                               decisions.
+                            </li>
+                            <li>
+                              Switch to Provider + model to compare the winning
+                              model with another saved model directly.
                             </li>
                           </ol>
                         </div>

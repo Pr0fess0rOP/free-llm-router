@@ -8,8 +8,7 @@ Bring your own LLM API keys and route **OpenAI Chat Completions**, **OpenAI Resp
 
 Free LLM Router handles provider failover, request deduplication, analytics, rate-limit cooldowns, and more—making it easier, cheaper, and more reliable to use AI in your applications.
 
-## ![Feature Showcase](public/assets/demo/feature-showcase.gif)
-
+## ![Feature Showcase](public\assets\demo\feature-showcase.gif)
 
 ## 📖 What is this product?
 
@@ -101,8 +100,6 @@ Detailed documentation has been moved to the `docs/` folder to keep this README 
 
 ## 🤝 Contributing
 
-Special thanks to [digitalPlat](https://github.com/DigitalPlatDev/FreeDomain) for providing a free subdomain for this project.
-
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) to learn how to get started, run tests, and submit pull requests.
 
 ## 🛡️ Security
@@ -119,4 +116,3 @@ Please review our [Security Policy](SECURITY.md) for information on reporting vu
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
-
