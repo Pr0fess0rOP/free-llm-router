@@ -307,6 +307,7 @@ export interface ProviderCandidateEvaluation {
     | "incompatible"
     | "cooldown"
     | "quota-exhausted"
+    | "limit-exceeded"
     | "circuit-open"
     | "half-open";
   candidateRank?: number;
@@ -470,6 +471,7 @@ export interface ProviderConfig {
   priority?: number;
   cooldownMs?: number;
   timeoutMs?: number;
+  streamingTimeoutMs?: number;
   headers?: Record<string, string>;
   enabled?: boolean;
   capabilities?: Partial<ProviderCapabilities>;
@@ -492,6 +494,15 @@ export interface ProviderRuntime extends ProviderConfig {
   halfOpenProbeActive: boolean;
   quotaConfig?: ProviderQuotaConfig;
   quotaUsage?: ProviderQuotaUsage;
+  providerType?: "cloud" | "local-ollama";
+  localNodeId?: string;
+  requestHeaders?: (
+    body: Record<string, unknown>,
+    requestId: string | undefined,
+  ) => Promise<Record<string, string>>;
+  redirect?: RequestRedirect;
+  routingTier?: number;
+  localMaxInputBytes?: number;
 }
 
 export interface AttemptFailure {

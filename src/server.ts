@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type OutgoingHttpHeaders, type ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { EventEmitter } from "node:events";
@@ -18,7 +19,11 @@ import {
   updateProviderModelHealthByHash,
   updateAccountSettings,
 } from "./accounts.js";
-import { clerkPublishableKey, sessionUserId } from "./auth.js";
+import {
+  clerkConfigurationError,
+  clerkPublishableKey,
+  sessionUserId,
+} from "./auth.js";
 import { loadProviderConfigs, loadProviders } from "./config.js";
 import { readPublicFile } from "./dashboard.js";
 import { PROVIDER_CATALOG } from "./provider-catalog.js";
@@ -50,6 +55,7 @@ import {
   recordProviderRequestUsage,
   recordProviderTokenUsage,
   recordRoutingAttempt,
+  recordRoutingStreamFailure,
   resetProviderCircuit,
 } from "./routing-state.js";
 import type {
@@ -134,6 +140,31 @@ import {
   streamOpenAIAsResponses,
 } from "./responses.js";
 import { normalizeProviderId } from "./provider-identities.js";
+import {
+  createLocalNodePairingCode,
+  LocalNodePairingError,
+  pairLocalNode,
+} from "./local-nodes/pairing-service.js";
+import {
+  deleteLocalNode,
+  getLocalNode,
+  eligibleLocalNodeProviders,
+  localProviderId,
+  LocalNodeValidationError,
+  listLocalNodes,
+  recordLocalNodeHeartbeat,
+  recordLocalProviderAttempt,
+  registerLocalNodeEndpoint,
+  revokeLocalNode,
+  rotateLocalNodeCredential,
+  syncLocalNodeModels,
+  testLocalNodeModel,
+  updateLocalNode,
+  updateLocalNodeModel,
+} from "./local-nodes/local-node-service.js";
+import { authenticateLocalNode } from "./local-nodes/local-node-auth.js";
+import { localNodeVerificationKey } from "./local-nodes/local-node-request-auth.js";
+import { allowLocalNodePairingAttempt } from "./local-nodes/local-node-store.js";
 
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
 
@@ -158,7 +189,7 @@ function sendJson(response: ServerResponse, status: number, body: unknown): void
 function clientId(request: IncomingMessage): string {
   const forwarded = request.headers["x-forwarded-for"];
   const firstForwarded = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  return firstForwarded?.split(",")[0]?.trim() || request.socket.remoteAddress || "unknown";
+  return firstForwarded?.split(",").at(-1)?.trim() || request.socket.remoteAddress || "unknown";
 }
 
 async function readJsonBody(
@@ -1180,6 +1211,7 @@ async function createRoutedProviderRouter(params: {
   policy: RoutingPolicy;
   reliability: ReliabilitySettings;
   alias?: ModelAlias;
+  localOnly: boolean;
 }> {
   const account = await findAccount(params.routerKey);
   const accountPolicy = account?.routingPolicy ?? {
@@ -1209,6 +1241,14 @@ async function createRoutedProviderRouter(params: {
     activeModels,
     activeModelOptions,
   );
+  const localNodes = account ? await listLocalNodes(account.id) : [];
+  const localOnly = localNodes.some(
+    (node) => node.status !== "revoked" && node.routingMode === "local-only",
+  );
+  const localProviders = account
+    ? await eligibleLocalNodeProviders(account.id, params.requestId)
+    : [];
+  providers = localOnly ? localProviders : [...providers, ...localProviders];
 
   if (alias?.eligibleProviderIds.length) {
     const eligible = new Set(alias.eligibleProviderIds);
@@ -1253,6 +1293,7 @@ async function createRoutedProviderRouter(params: {
     providers,
     policy,
     reliability,
+    localOnly,
     ...(alias ? { alias } : {}),
     router: new ProviderRouter(providers, fetch, {
       policy,
@@ -1291,6 +1332,25 @@ async function createRoutedProviderRouter(params: {
           };
         }
         await recordRoutingAttempt(params.routerKeyHash, attempt);
+        const runtimeProvider = providers.find(
+          (provider) => provider.id === attempt.providerId,
+        );
+        if (
+          runtimeProvider?.providerType === "local-ollama" &&
+          runtimeProvider.localNodeId &&
+          attempt.providerModel
+        ) {
+          await recordLocalProviderAttempt(
+            runtimeProvider.localNodeId,
+            attempt.providerModel,
+            {
+              success: attempt.success,
+              latencyMs: attempt.latencyMs,
+              ...(attempt.message ? { message: attempt.message } : {}),
+            },
+          );
+          return;
+        }
         if (attempt.providerModel) {
           await updateProviderModelHealthByHash(
             params.routerKeyHash,
@@ -1364,6 +1424,195 @@ interface StreamObservation {
   firstChunkAt?: number;
   completedAt?: number;
   bytes: number;
+  localStreamError?: boolean;
+}
+
+export async function localNodePlaygroundRequest(params: {
+  routerKey: string;
+  nodeId: string;
+  modelId: string;
+  apiFormat: ApiFormat;
+  requestBody: Record<string, unknown>;
+  requestSignal?: AbortSignal;
+  fetcher?: typeof fetch;
+}): Promise<{
+  ok: boolean;
+  status: number;
+  message: string;
+  providerId: string;
+  nodeId: string;
+  nodeName: string;
+  modelId: string;
+  apiFormat: ApiFormat;
+  latencyMs: number;
+  requiredCapabilities: ProviderCapabilityName[];
+  response?: unknown;
+  usage?: TokenUsage;
+}> {
+  const account = await findAccount(params.routerKey);
+  if (!account) throw new Error("Invalid router key");
+
+  const node = await getLocalNode(account.id, params.nodeId);
+  if (!node || node.status === "revoked") throw new Error("Local node not found");
+  const model = node.models.find((candidate) => candidate.modelId === params.modelId);
+  if (!model?.installed || !model.enabled) {
+    throw new Error("Select an enabled model installed on this local node");
+  }
+  if (node.status !== "online" || !node.endpoint) {
+    throw new Error("Local node is offline");
+  }
+
+  const requestId = `playground_${randomUUID()}`;
+  const providerId = localProviderId(node.id, model.modelId);
+  const runtime = (await eligibleLocalNodeProviders(account.id, requestId))
+    .find((candidate) => candidate.id === providerId);
+  if (!runtime) {
+    throw new Error("Local node is busy or unavailable");
+  }
+
+  const upstreamBody = playgroundUpstreamBody(
+    params.apiFormat,
+    params.requestBody,
+    params.modelId,
+  );
+  const controller = new AbortController();
+  const abortFromRequest = () => controller.abort(
+    params.requestSignal?.reason ?? new Error("Playground request aborted"),
+  );
+  params.requestSignal?.addEventListener("abort", abortFromRequest, { once: true });
+  const timeout = setTimeout(
+    () => controller.abort(new Error("Local model request timed out")),
+    node.limits.totalTimeoutMs,
+  );
+  const startedAt = Date.now();
+  let status = 502;
+  let message = "Local model request failed";
+  const requiredCapabilities = detectCapabilityRequirements(params.requestBody).required;
+
+  try {
+    const requestHeaders = await runtime.requestHeaders?.(upstreamBody, requestId);
+    const upstream = await (params.fetcher ?? fetch)(
+      `${runtime.baseUrl.replace(/\/+$/, "")}/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+          ...requestHeaders,
+          "x-request-id": requestId,
+        },
+        body: JSON.stringify(upstreamBody),
+        redirect: runtime.redirect ?? "manual",
+        signal: controller.signal,
+      },
+    );
+    status = upstream.status;
+    message = upstream.ok
+      ? "Local model responded successfully"
+      : await providerModelTestMessage(upstream);
+    const latencyMs = Date.now() - startedAt;
+
+    if (!upstream.ok) {
+      if (upstream.body) await upstream.body.cancel().catch(() => undefined);
+      await recordLocalProviderAttempt(node.id, model.modelId, {
+        success: false,
+        latencyMs,
+        message,
+      });
+      return {
+        ok: false,
+        status,
+        message,
+        providerId,
+        nodeId: node.id,
+        nodeName: node.name,
+        modelId: model.modelId,
+        apiFormat: params.apiFormat,
+        latencyMs,
+        requiredCapabilities,
+      };
+    }
+
+    const text = upstream.body ? await upstream.text() : "";
+    let payload: unknown;
+    try {
+      payload = text ? JSON.parse(text) as unknown : {};
+    } catch {
+      status = 502;
+      message = "Local model returned invalid JSON";
+      await recordLocalProviderAttempt(node.id, model.modelId, {
+        success: false,
+        latencyMs,
+        message,
+      });
+      return {
+        ok: false,
+        status,
+        message,
+        providerId,
+        nodeId: node.id,
+        nodeName: node.name,
+        modelId: model.modelId,
+        apiFormat: params.apiFormat,
+        latencyMs,
+        requiredCapabilities,
+      };
+    }
+
+    const responsePayload = playgroundResponsePayload(
+      params.apiFormat,
+      payload,
+      model.modelId,
+      params.requestBody,
+    );
+    const fallbackInputTokens = params.apiFormat === "claude-code-compatible"
+      ? approximateAnthropicInputTokens(params.requestBody)
+      : params.apiFormat === "openai-responses-compatible"
+        ? approximateResponsesInputTokens(params.requestBody)
+        : approximateInputTokens(params.requestBody);
+    const usage = extractTokenUsage(responsePayload, fallbackInputTokens);
+    await recordLocalProviderAttempt(node.id, model.modelId, {
+      success: true,
+      latencyMs,
+    });
+    return {
+      ok: true,
+      status,
+      message,
+      providerId,
+      nodeId: node.id,
+      nodeName: node.name,
+      modelId: model.modelId,
+      apiFormat: params.apiFormat,
+      latencyMs,
+      requiredCapabilities,
+      response: responsePayload,
+      ...(usage ? { usage } : {}),
+    };
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+    const latencyMs = Date.now() - startedAt;
+    await recordLocalProviderAttempt(node.id, model.modelId, {
+      success: false,
+      latencyMs,
+      message,
+    }).catch(() => undefined);
+    return {
+      ok: false,
+      status,
+      message,
+      providerId,
+      nodeId: node.id,
+      nodeName: node.name,
+      modelId: model.modelId,
+      apiFormat: params.apiFormat,
+      latencyMs,
+      requiredCapabilities,
+    };
+  } finally {
+    clearTimeout(timeout);
+    params.requestSignal?.removeEventListener("abort", abortFromRequest);
+  }
 }
 
 async function primeStreamingResponse(upstream: Response): Promise<{
@@ -1389,6 +1638,11 @@ async function primeStreamingResponse(upstream: Response): Promise<{
 
   observation.firstChunkAt = Date.now();
   observation.bytes += first.value.byteLength;
+  const decoder = new TextDecoder();
+  let scanTail = decoder.decode(first.value, { stream: true }).slice(-512);
+  if (scanTail.includes("event: error") && scanTail.includes('"type":"local_node_stream_error"')) {
+    observation.localStreamError = true;
+  }
   let firstPending = true;
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
@@ -1404,6 +1658,10 @@ async function primeStreamingResponse(upstream: Response): Promise<{
         return;
       }
       observation.bytes += next.value.byteLength;
+      scanTail = `${scanTail}${decoder.decode(next.value, { stream: true })}`.slice(-512);
+      if (scanTail.includes("event: error") && scanTail.includes('"type":"local_node_stream_error"')) {
+        observation.localStreamError = true;
+      }
       controller.enqueue(next.value);
     },
     async cancel(reason) {
@@ -1420,6 +1678,38 @@ async function primeStreamingResponse(upstream: Response): Promise<{
     }),
     observation,
   };
+}
+
+async function reconcileLocalStreamFailure(params: {
+  observation: StreamObservation;
+  result: { providerId: string; attempts: ProviderAttemptMetric[] };
+  providers: ProviderRuntime[];
+  routerKeyHash: string;
+}): Promise<void> {
+  if (!params.observation.localStreamError) return;
+  const provider = params.providers.find((candidate) => candidate.id === params.result.providerId);
+  if (provider?.providerType !== "local-ollama" || !provider.localNodeId) return;
+  const message = "Local model stream failed after output started";
+  const selected = params.result.attempts.find(
+    (attempt) => attempt.providerId === params.result.providerId && attempt.success,
+  );
+  if (selected) {
+    selected.success = false;
+    selected.message = message;
+    selected.failureType = "connection_error";
+    selected.retryable = false;
+    selected.recoveryAction = "stop";
+  }
+  await Promise.all([
+    recordRoutingStreamFailure(params.routerKeyHash, params.result.providerId, message),
+    provider.model
+      ? recordLocalProviderAttempt(provider.localNodeId, provider.model, {
+          success: false,
+          latencyMs: selected?.latencyMs ?? 0,
+          message,
+        })
+      : Promise.resolve(),
+  ]);
 }
 
 async function pipeStreamingBody(
@@ -1965,12 +2255,13 @@ async function handleRequestCore(
 
     if (request.method === "GET" && url.pathname === "/api/auth/config") {
       const publishableKey = clerkPublishableKey();
+      const configurationError = clerkConfigurationError();
       sendJson(
         response,
-        publishableKey ? 200 : 503,
-        publishableKey
+        !configurationError && publishableKey ? 200 : 503,
+        !configurationError && publishableKey
           ? { publishableKey }
-          : { error: "Authentication is not configured" },
+          : { error: configurationError ?? "Authentication is not configured" },
       );
       return;
     }
@@ -2005,17 +2296,344 @@ async function handleRequestCore(
       return;
     }
 
+    if (request.method === "POST" && url.pathname === "/api/local-nodes/pair") {
+      if (!(await allowLocalNodePairingAttempt(clientId(request)))) {
+        sendJson(response, 429, { error: "Too many local-node pairing attempts" });
+        return;
+      }
+      const body = await readJsonBody(request);
+      if (typeof body.code !== "string" || !body.code.trim()) {
+        sendJson(response, 400, { error: "Pairing code is required" });
+        return;
+      }
+      if (typeof body.name !== "string") {
+        sendJson(response, 400, { error: "Node name is required" });
+        return;
+      }
+      if (body.runtime !== "ollama") {
+        sendJson(response, 400, { error: "Only the Ollama runtime is supported" });
+        return;
+      }
+      if (
+        body.models !== undefined &&
+        (!Array.isArray(body.models) ||
+          body.models.some(
+            (model) =>
+              !model ||
+              typeof model !== "object" ||
+              typeof (model as { id?: unknown }).id !== "string" ||
+              typeof (model as { enabled?: unknown }).enabled !== "boolean",
+          ))
+      ) {
+        sendJson(response, 400, { error: "Invalid local model selection" });
+        return;
+      }
+      try {
+        // Validate or initialize the signing key before consuming the one-time code.
+        const verificationKey = await localNodeVerificationKey();
+        const paired = await pairLocalNode({
+          code: body.code,
+          name: body.name,
+          runtime: "ollama",
+          ...(typeof body.cliVersion === "string"
+            ? { cliVersion: body.cliVersion }
+            : {}),
+          ...(Array.isArray(body.models)
+            ? {
+                models: body.models.filter(
+                  (model): model is { id: string; enabled: boolean } =>
+                    Boolean(model) &&
+                    typeof model === "object" &&
+                    typeof (model as { id?: unknown }).id === "string" &&
+                    typeof (model as { enabled?: unknown }).enabled === "boolean",
+                ),
+              }
+            : {}),
+        });
+        sendJson(response, 201, {
+          ...paired,
+          verificationKey,
+        });
+      } catch (error) {
+        if (error instanceof LocalNodePairingError) {
+          sendJson(response, 400, { error: error.message, code: error.code });
+        } else if (
+          error instanceof Error &&
+          error.message.includes("LOCAL_NODE_SIGNING_PRIVATE_KEY")
+        ) {
+          sendJson(response, 503, {
+            error: error.message,
+            code: "local_node_signing_key_unavailable",
+          });
+        } else {
+          throw error;
+        }
+      }
+      return;
+    }
+
+    const localNodeDeviceMatch = url.pathname.match(
+      /^\/api\/local-nodes\/([^/]+)\/(heartbeat|endpoint|models\/sync|rotate-credential|revoke)$/,
+    );
+    if (request.method === "POST" && localNodeDeviceMatch?.[1] && localNodeDeviceMatch[2]) {
+      const nodeId = decodeURIComponent(localNodeDeviceMatch[1]);
+      const deviceCredential = bearerToken(request);
+      const deviceNode = deviceCredential
+        ? await authenticateLocalNode(nodeId, deviceCredential)
+        : undefined;
+      if (!deviceNode) {
+        sendJson(response, 401, { error: "Invalid or revoked node credential" });
+        return;
+      }
+      const body = await readJsonBody(request);
+      try {
+        if (localNodeDeviceMatch[2] === "heartbeat") {
+          if (
+            typeof body.agentVersion !== "string" ||
+            typeof body.activeRequests !== "number" ||
+            !Number.isInteger(body.activeRequests) ||
+            typeof body.maxConcurrentRequests !== "number" ||
+            !Number.isInteger(body.maxConcurrentRequests)
+          ) {
+            sendJson(response, 400, { error: "Invalid heartbeat payload" });
+            return;
+          }
+          const rawModels = body.models;
+          const models = rawModels === undefined
+            ? undefined
+            : Array.isArray(rawModels)
+              ? rawModels.filter((item): item is { id: string; installed: boolean; loaded?: boolean } =>
+                  Boolean(item) &&
+                  typeof item === "object" &&
+                  typeof (item as { id?: unknown }).id === "string" &&
+                  typeof (item as { installed?: unknown }).installed === "boolean"
+                )
+              : undefined;
+          if (rawModels !== undefined && (!models || !Array.isArray(rawModels) || models.length !== rawModels.length)) {
+            sendJson(response, 400, { error: "Invalid heartbeat model inventory" });
+            return;
+          }
+          const node = await recordLocalNodeHeartbeat(nodeId, {
+            agentVersion: body.agentVersion,
+            ...(typeof body.ollamaVersion === "string"
+              ? { ollamaVersion: body.ollamaVersion }
+              : {}),
+            activeRequests: body.activeRequests,
+            maxConcurrentRequests: body.maxConcurrentRequests,
+            ...(models ? { models } : {}),
+          });
+          sendJson(response, node ? 200 : 404, node ?? { error: "Local node not found" });
+          return;
+        }
+        if (localNodeDeviceMatch[2] === "endpoint") {
+          if (typeof body.endpoint !== "string") {
+            sendJson(response, 400, { error: "Tunnel endpoint is required" });
+            return;
+          }
+          const node = await registerLocalNodeEndpoint(nodeId, body.endpoint);
+          sendJson(response, node ? 200 : 404, node ?? { error: "Local node not found" });
+          return;
+        }
+        if (localNodeDeviceMatch[2] === "models/sync") {
+          if (!Array.isArray(body.models)) {
+            sendJson(response, 400, { error: "Model inventory is required" });
+            return;
+          }
+          const models = body.models.filter((item): item is { id: string; installed: boolean; loaded?: boolean } =>
+            Boolean(item) &&
+            typeof item === "object" &&
+            typeof (item as { id?: unknown }).id === "string" &&
+            typeof (item as { installed?: unknown }).installed === "boolean"
+          );
+          if (models.length !== body.models.length) {
+            sendJson(response, 400, { error: "Invalid model inventory" });
+            return;
+          }
+          const node = await syncLocalNodeModels(nodeId, models);
+          sendJson(response, node ? 200 : 404, node ?? { error: "Local node not found" });
+          return;
+        }
+        if (localNodeDeviceMatch[2] === "rotate-credential") {
+          const rotated = await rotateLocalNodeCredential(nodeId);
+          sendJson(response, rotated ? 200 : 404, rotated ?? { error: "Local node not found" });
+          return;
+        }
+        const revoked = await revokeLocalNode(deviceNode.ownerAccountId, nodeId);
+        sendJson(response, revoked ? 200 : 404, revoked ?? { error: "Local node not found" });
+        return;
+      } catch (error) {
+        if (error instanceof LocalNodeValidationError) {
+          sendJson(response, 400, { error: error.message });
+          return;
+        }
+        throw error;
+      }
+    }
+
     if (
       url.pathname === "/api/me" ||
       url.pathname.startsWith("/api/providers") ||
       url.pathname.startsWith("/api/router") ||
-      url.pathname.startsWith("/api/playground")
+      url.pathname.startsWith("/api/playground") ||
+      url.pathname.startsWith("/api/local-nodes")
     ) {
       const routerKey = bearerToken(request);
       const userId = await sessionUserId(request);
-      if (!routerKey || !userId || !(await findAccountForUser(routerKey, userId))) {
+      const authorizedAccount = routerKey && userId
+        ? await findAccountForUser(routerKey, userId)
+        : undefined;
+      if (!routerKey || !userId || !authorizedAccount) {
         sendJson(response, 401, { error: "Signed-in router access required" });
         return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/local-nodes/pairing-code"
+      ) {
+        sendJson(
+          response,
+          201,
+          await createLocalNodePairingCode(authorizedAccount.id),
+        );
+        return;
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/local-nodes") {
+        sendJson(response, 200, {
+          nodes: await listLocalNodes(authorizedAccount.id),
+        });
+        return;
+      }
+
+      const localNodeModelMatch = url.pathname.match(
+        /^\/api\/local-nodes\/([^/]+)\/models\/([^/]+)(?:\/(test))?$/,
+      );
+      if (localNodeModelMatch?.[1] && localNodeModelMatch[2]) {
+        const nodeId = decodeURIComponent(localNodeModelMatch[1]);
+        const modelId = decodeURIComponent(localNodeModelMatch[2]);
+        try {
+          if (request.method === "PATCH" && !localNodeModelMatch[3]) {
+            const body = await readJsonBody(request);
+            const node = await updateLocalNodeModel(authorizedAccount.id, nodeId, modelId, {
+              ...(typeof body.enabled === "boolean" ? { enabled: body.enabled } : {}),
+              ...(body.capabilities && typeof body.capabilities === "object"
+                ? { capabilities: body.capabilities as Record<string, "supported" | "unsupported" | "unknown"> }
+                : {}),
+              ...(body.maxOutputTokens !== undefined
+                ? { maxOutputTokens: body.maxOutputTokens as number }
+                : {}),
+            });
+            sendJson(response, node ? 200 : 404, node ?? { error: "Local node not found" });
+            return;
+          }
+          if (request.method === "POST" && localNodeModelMatch[3] === "test") {
+            sendJson(response, 200, await testLocalNodeModel({
+              ownerAccountId: authorizedAccount.id,
+              nodeId,
+              modelId,
+            }));
+            return;
+          }
+        } catch (error) {
+          if (error instanceof LocalNodeValidationError) {
+            sendJson(response, 400, { error: error.message });
+            return;
+          }
+          throw error;
+        }
+      }
+
+      const localNodeTestMatch = url.pathname.match(
+        /^\/api\/local-nodes\/([^/]+)\/(test|test-all)$/,
+      );
+      if (request.method === "POST" && localNodeTestMatch?.[1] && localNodeTestMatch[2]) {
+        const nodeId = decodeURIComponent(localNodeTestMatch[1]);
+        const node = await getLocalNode(authorizedAccount.id, nodeId);
+        if (!node) {
+          sendJson(response, 404, { error: "Local node not found" });
+          return;
+        }
+        const body = await readJsonBody(request);
+        const modelIds = localNodeTestMatch[2] === "test-all"
+          ? node.models.filter((model) => model.enabled && model.installed).map((model) => model.modelId)
+          : [typeof body.modelId === "string" ? body.modelId : ""];
+        if (!modelIds.length || modelIds.some((modelId) => !modelId)) {
+          sendJson(response, 400, { error: "Select a local model to test" });
+          return;
+        }
+        const results = [];
+        for (const modelId of modelIds) {
+          try {
+            results.push({ modelId, ...(await testLocalNodeModel({
+              ownerAccountId: authorizedAccount.id,
+              nodeId,
+              modelId,
+            })) });
+          } catch (error) {
+            results.push({
+              modelId,
+              ok: false,
+              status: 502,
+              latencyMs: 0,
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+        sendJson(response, 200, { results });
+        return;
+      }
+
+      const localNodeMatch = url.pathname.match(/^\/api\/local-nodes\/([^/]+)$/);
+      const localNodeDeleteMatch = url.pathname.match(
+        /^\/api\/local-nodes\/([^/]+)\/permanent$/,
+      );
+      if (request.method === "DELETE" && localNodeDeleteMatch?.[1]) {
+        const nodeId = decodeURIComponent(localNodeDeleteMatch[1]);
+        const deleted = await deleteLocalNode(authorizedAccount.id, nodeId);
+        if (!deleted) {
+          sendJson(response, 404, { error: "Local node not found" });
+          return;
+        }
+        response.writeHead(204, {
+          "cache-control": "no-store",
+          "x-content-type-options": "nosniff",
+        });
+        response.end();
+        return;
+      }
+      if (localNodeMatch?.[1]) {
+        const nodeId = decodeURIComponent(localNodeMatch[1]);
+        if (request.method === "GET") {
+          const node = await getLocalNode(authorizedAccount.id, nodeId);
+          sendJson(response, node ? 200 : 404, node ?? { error: "Local node not found" });
+          return;
+        }
+        if (request.method === "DELETE") {
+          const node = await revokeLocalNode(authorizedAccount.id, nodeId);
+          sendJson(response, node ? 200 : 404, node ?? { error: "Local node not found" });
+          return;
+        }
+        if (request.method === "PATCH") {
+          const body = await readJsonBody(request);
+          try {
+            const node = await updateLocalNode(authorizedAccount.id, nodeId, {
+              ...(typeof body.name === "string" ? { name: body.name } : {}),
+              ...(typeof body.routingMode === "string"
+                ? { routingMode: body.routingMode as "normal" | "prefer-local" | "local-only" }
+                : {}),
+              ...(body.limits && typeof body.limits === "object"
+                ? { limits: body.limits as Record<string, number> }
+                : {}),
+            });
+            sendJson(response, node ? 200 : 404, node ?? { error: "Local node not found" });
+          } catch (error) {
+            sendJson(response, 400, {
+              error: error instanceof Error ? error.message : "Invalid local node settings",
+            });
+          }
+          return;
+        }
       }
 
       if (request.method === "GET" && url.pathname === "/api/me") {
@@ -2151,6 +2769,39 @@ async function handleRequestCore(
         } catch (error) {
           sendJson(response, 400, {
             error: error instanceof Error ? error.message : "Direct playground request failed",
+          });
+        }
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/playground/local") {
+        const body = await readJsonBody(request);
+        const nodeId = typeof body.nodeId === "string" ? body.nodeId.trim() : "";
+        const modelId = typeof body.modelId === "string" ? body.modelId.trim() : "";
+        const requestBody = body.requestBody;
+        if (!nodeId || !modelId) {
+          sendJson(response, 400, { error: "Select a local node and model" });
+          return;
+        }
+        if (!requestBody || typeof requestBody !== "object" || Array.isArray(requestBody)) {
+          sendJson(response, 400, { error: "Playground request body must be an object" });
+          return;
+        }
+        try {
+          const controller = new AbortController();
+          request.once("aborted", () => controller.abort(new Error("Client disconnected")));
+          const result = await localNodePlaygroundRequest({
+            routerKey,
+            nodeId,
+            modelId,
+            apiFormat: playgroundApiFormat(body.apiFormat),
+            requestBody: requestBody as Record<string, unknown>,
+            requestSignal: controller.signal,
+          });
+          sendJson(response, 200, result);
+        } catch (error) {
+          sendJson(response, 400, {
+            error: error instanceof Error ? error.message : "Local playground request failed",
           });
         }
         return;
@@ -2501,7 +3152,7 @@ async function handleRequestCore(
       const requestedModel = typeof body.model === "string" && body.model.trim()
         ? body.model.trim()
         : "codex-free-router";
-      const { providers, router, policy, alias } = await createRoutedProviderRouter({
+      const { providers, router, policy, alias, localOnly } = await createRoutedProviderRouter({
         routerKey: token,
         routerKeyHash,
         providerKeys,
@@ -2510,7 +3161,9 @@ async function handleRequestCore(
         requestStartedAt: correlation.startedAt,
       });
       if (providers.length === 0) {
-        const message = alias?.eligibleProviderIds.length
+        const message = localOnly
+          ? "Local-only routing is enabled, but no owned local model is currently online and eligible"
+          : alias?.eligibleProviderIds.length
           ? `No configured provider is eligible for model alias "${alias.id}"`
           : "Add at least one provider API key in the dashboard";
         sendJson(response, 400, responsesError(
@@ -2633,6 +3286,12 @@ async function handleRequestCore(
               : {}),
             ...(streamDurationMs !== undefined ? { streamDurationMs } : {}),
             ...(usage ? { usage } : {}),
+          });
+          await reconcileLocalStreamFailure({
+            observation,
+            result,
+            providers,
+            routerKeyHash,
           });
           const performance = buildRequestPerformanceTiming({
             startedAt,
@@ -2800,7 +3459,7 @@ async function handleRequestCore(
       const requestedModel = typeof body.model === "string" && body.model.trim()
         ? body.model.trim()
         : "claude-free-router";
-      const { providers, router, policy, alias } = await createRoutedProviderRouter({
+      const { providers, router, policy, alias, localOnly } = await createRoutedProviderRouter({
         routerKey: token,
         routerKeyHash,
         providerKeys,
@@ -2809,7 +3468,9 @@ async function handleRequestCore(
         requestStartedAt: correlation.startedAt,
       });
       if (providers.length === 0) {
-        const message = alias?.eligibleProviderIds.length
+        const message = localOnly
+          ? "Local-only routing is enabled, but no owned local model is currently online and eligible"
+          : alias?.eligibleProviderIds.length
           ? `No configured provider is eligible for model alias "${alias.id}"`
           : "Add at least one provider API key in the dashboard";
         sendJson(response, 400, anthropicError(
@@ -2931,6 +3592,12 @@ async function handleRequestCore(
               : {}),
             ...(streamDurationMs !== undefined ? { streamDurationMs } : {}),
             ...(usage ? { usage } : {}),
+          });
+          await reconcileLocalStreamFailure({
+            observation,
+            result,
+            providers,
+            routerKeyHash,
           });
           const performance = buildRequestPerformanceTiming({
             startedAt,
@@ -3078,7 +3745,7 @@ async function handleRequestCore(
       const requestedModel = typeof body.model === "string" && body.model.trim()
         ? body.model.trim()
         : "free-router";
-      const { providers, router, policy, alias } = await createRoutedProviderRouter({
+      const { providers, router, policy, alias, localOnly } = await createRoutedProviderRouter({
         routerKey,
         routerKeyHash,
         providerKeys,
@@ -3087,7 +3754,9 @@ async function handleRequestCore(
         requestStartedAt: correlation.startedAt,
       });
       if (providers.length === 0) {
-        const message = alias?.eligibleProviderIds.length
+        const message = localOnly
+          ? "Local-only routing is enabled, but no owned local model is currently online and eligible"
+          : alias?.eligibleProviderIds.length
           ? `No configured provider is eligible for model alias "${alias.id}"`
           : "Add at least one provider API key in the dashboard";
         sendJson(response, 400, {
@@ -3208,6 +3877,12 @@ async function handleRequestCore(
             : {}),
           ...(streamDurationMs !== undefined ? { streamDurationMs } : {}),
           ...(usage ? { usage } : {}),
+        });
+        await reconcileLocalStreamFailure({
+          observation,
+          result,
+          providers,
+          routerKeyHash,
         });
         const performance = buildRequestPerformanceTiming({
           startedAt,

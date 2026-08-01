@@ -1,6 +1,6 @@
 {
   "name": "free-llm-router",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Bring your own LLM API keys and route OpenAI Chat Completions, OpenAI Responses/Codex, and Claude Code through one gateway.",
   "type": "module",
   "bin": {

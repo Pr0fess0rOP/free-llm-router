@@ -33,8 +33,9 @@ Imagine you have several different AI assistants (like different brands of smart
 - **Rate-Limit & Quota Protection:** Automatically honors `Retry-After` headers and tracks your free-tier limits to avoid unexpected charges.
 - **Request Deduplication:** Coalesces identical in-flight requests and briefly reuses successful responses, saving provider quota.
 - **Model Aliases & Capabilities:** Create virtual models (like `vision-router`) that only route to providers with specific capabilities.
-- **Comprehensive Dashboard:** Manage providers, test prompts in the Playground, and view detailed request analytics and performance timings.
+- **Comprehensive Dashboard:** Manage cloud and local providers with matching card flows, test routed, exact cloud, or exact Local LLM prompts in the Playground, and inspect detailed request analytics and performance timings.
 - **Full Compatibility:** Works out of the box as an OpenAI-compatible endpoint, Codex CLI gateway, and Claude Code gateway.
+- **Private Local Ollama Nodes:** Pair Ollama through a protected loopback agent and ngrok tunnel, manage limits and model capabilities per card, configure normal/local-first/local-only participation in Settings, and test exact local models in the Playground.
 
 ---
 
@@ -63,6 +64,9 @@ Create a `.env` file in the root directory:
 CLERK_SECRET_KEY=sk_test_your_clerk_secret_key
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_clerk_publishable_key
 
+# Recommended when deployed behind Vercel, a reverse proxy, or a custom domain
+CLERK_AUTHORIZED_PARTIES=https://your-dashboard.example.com
+
 # Strongly recommended for production (encrypts stored API keys)
 # Generate with: openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
 ACCOUNT_ENCRYPTION_KEY=your_32_byte_base64url_secret
@@ -84,6 +88,8 @@ The dashboard will start at `http://localhost:8787`.
 4. Head to the **Playground** to test your setup immediately!
 
 For detailed setup instructions, see [Getting Started](docs/GETTING_STARTED.md).
+
+To connect Ollama running on your own computer, see [Connect a private Ollama node](docs/CONNECT_LOCAL_LLM.md).
 
 ---
 

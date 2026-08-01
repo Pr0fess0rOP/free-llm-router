@@ -548,6 +548,7 @@ This index mirrors the dashboard's **Docs → Project Features** guide. It expla
 | 14 | Advanced analytics | Aggregates tokens, fallback paths, tool activity, structured-output validation, provider reliability, and safely detected client applications. | Filter the last seven days to see that Codex CLI generated 86 tool-enabled requests, Groq → Mistral was the most common fallback, and Mistral succeeded on 98% of attempts. |
 | 15 | Expanded dashboards | Provides dedicated Overview, Providers, APIs & Models, and Applications workspaces with shared filters and drill-down links to Request Logs. | Compare Groq's P95 attempt latency and fallback starts, then click **View logs** to inspect only Groq requests. |
 | 16 | Playground | Tests the configured router without writing a separate client. | Send a prompt with a selected API format and immediately inspect the chosen provider and response. |
+| 16A | Private Local LLM nodes | Pairs protected Ollama computers as first-class providers with per-node limits, per-model capabilities, Settings-level routing participation, and exact-model Playground tests. | An uppercase `OO` card represents Office Ollama; Local LLM mode calls `qwen3:8b` directly with a 256-token output cap while cloud fallback stays disabled. |
 | 17 | Recovery controls | Gives administrators compact actions for protected providers. | **Clear cooldown**, **Test recovery**, or **Reset circuit** restores service without deleting the provider key. |
 | 18 | Provider quotas | Tracks provider request/token usage and prevents configured free-tier limits from being exceeded. | At 80% usage a provider is deprioritized; at 100% it is skipped until the daily or monthly window resets. |
 | 19 | Retry and timeout controls | Separates transient retry/backoff rules from immediate provider failover while enforcing timeouts, deadlines, and attempt limits. | OpenRouter returns provider-specific `404` and fails over immediately; a later `503` uses the configured backoff before the next attempt. |
@@ -1170,11 +1171,13 @@ The landing page uses only local CSS, JavaScript, brand assets, and provider log
 
 ### Playground
 
-- API compatibility selector for OpenAI-compatible or Claude Code-compatible requests.
-- Sends the matching request shape to `/v1/chat/completions` or `/v1/messages`.
+- Three modes: **Router request**, exact hosted **Provider + model**, and exact **Local LLM**.
+- API compatibility selector for OpenAI Chat, Responses/Codex, or Claude Messages requests.
+- Local LLM mode selects one online node and enabled Ollama model, then calls it through the protected signed node connection without cloud ranking or fallback.
 - Prompt input.
 - Temperature.
-- Max tokens.
+- Output token cap.
+- Capability test scenarios for basic text, JSON, structured output, tools, and reasoning.
 - Test request button.
 - Endpoint and provider-used output.
 - Protocol-aware response display.
@@ -1192,15 +1195,15 @@ The Analysis workspace is split into two focused tabs so aggregate reporting doe
 
 The Docs workspace is divided into two tabs:
 
-- **Setup & Code** — cURL, JavaScript, Python, OpenAI SDK, Codex custom-provider, and Claude Code setup snippets.
-- **Project Features** — an indexed, example-driven guide to the complete request lifecycle, API compatibility, provider keys, all six routing policies, provider priority, retry/failover behavior, persistent cooldowns, circuit breakers, model aliases, capability-aware routing, the full chronological request timeline, request IDs and routing headers, Analysis logs, Playground testing, recovery controls, provider quotas, configurable retry/timeout controls, security, and storage.
+- **Setup & Code** — cURL, JavaScript, Python, OpenAI SDK, Local LLM pairing/gateway, Codex custom-provider, and Claude Code setup snippets.
+- **Project Features** — an indexed, example-driven guide to the complete request lifecycle, API compatibility, cloud providers, private Local LLM nodes, all six routing policies, provider priority, retry/failover behavior, persistent cooldowns, circuit breakers, model aliases, capability-aware routing, the full chronological request timeline, request IDs and routing headers, Analysis logs, all three Playground modes, recovery controls, provider quotas, configurable retry/timeout controls, security, and storage.
 
 ### Settings
 
 The Settings workspace is divided into three tabs:
 
 - **Account** — identity, login method, sign-in metadata, and session controls.
-- **Router & Policies** — contains nested **Routing Policies**, **Model Aliases**, and **Capability Registry** tabs so each workspace remains compact. Routing Policies contains the router identity, strategy, provider fallback order, provider/total/stream/probe timeouts, retry status codes, maximum attempts, backoff, jitter, and per-provider timeout overrides. Model aliases may override the three primary reliability limits.
+- **Router & Policies** — contains nested **Routing Policies**, **Model Aliases**, and **Capability Registry** tabs so each workspace remains compact. Routing Policies contains the router identity, strategy, cloud/local provider fallback order, Local LLM participation modes, provider/total/stream/probe timeouts, retry status codes, maximum attempts, backoff, jitter, and per-provider timeout overrides. Model aliases may override the three primary reliability limits.
 - **Logs & Data** — storage/security information and analytics-log deletion.
 
 ---

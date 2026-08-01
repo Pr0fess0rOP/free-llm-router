@@ -1,0 +1,1497 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/lemy47",
+    "id": "lemy47",
+    "slide": 8,
+    "layoutId": "ce4bcb62-469b-4efa-9be7-c3a049a6df09",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "21b42a5c-fabc-46ff-b0ae-2b02f2fe5e2c",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Helvetica Neue"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "ce4bcb62-469b-4efa-9be7-c3a049a6df09",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "21b42a5c-fabc-46ff-b0ae-2b02f2fe5e2c",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "21b42a5c-fabc-46ff-b0ae-2b02f2fe5e2c",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/a1wb2t03",
+      "id": "1",
+      "name": "Google-Shape-532-p58-2",
+      "bbox": [
+        1184.18,
+        659.24,
+        54.48,
+        25.33
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.0"
+      },
+      "geometry": "rect",
+      "text": "8",
+      "textPreview": "8",
+      "resolvedFontSize": 13.33,
+      "resolvedTextStyle": {
+        "anchor": 3,
+        "fontSize": 13.33,
+        "typeface": "Helvetica Neue",
+        "color": "#000000",
+        "alignment": "right",
+        "verticalAlignment": "bottom",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "8"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "8",
+          "resolvedTextStyle": {
+            "anchor": 3,
+            "fontSize": 13.33,
+            "typeface": "Helvetica Neue",
+            "color": "#000000",
+            "alignment": "right",
+            "verticalAlignment": "bottom",
+            "wrap": "square",
+            "autoFit": "none",
+            "insets": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "8",
+              "anchor": 3,
+              "fontSize": 13.33,
+              "typeface": "Helvetica Neue",
+              "color": "#000000",
+              "alignment": "right",
+              "verticalAlignment": "bottom",
+              "wrap": "square",
+              "autoFit": "none",
+              "insets": {
+                "top": 0,
+                "right": 0,
+                "bottom": 0,
+                "left": 0
+              }
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/x4nudoze",
+      "id": "2",
+      "name": "Google-Shape-533-p58-3",
+      "bbox": [
+        41.33,
+        36.12,
+        1197.33,
+        109.97
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.1"
+      },
+      "geometry": "rect",
+      "text": "Models are routed by verified capabilities",
+      "textPreview": "Models are routed by verified capabilities",
+      "resolvedFontSize": 38.67,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 38.67,
+        "typeface": "Helvetica Neue",
+        "color": "#000000",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Models are routed by verified capabilities"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Models are routed by verified capabilities",
+          "lineSpacingPercent": 108000,
+          "resolvedTextStyle": {
+            "anchor": 1,
+            "fontSize": 38.67,
+            "typeface": "Helvetica Neue",
+            "color": "#000000",
+            "alignment": "left",
+            "verticalAlignment": "top",
+            "wrap": "square",
+            "autoFit": "none",
+            "insets": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Models are routed by verified capabilities",
+              "fontSize": 38.67,
+              "typeface": "Helvetica Neue",
+              "color": "#0F6B52",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/w3et43yt",
+      "id": "3",
+      "name": "Rounded-Rectangle-6-4",
+      "bbox": [
+        657.68,
+        248.8,
+        580.99,
+        172
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.2"
+      },
+      "geometry": "roundRect",
+      "fillColor": "#F2F2F2"
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jq5cfyhk",
+      "id": "4",
+      "name": "Content-Placeholder-10-5",
+      "bbox": [
+        688.89,
+        279.77,
+        523.56,
+        110.07
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.3"
+      },
+      "geometry": "rect",
+      "text": "Capability filtering\nTools, JSON, structured output, vision, reasoning, and streaming guide eligibility.",
+      "textPreview": "Capability filtering | Tools, JSON, structured output, vision, reasoning, and streaming guide eligibility.",
+      "resolvedFontSize": 32,
+      "resolvedTextStyle": {
+        "fontSize": 32,
+        "typeface": "Helvetica Neue",
+        "color": "#000000",
+        "alignment": "left",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Capability filtering"
+          },
+          {
+            "index": 2,
+            "text": "Tools, JSON, structured output, vision, reasoning, and streaming guide"
+          },
+          {
+            "index": 3,
+            "text": "eligibility."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Capability filtering",
+          "lineSpacingPercent": 108000,
+          "spaceAfter": 450,
+          "resolvedTextStyle": {
+            "fontSize": 32,
+            "typeface": "Helvetica Neue",
+            "color": "#000000",
+            "alignment": "left",
+            "autoFit": "shrinkText",
+            "insets": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Capability filtering",
+              "fontSize": 23,
+              "typeface": "Helvetica Neue",
+              "color": "#0F6B52",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "Tools, JSON, structured output, vision, reasoning, and streaming guide eligibility.",
+          "lineSpacingPercent": 108000,
+          "resolvedTextStyle": {
+            "fontSize": 32,
+            "typeface": "Helvetica Neue",
+            "color": "#000000",
+            "alignment": "left",
+            "autoFit": "shrinkText",
+            "insets": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Tools, JSON, structured output, vision, reasoning, and streaming guide eligibility.",
+              "fontSize": 17.51,
+              "typeface": "Helvetica Neue",
+              "color": "#53615C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ipwb6tgz",
+      "id": "5",
+      "name": "Rounded-Rectangle-8-6",
+      "bbox": [
+        42.94,
+        248.8,
+        580.99,
+        172
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.4"
+      },
+      "geometry": "roundRect",
+      "fillColor": "#F2F2F2"
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5s7uh8zq",
+      "id": "6",
+      "name": "Content-Placeholder-10-7",
+      "bbox": [
+        74.15,
+        279.77,
+        523.56,
+        110.07
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.5"
+      },
+      "geometry": "rect",
+      "text": "Stable aliases\nUse coding-router or vision-router while the underlying model changes independently.",
+      "textPreview": "Stable aliases | Use coding-router or vision-router while the underlying model changes independently.",
+      "resolvedFontSize": 32,
+      "resolvedTextStyle": {
+        "fontSize": 32,
+        "typeface": "Helvetica Neue",
+        "color": "#000000",
+        "alignment": "left",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Stable aliases"
+          },
+          {
+            "index": 2,
+            "text": "Use coding-router or vision-router while the underlying model changes"
+          },
+          {
+            "index": 3,
+            "text": "independently."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Stable aliases",
+          "lineSpacingPercent": 108000,
+          "spaceAfter": 450,
+          "resolvedTextStyle": {
+            "fontSize": 32,
+            "typeface": "Helvetica Neue",
+            "color": "#000000",
+            "alignment": "left",
+            "autoFit": "shrinkText",
+            "insets": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Stable aliases",
+              "fontSize": 23,
+              "typeface": "Helvetica Neue",
+              "color": "#0F6B52",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "Use coding-router or vision-router while the underlying model changes independently.",
+          "lineSpacingPercent": 108000,
+          "resolvedTextStyle": {
+            "fontSize": 32,
+            "typeface": "Helvetica Neue",
+            "color": "#000000",
+            "alignment": "left",
+            "autoFit": "shrinkText",
+            "insets": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Use coding-router or vision-router while the underlying model changes independently.",
+              "fontSize": 17.51,
+              "typeface": "Helvetica Neue",
+              "color": "#53615C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kryt83y5",
+      "id": "7",
+      "name": "Rounded-Rectangle-1-8",
+      "bbox": [
+        657.68,
+        458.8,
+        580.99,
+        172
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.6"
+      },
+      "geometry": "roundRect",
+      "fillColor": "#F2F2F2"
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7upcjihg",
+      "id": "8",
+      "name": "Content-Placeholder-10-9",
+      "bbox": [
+        688.89,
+        489.77,
+        523.56,
+        110.07
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.7"
+      },
+      "geometry": "rect",
+      "text": "Runtime evidence\nControlled probes and clear model rejections safely improve capability knowledge.",
+      "textPreview": "Runtime evidence | Controlled probes and clear model rejections safely improve capability knowledge.",
+      "resolvedFontSize": 32,
+      "resolvedTextStyle": {
+        "fontSize": 32,
+        "typeface": "Helvetica Neue",
+        "color": "#000000",
+        "alignment": "left",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Runtime evidence"
+          },
+          {
+            "index": 2,
+            "text": "Controlled probes and clear model rejections safely improve capability"
+          },
+          {
+            "index": 3,
+            "text": "knowledge."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Runtime evidence",
+          "lineSpacingPercent": 108000,
+          "spaceAfter": 450,
+          "resolvedTextStyle": {
+            "fontSize": 32,
+            "typeface": "Helvetica Neue",
+            "color": "#000000",
+            "alignment": "left",
+            "autoFit": "shrinkText",
+            "insets": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Runtime evidence",
+              "fontSize": 23,
+              "typeface": "Helvetica Neue",
+              "color": "#0F6B52",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "Controlled probes and clear model rejections safely improve capability knowledge.",
+          "lineSpacingPercent": 108000,
+          "resolvedTextStyle": {
+            "fontSize": 32,
+            "typeface": "Helvetica Neue",
+            "color": "#000000",
+            "alignment": "left",
+            "autoFit": "shrinkText",
+            "insets": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Controlled probes and clear model rejections safely improve capability knowledge.",
+              "fontSize": 17.51,
+              "typeface": "Helvetica Neue",
+              "color": "#53615C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6tgbadgv",
+      "id": "9",
+      "name": "Rounded-Rectangle-3-10",
+      "bbox": [
+        42.94,
+        458.8,
+        580.99,
+        172
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.8"
+      },
+      "geometry": "roundRect",
+      "fillColor": "#F2F2F2"
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/476pkre9",
+      "id": "10",
+      "name": "Content-Placeholder-10-11",
+      "bbox": [
+        74.15,
+        489.77,
+        523.56,
+        110.07
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.9"
+      },
+      "geometry": "rect",
+      "text": "Model catalogs\nSave several provider models, test them, and explicitly activate one for production.",
+      "textPreview": "Model catalogs | Save several provider models, test them, and explicitly activate one for production.",
+      "resolvedFontSize": 32,
+      "resolvedTextStyle": {
+        "fontSize": 32,
+        "typeface": "Helvetica Neue",
+        "color": "#000000",
+        "alignment": "left",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Model catalogs"
+          },
+          {
+            "index": 2,
+            "text": "Save several provider models, test them, and explicitly activate one for"
+          },
+          {
+            "index": 3,
+            "text": "production."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Model catalogs",
+          "lineSpacingPercent": 108000,
+          "spaceAfter": 450,
+          "resolvedTextStyle": {
+            "fontSize": 32,
+            "typeface": "Helvetica Neue",
+            "color": "#000000",
+            "alignment": "left",
+            "autoFit": "shrinkText",
+            "insets": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Model catalogs",
+              "fontSize": 23,
+              "typeface": "Helvetica Neue",
+              "color": "#0F6B52",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "Save several provider models, test them, and explicitly activate one for production.",
+          "lineSpacingPercent": 108000,
+          "resolvedTextStyle": {
+            "fontSize": 32,
+            "typeface": "Helvetica Neue",
+            "color": "#000000",
+            "alignment": "left",
+            "autoFit": "shrinkText",
+            "insets": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Save several provider models, test them, and explicitly activate one for production.",
+              "fontSize": 17.51,
+              "typeface": "Helvetica Neue",
+              "color": "#53615C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/p8z6dwvu",
+      "id": "11",
+      "name": "Content-Placeholder-15-12",
+      "bbox": [
+        42.09,
+        111.02,
+        1197.33,
+        106.27
+      ],
+      "composeSource": {
+        "run": 1,
+        "path": "0.10"
+      },
+      "geometry": "rect",
+      "text": "MODEL INTELLIGENCE\nThe router evaluates the exact active provider-model pair—not merely whether a provider is connected.",
+      "textPreview": "MODEL INTELLIGENCE | The router evaluates the exact active provider-model pair—not merely whether a provider is connected.",
+      "resolvedFontSize": 21.33,
+      "resolvedTextStyle": {
+        "fontSize": 21.33,
+        "typeface": "Helvetica Neue",
+        "color": "#000000",
+        "alignment": "left",
+        "autoFit": "none",
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MODEL INTELLIGENCE"
+          },
+          {
+            "index": 2,
+            "text": "The router evaluates the exact active provider-model pair—not merely whether a provider is connected."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MODEL INTELLIGENCE",
+          "lineSpacingPercent": 108000,
+          "spaceAfter": 500,
+          "resolvedTextStyle": {
+            "fontSize": 21.33,
+            "typeface": "Helvetica Neue",
+            "color": "#000000",
+            "alignment": "left",
+            "autoFit": "none",
+            "insets": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MODEL INTELLIGENCE",
+              "fontSize": 18,
+              "typeface": "Helvetica Neue",
+              "color": "#0F6B52",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "The router evaluates the exact active provider-model pair—not merely whether a provider is connected.",
+          "lineSpacingPercent": 108000,
+          "resolvedTextStyle": {
+            "fontSize": 21.33,
+            "typeface": "Helvetica Neue",
+            "color": "#000000",
+            "alignment": "left",
+            "autoFit": "none",
+            "insets": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The router evaluates the exact active provider-model pair—not merely whether a provider is connected.",
+              "fontSize": 19,
+              "typeface": "Helvetica Neue",
+              "color": "#111A17"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    }
+  ],
+  "composeRuns": [
+    {
+      "index": 1,
+      "frame": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "baseUnit": 1,
+      "root": {
+        "path": "0",
+        "kind": "layers",
+        "name": "codex-grid-layout-library#slide-12",
+        "requestedSize": {
+          "width": {
+            "mode": "fill",
+            "value": 1
+          },
+          "height": {
+            "mode": "fill",
+            "value": 1
+          }
+        },
+        "intrinsicSize": {
+          "width": 1239.42,
+          "height": 684.57
+        },
+        "frame": {
+          "left": 0,
+          "top": 0,
+          "width": 1280,
+          "height": 720
+        },
+        "children": [
+          {
+            "path": "0.0",
+            "kind": "text",
+            "name": "Google-Shape-532-p58-2",
+            "position": {
+              "left": 1184.18,
+              "top": 659.24
+            },
+            "requestedSize": {
+              "width": {
+                "mode": "fixed",
+                "value": 54.48
+              },
+              "height": {
+                "mode": "fixed",
+                "value": 25.33
+              }
+            },
+            "intrinsicSize": {
+              "width": 54.48,
+              "height": 25.33
+            },
+            "frame": {
+              "left": 1184.18,
+              "top": 659.24,
+              "width": 54.48,
+              "height": 25.33
+            },
+            "snappedFrame": {
+              "left": 1184.18,
+              "top": 659.24,
+              "width": 54.48,
+              "height": 25.33
+            },
+            "children": [],
+            "text": "8",
+            "transform": "none",
+            "element": {
+              "aid": "sh/a1wb2t03",
+              "id": "1",
+              "kind": "shape"
+            }
+          },
+          {
+            "path": "0.1",
+            "kind": "text",
+            "name": "Google-Shape-533-p58-3",
+            "position": {
+              "left": 41.33,
+              "top": 36.12
+            },
+            "requestedSize": {
+              "width": {
+                "mode": "fixed",
+                "value": 1197.33
+              },
+              "height": {
+                "mode": "fixed",
+                "value": 109.97
+              }
+            },
+            "intrinsicSize": {
+              "width": 1197.33,
+              "height": 109.97
+            },
+            "frame": {
+              "left": 41.33,
+              "top": 36.12,
+              "width": 1197.33,
+              "height": 109.97
+            },
+            "snappedFrame": {
+              "left": 41.33,
+              "top": 36.12,
+              "width": 1197.33,
+              "height": 109.97
+            },
+            "children": [],
+            "text": "Models are routed by verified capabilities",
+            "transform": "none",
+            "element": {
+              "aid": "sh/x4nudoze",
+              "id": "2",
+              "kind": "shape"
+            }
+          },
+          {
+            "path": "0.2",
+            "kind": "shape",
+            "name": "Rounded-Rectangle-6-4",
+            "position": {
+              "left": 657.68,
+              "top": 248.8
+            },
+            "requestedSize": {
+              "width": {
+                "mode": "fixed",
+                "value": 580.99
+              },
+              "height": {
+                "mode": "fixed",
+                "value": 172
+              }
+            },
+            "intrinsicSize": {
+              "width": 580.99,
+              "height": 172
+            },
+            "frame": {
+              "left": 657.68,
+              "top": 248.8,
+              "width": 580.99,
+              "height": 172
+            },
+            "snappedFrame": {
+              "left": 657.68,
+              "top": 248.8,
+              "width": 580.99,
+              "height": 172
+            },
+            "children": [],
+            "geometry": "roundRect",
+            "element": {
+              "aid": "sh/w3et43yt",
+              "id": "3",
+              "kind": "shape"
+            }
+          },
+          {
+            "path": "0.3",
+            "kind": "text",
+            "name": "Content-Placeholder-10-5",
+            "position": {
+              "left": 688.89,
+              "top": 279.77
+            },
+            "requestedSize": {
+              "width": {
+                "mode": "fixed",
+                "value": 523.56
+              },
+              "height": {
+                "mode": "fixed",
+                "value": 110.07
+              }
+            },
+            "intrinsicSize": {
+              "width": 523.56,
+              "height": 110.07
+            },
+            "frame": {
+              "left": 688.89,
+              "top": 279.77,
+              "width": 523.56,
+              "height": 110.07
+            },
+            "snappedFrame": {
+              "left": 688.89,
+              "top": 279.77,
+              "width": 523.56,
+              "height": 110.07
+            },
+            "children": [],
+            "text": "Capability filtering\nTools, JSON, structured output, vision, reasoning, and streaming guide eligibility.",
+            "transform": "none",
+            "element": {
+              "aid": "sh/jq5cfyhk",
+              "id": "4",
+              "kind": "shape"
+            }
+          },
+          {
+            "path": "0.4",
+            "kind": "shape",
+            "name": "Rounded-Rectangle-8-6",
+            "position": {
+              "left": 42.94,
+              "top": 248.8
+            },
+            "requestedSize": {
+              "width": {
+                "mode": "fixed",
+                "value": 580.99
+              },
+              "height": {
+                "mode": "fixed",
+                "value": 172
+              }
+            },
+            "intrinsicSize": {
+              "width": 580.99,
+              "height": 172
+            },
+            "frame": {
+              "left": 42.94,
+              "top": 248.8,
+              "width": 580.99,
+              "height": 172
+            },
+            "snappedFrame": {
+              "left": 42.94,
+              "top": 248.8,
+              "width": 580.99,
+              "height": 172
+            },
+            "children": [],
+            "geometry": "roundRect",
+            "element": {
+              "aid": "sh/ipwb6tgz",
+              "id": "5",
+              "kind": "shape"
+            }
+          },
+          {
+            "path": "0.5",
+            "kind": "text",
+            "name": "Content-Placeholder-10-7",
+            "position": {
+              "left": 74.15,
+              "top": 279.77
+            },
+            "requestedSize": {
+              "width": {
+                "mode": "fixed",
+                "value": 523.56
+              },
+              "height": {
+                "mode": "fixed",
+                "value": 110.07
+              }
+            },
+            "intrinsicSize": {
+              "width": 523.56,
+              "height": 110.07
+            },
+            "frame": {
+              "left": 74.15,
+              "top": 279.77,
+              "width": 523.56,
+              "height": 110.07
+            },
+            "snappedFrame": {
+              "left": 74.15,
+              "top": 279.77,
+              "width": 523.56,
+              "height": 110.07
+            },
+            "children": [],
+            "text": "Stable aliases\nUse coding-router or vision-router while the underlying model changes independently.",
+            "transform": "none",
+            "element": {
+              "aid": "sh/5s7uh8zq",
+              "id": "6",
+              "kind": "shape"
+            }
+          },
+          {
+            "path": "0.6",
+            "kind": "shape",
+            "name": "Rounded-Rectangle-1-8",
+            "position": {
+              "left": 657.68,
+              "top": 458.8
+            },
+            "requestedSize": {
+              "width": {
+                "mode": "fixed",
+                "value": 580.99
+              },
+              "height": {
+                "mode": "fixed",
+                "value": 172
+              }
+            },
+            "intrinsicSize": {
+              "width": 580.99,
+              "height": 172
+            },
+            "frame": {
+              "left": 657.68,
+              "top": 458.8,
+              "width": 580.99,
+              "height": 172
+            },
+            "snappedFrame": {
+              "left": 657.68,
+              "top": 458.8,
+              "width": 580.99,
+              "height": 172
+            },
+            "children": [],
+            "geometry": "roundRect",
+            "element": {
+              "aid": "sh/kryt83y5",
+              "id": "7",
+              "kind": "shape"
+            }
+          },
+          {
+            "path": "0.7",
+            "kind": "text",
+            "name": "Content-Placeholder-10-9",
+            "position": {
+              "left": 688.89,
+              "top": 489.77
+            },
+            "requestedSize": {
+              "width": {
+                "mode": "fixed",
+                "value": 523.56
+              },
+              "height": {
+                "mode": "fixed",
+                "value": 110.07
+              }
+            },
+            "intrinsicSize": {
+              "width": 523.56,
+              "height": 110.07
+            },
+            "frame": {
+              "left": 688.89,
+              "top": 489.77,
+              "width": 523.56,
+              "height": 110.07
+            },
+            "snappedFrame": {
+              "left": 688.89,
+              "top": 489.77,
+              "width": 523.56,
+              "height": 110.07
+            },
+            "children": [],
+            "text": "Runtime evidence\nControlled probes and clear model rejections safely improve capability knowledge.",
+            "transform": "none",
+            "element": {
+              "aid": "sh/7upcjihg",
+              "id": "8",
+              "kind": "shape"
+            }
+          },
+          {
+            "path": "0.8",
+            "kind": "shape",
+            "name": "Rounded-Rectangle-3-10",
+            "position": {
+              "left": 42.94,
+              "top": 458.8
+            },
+            "requestedSize": {
+              "width": {
+                "mode": "fixed",
+                "value": 580.99
+              },
+              "height": {
+                "mode": "fixed",
+                "value": 172
+              }
+            },
+            "intrinsicSize": {
+              "width": 580.99,
+              "height": 172
+            },
+            "frame": {
+              "left": 42.94,
+              "top": 458.8,
+              "width": 580.99,
+              "height": 172
+            },
+            "snappedFrame": {
+              "left": 42.94,
+              "top": 458.8,
+              "width": 580.99,
+              "height": 172
+            },
+            "children": [],
+            "geometry": "roundRect",
+            "element": {
+              "aid": "sh/6tgbadgv",
+              "id": "9",
+              "kind": "shape"
+            }
+          },
+          {
+            "path": "0.9",
+            "kind": "text",
+            "name": "Content-Placeholder-10-11",
+            "position": {
+              "left": 74.15,
+              "top": 489.77
+            },
+            "requestedSize": {
+              "width": {
+                "mode": "fixed",
+                "value": 523.56
+              },
+              "height": {
+                "mode": "fixed",
+                "value": 110.07
+              }
+            },
+            "intrinsicSize": {
+              "width": 523.56,
+              "height": 110.07
+            },
+            "frame": {
+              "left": 74.15,
+              "top": 489.77,
+              "width": 523.56,
+              "height": 110.07
+            },
+            "snappedFrame": {
+              "left": 74.15,
+              "top": 489.77,
+              "width": 523.56,
+              "height": 110.07
+            },
+            "children": [],
+            "text": "Model catalogs\nSave several provider models, test them, and explicitly activate one for production.",
+            "transform": "none",
+            "element": {
+              "aid": "sh/476pkre9",
+              "id": "10",
+              "kind": "shape"
+            }
+          },
+          {
+            "path": "0.10",
+            "kind": "text",
+            "name": "Content-Placeholder-15-12",
+            "position": {
+              "left": 42.09,
+              "top": 111.02
+            },
+            "requestedSize": {
+              "width": {
+                "mode": "fixed",
+                "value": 1197.33
+              },
+              "height": {
+                "mode": "fixed",
+                "value": 106.27
+              }
+            },
+            "intrinsicSize": {
+              "width": 1197.33,
+              "height": 106.27
+            },
+            "frame": {
+              "left": 42.09,
+              "top": 111.02,
+              "width": 1197.33,
+              "height": 106.27
+            },
+            "snappedFrame": {
+              "left": 42.09,
+              "top": 111.02,
+              "width": 1197.33,
+              "height": 106.27
+            },
+            "children": [],
+            "text": "MODEL INTELLIGENCE\nThe router evaluates the exact active provider-model pair—not merely whether a provider is connected.",
+            "transform": "none",
+            "element": {
+              "aid": "sh/p8z6dwvu",
+              "id": "11",
+              "kind": "shape"
+            }
+          }
+        ],
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "alignItems": "stretch",
+        "justifyItems": "stretch",
+        "contentFrame": {
+          "left": 0,
+          "top": 0,
+          "width": 1280,
+          "height": 720
+        },
+        "items": [
+          {
+            "path": "0.0",
+            "frame": {
+              "left": 1184.18,
+              "top": 659.24,
+              "width": 54.48,
+              "height": 25.33
+            }
+          },
+          {
+            "path": "0.1",
+            "frame": {
+              "left": 41.33,
+              "top": 36.12,
+              "width": 1197.33,
+              "height": 109.97
+            }
+          },
+          {
+            "path": "0.2",
+            "frame": {
+              "left": 657.68,
+              "top": 248.8,
+              "width": 580.99,
+              "height": 172
+            }
+          },
+          {
+            "path": "0.3",
+            "frame": {
+              "left": 688.89,
+              "top": 279.77,
+              "width": 523.56,
+              "height": 110.07
+            }
+          },
+          {
+            "path": "0.4",
+            "frame": {
+              "left": 42.94,
+              "top": 248.8,
+              "width": 580.99,
+              "height": 172
+            }
+          },
+          {
+            "path": "0.5",
+            "frame": {
+              "left": 74.15,
+              "top": 279.77,
+              "width": 523.56,
+              "height": 110.07
+            }
+          },
+          {
+            "path": "0.6",
+            "frame": {
+              "left": 657.68,
+              "top": 458.8,
+              "width": 580.99,
+              "height": 172
+            }
+          },
+          {
+            "path": "0.7",
+            "frame": {
+              "left": 688.89,
+              "top": 489.77,
+              "width": 523.56,
+              "height": 110.07
+            }
+          },
+          {
+            "path": "0.8",
+            "frame": {
+              "left": 42.94,
+              "top": 458.8,
+              "width": 580.99,
+              "height": 172
+            }
+          },
+          {
+            "path": "0.9",
+            "frame": {
+              "left": 74.15,
+              "top": 489.77,
+              "width": 523.56,
+              "height": 110.07
+            }
+          },
+          {
+            "path": "0.10",
+            "frame": {
+              "left": 42.09,
+              "top": 111.02,
+              "width": 1197.33,
+              "height": 106.27
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

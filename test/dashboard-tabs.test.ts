@@ -337,21 +337,27 @@ test("capability registry exposes model-level overrides, probes, and strict rout
   assert.match(styles, /\.model-capability-limit-grid/);
 });
 
-test("playground separates routed and direct provider-model requests", async () => {
+test("playground separates routed, direct cloud, and Local LLM requests", async () => {
   const html = await readFile(new URL("public/dashboard.html", root), "utf8");
   const app = await readFile(new URL("public/app.js", root), "utf8");
   const server = await readFile(new URL("src/server.ts", root), "utf8");
 
   assert.match(html, /data-playground-mode="router"/);
   assert.match(html, /data-playground-mode="direct"/);
+  assert.match(html, /data-playground-mode="local"/);
   assert.match(html, /id="test-direct-provider"/);
   assert.match(html, /id="test-direct-model"/);
+  assert.match(html, /id="test-local-node"/);
+  assert.match(html, /id="test-local-model"/);
   assert.match(html, /Output token cap/);
   assert.match(app, /function switchPlaygroundMode\(mode\)/);
   assert.match(app, /\/api\/playground\/direct/);
+  assert.match(app, /\/api\/playground\/local/);
   assert.match(app, /ranking, fallback, cooldown, and circuit selection are bypassed/i);
   assert.match(server, /directProviderPlaygroundRequest/);
   assert.match(server, /url\.pathname === "\/api\/playground\/direct"/);
+  assert.match(server, /localNodePlaygroundRequest/);
+  assert.match(server, /url\.pathname === "\/api\/playground\/local"/);
 });
 
 test("provider playground exposes an all-model health check with bounded concurrency", async () => {
@@ -384,7 +390,7 @@ test("playground uses compact request-mode tabs and a split parameters/results w
   const app = await readFile(new URL("public/app.js", root), "utf8");
   const styles = await readFile(new URL("public/styles.css", root), "utf8");
 
-  assert.deepEqual(attributeValues(html, "data-playground-mode"), ["router", "direct"]);
+  assert.deepEqual(attributeValues(html, "data-playground-mode"), ["router", "direct", "local"]);
   assert.match(html, /class="playground-mode-intro" data-playground-router-only/);
   assert.match(html, /class="playground-workspace"/);
   assert.match(html, /class="playground-parameters-panel"/);

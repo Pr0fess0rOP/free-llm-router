@@ -10,6 +10,7 @@ const state = {
   routerKey: localStorage.getItem(storageKey),
   sessionToken: null,
   providers: [],
+  localNodes: [],
   account: null,
   authUser: null,
   analytics: { requests: [], frequency: [] },
@@ -20,6 +21,8 @@ const state = {
   activeAnalyticsDashboard: "overview",
   activeSettingsTab: "account",
   activeRouterSettingsTab: "routing",
+  activeProviderWorkspace: "cloud",
+  expandedLocalNodeIds: new Set(),
   playgroundMode: "router",
   modelHealthTestRunning: false,
   modelHealthTestResults: [],
@@ -127,19 +130,29 @@ function notify(message) {
 }
 
 async function api(path, options = {}) {
-  const freshSessionToken =
+  let freshSessionToken =
     (await window.freeLlmClerk?.session?.getToken()) ?? state.sessionToken;
   state.sessionToken = freshSessionToken;
 
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      "content-type": "application/json",
-      ...(freshSessionToken ? { "x-clerk-session-token": freshSessionToken } : {}),
-      ...(state.routerKey ? { authorization: `Bearer ${state.routerKey}` } : {}),
-      ...options.headers,
-    },
-  });
+  const request = (sessionToken) => fetch(path, {
+      ...options,
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        ...(sessionToken ? { "x-clerk-session-token": sessionToken } : {}),
+        ...(state.routerKey ? { authorization: `Bearer ${state.routerKey}` } : {}),
+        ...options.headers,
+      },
+    });
+  let response = await request(freshSessionToken);
+  if (response.status === 401 && window.freeLlmClerk?.session) {
+    const refreshedToken = await window.freeLlmClerk.session.getToken({ skipCache: true });
+    if (refreshedToken) {
+      freshSessionToken = refreshedToken;
+      state.sessionToken = refreshedToken;
+      response = await request(refreshedToken);
+    }
+  }
 
   const body = response.status === 204 ? null : await response.json();
   if (!response.ok) {
@@ -159,11 +172,198 @@ function escapeHtml(value) {
 }
 
 function providerDisplayName(providerId) {
-  return state.providers.find((provider) => provider.id === providerId)?.name ?? providerId;
+  return providerById(providerId)?.name ?? providerId;
+}
+
+function localRoutingProviders() {
+  return (state.localNodes ?? []).flatMap((node) => (node.models ?? [])
+    .filter((model) => model.enabled)
+    .map((model) => ({
+      id: `local-node:${node.id}:model:${model.modelId}`,
+      name: `${node.name} (local)`,
+      model: model.modelId,
+      configured: true,
+      local: true,
+      capabilities: {
+        streaming: model.capabilities?.streaming ?? "unknown",
+        tools: model.capabilities?.tools ?? "unknown",
+        jsonMode: model.capabilities?.structuredOutputs ?? "unknown",
+        structuredOutputs: model.capabilities?.structuredOutputs ?? "unknown",
+        vision: model.capabilities?.vision ?? "unknown",
+        reasoning: model.capabilities?.reasoning ?? "unknown",
+        embeddings: "unsupported",
+      },
+      routingStats: {
+        attempts: model.lastTestedAt ? 1 : 0,
+        successes: model.health === "healthy" ? 1 : 0,
+        failures: ["error", "unavailable"].includes(model.health) ? 1 : 0,
+        averageLatencyMs: model.lastLatencyMs,
+      },
+    })));
+}
+
+function routableProviders() {
+  return [...configuredProviders(), ...localRoutingProviders()];
 }
 
 function providerById(providerId) {
-  return state.providers.find((provider) => provider.id === providerId);
+  return state.providers.find((provider) => provider.id === providerId)
+    ?? localRoutingProviders().find((provider) => provider.id === providerId);
+}
+
+function localNodeStatusLabel(status) {
+  return status === "online" ? "Online" : status === "unstable" ? "Unstable" : status === "revoked" ? "Revoked" : "Offline";
+}
+
+function localNodeEndpointLabel(endpoint) {
+  if (!endpoint) return "No tunnel";
+  try { return new URL(endpoint).hostname; } catch { return "Invalid endpoint"; }
+}
+
+function localNodeInitials(name) {
+  const parts = String(name ?? "Local").trim().split(/[^a-z0-9]+/i).filter(Boolean);
+  return (parts.length > 1 ? parts.slice(0, 2).map((part) => part[0]).join("") : parts[0]?.slice(0, 2) || "L")
+    .toUpperCase();
+}
+
+function localNodeStatusTone(status) {
+  if (status === "online") return "connected";
+  if (status === "unstable") return "cooldown";
+  if (status === "revoked") return "failed";
+  return "unknown";
+}
+
+function localNodeCapabilitySummary(node) {
+  const models = (node.models ?? []).filter((model) => model.enabled && model.installed);
+  const capabilities = ["streaming", "tools", "vision", "reasoning", "structuredOutputs"];
+  const supported = capabilities.filter((capability) =>
+    models.some((model) => model.capabilities?.[capability] === "supported"),
+  );
+  const unknown = capabilities.filter((capability) =>
+    !supported.includes(capability) && models.some((model) => model.capabilities?.[capability] === "unknown"),
+  );
+  return { supported, unknown };
+}
+
+function updateProviderWorkspaceCounts() {
+  const cloudCount = configuredProviders().length;
+  const localCount = state.localNodes.length;
+  const cloudLabel = $("#cloud-provider-tab-count");
+  const localLabel = $("#local-provider-tab-count");
+  if (cloudLabel) cloudLabel.textContent = `${cloudCount} connected`;
+  if (localLabel) localLabel.textContent = `${localCount} node${localCount === 1 ? "" : "s"}`;
+}
+
+function setProviderWorkspaceTab(workspace) {
+  const selected = workspace === "local" ? "local" : "cloud";
+  state.activeProviderWorkspace = selected;
+  $$('[data-provider-workspace-tab]').forEach((button) => {
+    const active = button.dataset.providerWorkspaceTab === selected;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  $$('[data-provider-workspace-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.providerWorkspacePanel !== selected;
+  });
+}
+
+function renderLocalNodes() {
+  const container = $("#local-node-list");
+  if (!container) return;
+  const nodes = state.localNodes ?? [];
+  updateProviderWorkspaceCounts();
+  if (!nodes.length) {
+    container.innerHTML = `<div class="local-node-empty"><strong>No local nodes connected</strong><span>Create a pairing code, then run the CLI beside Ollama.</span></div>`;
+    return;
+  }
+  container.innerHTML = nodes.map((node) => {
+    const activeModels = (node.models ?? []).filter((model) => model.enabled && model.installed);
+    const capabilitySummary = localNodeCapabilitySummary(node);
+    const statusTone = localNodeStatusTone(node.status);
+    return `<article class="provider-card local-node-card ${node.status === "revoked" ? "is-revoked" : ""}" data-local-node-id="${escapeHtml(node.id)}">
+      <div class="provider-card-top">
+        <div class="provider-card-header">
+          <span class="provider-logo-wrap logo-fallback local-node-letter-icon" aria-hidden="true">${escapeHtml(localNodeInitials(node.name))}</span>
+          <div class="provider-title-block">
+            <h3>${escapeHtml(node.name)}</h3>
+            <span>${escapeHtml(node.ollamaVersion ? `Ollama ${node.ollamaVersion}` : "Private Ollama node")}</span>
+            <small class="provider-model-count">${activeModels.length} enabled model${activeModels.length === 1 ? "" : "s"} · ${escapeHtml(node.cliVersion ?? "CLI version unknown")}</small>
+          </div>
+        </div>
+        <span class="status ${statusTone}">${escapeHtml(localNodeStatusLabel(node.status))}</span>
+      </div>
+
+      <p class="provider-description">Runs private models through the protected local agent at ${escapeHtml(localNodeEndpointLabel(node.endpoint))}. ${escapeHtml(node.lastHeartbeatAt ? `Last heartbeat ${formatTimestamp(node.lastHeartbeatAt)}.` : "Waiting for its first heartbeat.")}</p>
+      ${node.cliVersionWarning ? `<small class="local-node-warning">${escapeHtml(node.cliVersionWarning)}</small>` : ""}
+
+      <div class="provider-capability-block">
+        <div class="provider-capability-heading">
+          <span>Enabled model capabilities</span>
+          <small>${capabilitySummary.supported.length} supported · ${capabilitySummary.unknown.length} unverified</small>
+        </div>
+        <div class="provider-capability-list" aria-label="Local model capabilities">
+          ${capabilitySummary.supported.length
+            ? capabilitySummary.supported.map((capability) => `<span class="capability-chip supported"><span class="capability-chip-dot"></span>${escapeHtml(capabilityLabel(capability))}</span>`).join("")
+            : `<span class="capability-chip more">No verified capabilities</span>`}
+        </div>
+      </div>
+
+      <div class="provider-facts local-node-meta">
+        <span><small>Enabled models</small><strong>${activeModels.length}</strong></span>
+        <span><small>Active requests</small><strong>${node.activeRequests ?? 0}/${node.limits.maxConcurrentRequests}</strong></span>
+        <span><small>Routing</small><strong>${escapeHtml(node.routingMode === "prefer-local" ? "Prefer local" : node.routingMode === "local-only" ? "Local only" : "Normal order")}</strong></span>
+      </div>
+
+      <section class="local-node-config" data-local-config ${state.expandedLocalNodeIds.has(node.id) ? "" : "hidden"}>
+        <div class="local-node-config-heading">
+          <div><span class="summary-label">Node settings</span><h4>Limits and identity</h4></div>
+          <small>These controls apply only to this computer.</small>
+        </div>
+        <div class="local-node-settings-grid">
+          <label class="local-node-name-field"><span>Node name</span><input data-local-name maxlength="80" value="${escapeHtml(node.name)}" /></label>
+          <label><span>Concurrency</span><input data-local-limit="maxConcurrentRequests" type="number" min="1" max="32" value="${node.limits.maxConcurrentRequests}" /></label>
+          <label><span>Queue</span><input data-local-limit="maxQueueSize" type="number" min="0" max="100" value="${node.limits.maxQueueSize}" /></label>
+          <label><span>Max output</span><input data-local-limit="maxOutputTokens" type="number" min="1" value="${node.limits.maxOutputTokens}" /></label>
+          <label><span>Max input bytes</span><input data-local-limit="maxInputBytes" type="number" min="1024" value="${node.limits.maxInputBytes}" /></label>
+          <label><span>First token (ms)</span><input data-local-limit="firstTokenTimeoutMs" type="number" min="1000" value="${node.limits.firstTokenTimeoutMs}" /></label>
+          <label><span>Idle stream (ms)</span><input data-local-limit="idleTimeoutMs" type="number" min="1000" value="${node.limits.idleTimeoutMs}" /></label>
+          <label><span>Total generation (ms)</span><input data-local-limit="totalTimeoutMs" type="number" min="1000" value="${node.limits.totalTimeoutMs}" /></label>
+          <button class="secondary compact-button" type="button" data-local-save ${node.status === "revoked" ? "disabled" : ""}>Save node settings</button>
+        </div>
+        <div class="local-node-models-heading"><div><span class="summary-label">Installed models</span><h4>Enable and verify models</h4></div><small>Capability changes save immediately.</small></div>
+        <div class="local-node-models">
+          ${(node.models ?? []).length ? node.models.map((model) => `<div class="local-node-model-row" data-local-model-id="${escapeHtml(model.modelId)}">
+            <span class="local-model-letter-icon" aria-hidden="true">${escapeHtml((model.displayName ?? model.modelId).charAt(0).toUpperCase() || "M")}</span>
+            <label><input type="checkbox" data-local-model-toggle ${model.enabled ? "checked" : ""} ${!model.installed || node.status === "revoked" ? "disabled" : ""}/><span><strong>${escapeHtml(model.displayName ?? model.modelId)}</strong><small>${escapeHtml(model.installed ? model.health : "not installed")}${model.lastLatencyMs ? ` · ${model.lastLatencyMs} ms` : ""}</small></span></label>
+            <details class="local-node-capabilities"><summary>Capabilities</summary><div>${["streaming", "tools", "vision", "reasoning", "structuredOutputs"].map((capability) => `<label>${escapeHtml(capabilityLabel(capability))}<select data-local-capability="${capability}" ${node.status === "revoked" ? "disabled" : ""}>${["supported", "unknown", "unsupported"].map((value) => `<option value="${value}" ${model.capabilities?.[capability] === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>`).join("")}</div></details>
+            <button class="ghost compact-button" type="button" data-local-model-test ${!model.enabled || !model.installed || node.status !== "online" ? "disabled" : ""}>Test</button>
+          </div>`).join("") : `<div class="inline-empty">Waiting for the CLI to synchronize installed models.</div>`}
+        </div>
+      </section>
+
+      <div class="provider-card-footer">
+        <span class="provider-awareness-copy">
+          <span class="awareness-dot ${statusTone}"></span>
+          <span><strong>${escapeHtml(localNodeStatusLabel(node.status))}</strong><small>${escapeHtml(node.lastHeartbeatAt ? `Heartbeat ${formatTimestamp(node.lastHeartbeatAt)}` : "No heartbeat yet")}</small></span>
+        </span>
+        <span class="provider-actions local-node-card-actions">
+          <button class="model-configure-button" type="button" data-local-toggle-settings>${state.expandedLocalNodeIds.has(node.id) ? "Close settings" : "Manage node"}</button>
+          <button class="secondary compact-button local-node-action test-action" type="button" data-local-open-playground ${node.status !== "online" || !activeModels.length ? "disabled" : ""}>Playground</button>
+          <button class="secondary compact-button local-node-action test-action" type="button" data-local-test-all ${node.status !== "online" || !activeModels.length ? "disabled" : ""}>Test all</button>
+          <button class="secondary compact-button local-node-action revoke-action" type="button" data-local-revoke ${node.status === "revoked" ? "disabled" : ""}>${node.status === "revoked" ? "Revoked" : "Revoke"}</button>
+          <button class="secondary compact-button local-node-action delete-action" type="button" data-local-delete>Delete</button>
+        </span>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+async function loadLocalNodes() {
+  if (!state.routerKey) return;
+  const payload = await api("/api/local-nodes");
+  state.localNodes = Array.isArray(payload.nodes) ? payload.nodes : [];
+  renderLocalNodes();
 }
 
 const routingStrategyLabels = {
@@ -282,7 +482,7 @@ function defaultModelForApi(apiFormat) {
 }
 
 function normalizeAliasProviderOrder(alias) {
-  const configuredIds = configuredProviders().map((provider) => provider.id);
+  const configuredIds = routableProviders().map((provider) => provider.id);
   const saved = Array.isArray(alias.providerOrder) ? alias.providerOrder : [];
   return [
     ...saved.filter((id) => configuredIds.includes(id)),
@@ -517,7 +717,7 @@ function providerEvaluationReason(evaluation, selectedProviderId, selectedCandid
 }
 
 function normalizedRoutingProviderOrder() {
-  const configuredIds = configuredProviders().map((provider) => provider.id);
+  const configuredIds = routableProviders().map((provider) => provider.id);
   const saved = state.account?.routingPolicy?.providerOrder ?? [];
   return [
     ...saved.filter((id) => configuredIds.includes(id)),
@@ -1221,6 +1421,23 @@ const completion = await client.chat.completions.create({
 });
 
 console.log(completion.choices[0].message.content);`,
+    local: `# 1. In Providers → Local LLMs, create a one-time pairing code.
+npx @free-llm-router/cli connect ollama \
+  --code FLR-XXXX-XXXX \
+  --router-url ${gatewayUrl}
+
+# 2. Choose Normal, Prefer local, or Local only under
+#    Settings → Router & Policies → Routing Policies.
+
+# 3. Call the same gateway. The selected local Ollama model remains private.
+curl ${baseUrl}/chat/completions \
+  -H "Authorization: Bearer ${key}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "free-router",
+    "messages": [{"role": "user", "content": "Reply from my local model"}],
+    "max_tokens": 256
+  }'`,
     codex: `# PowerShell
 $env:FREE_LLM_ROUTER_KEY = "${key}"
 
@@ -1363,6 +1580,7 @@ function renderProviders(query = "") {
       .includes(normalized);
   });
   const providerList = $("#provider-list");
+  updateProviderWorkspaceCounts();
   if (!providerList) return;
 
   providerList.innerHTML = providers.map((provider) => {
@@ -3160,7 +3378,7 @@ function renderModelAliases() {
   );
 
   const aliases = state.modelAliasesDraft;
-  const configured = configuredProviders();
+  const configured = routableProviders();
   const activeCount = aliases.filter((alias) => alias.enabled !== false).length;
   const countBadge = $("#model-alias-count");
   if (countBadge) countBadge.textContent = `${activeCount} active`;
@@ -3548,8 +3766,42 @@ function renderPlaygroundDirectProviderOptions(forceFirst = false) {
   renderPlaygroundDirectModelOptions(forceFirst);
 }
 
+function playableLocalNodes() {
+  return (state.localNodes ?? []).filter((node) =>
+    node.status === "online" && (node.models ?? []).some((model) => model.enabled && model.installed),
+  );
+}
+
+function renderPlaygroundLocalModelOptions(forceFirst = false) {
+  const nodeSelect = $("#test-local-node");
+  const modelSelect = $("#test-local-model");
+  if (!nodeSelect || !modelSelect) return;
+  const node = state.localNodes.find((candidate) => candidate.id === nodeSelect.value)
+    ?? playableLocalNodes()[0];
+  const models = (node?.models ?? []).filter((model) => model.enabled && model.installed);
+  const previous = forceFirst ? models[0]?.modelId : modelSelect.value || models[0]?.modelId;
+  modelSelect.innerHTML = models.map((model) => `
+    <option value="${escapeHtml(model.modelId)}">${escapeHtml(model.displayName ?? model.modelId)} · ${escapeHtml(model.health)}</option>
+  `).join("");
+  const selected = models.some((model) => model.modelId === previous) ? previous : models[0]?.modelId;
+  if (selected) modelSelect.value = selected;
+}
+
+function renderPlaygroundLocalNodeOptions(forceFirst = false) {
+  const select = $("#test-local-node");
+  if (!select) return;
+  const nodes = playableLocalNodes();
+  const previous = forceFirst ? nodes[0]?.id : select.value || nodes[0]?.id;
+  select.innerHTML = nodes.map((node) => `
+    <option value="${escapeHtml(node.id)}">${escapeHtml(localNodeInitials(node.name))} · ${escapeHtml(node.name)}</option>
+  `).join("");
+  const selected = nodes.some((node) => node.id === previous) ? previous : nodes[0]?.id;
+  if (selected) select.value = selected;
+  renderPlaygroundLocalModelOptions(forceFirst);
+}
+
 function switchPlaygroundMode(mode) {
-  state.playgroundMode = mode === "direct" ? "direct" : "router";
+  state.playgroundMode = ["direct", "local"].includes(mode) ? mode : "router";
   $$('[data-playground-mode]').forEach((button) => {
     const active = button.dataset.playgroundMode === state.playgroundMode;
     button.classList.toggle("active", active);
@@ -3561,8 +3813,13 @@ function switchPlaygroundMode(mode) {
   $$('[data-playground-direct-only]').forEach((element) => {
     element.hidden = state.playgroundMode !== "direct";
   });
+  $$('[data-playground-local-only]').forEach((element) => {
+    element.hidden = state.playgroundMode !== "local";
+  });
   if (state.playgroundMode === "direct") {
     renderPlaygroundDirectProviderOptions();
+  } else if (state.playgroundMode === "local") {
+    renderPlaygroundLocalNodeOptions();
   }
   updateTestAllModelsButton();
   renderModelHealthTestResults();
@@ -3746,6 +4003,30 @@ function aliasReliabilitySummary(alias) {
   return parts.length ? parts.join(" · ") : "Uses router reliability controls";
 }
 
+function renderLocalRoutingSettings() {
+  const container = $("#local-routing-settings");
+  if (!container) return;
+  const nodes = state.localNodes ?? [];
+  container.innerHTML = nodes.length
+    ? nodes.map((node) => `<article class="local-routing-row" data-local-routing-node="${escapeHtml(node.id)}">
+        <span class="provider-logo-wrap small logo-fallback local-node-letter-icon" aria-hidden="true">${escapeHtml(localNodeInitials(node.name))}</span>
+        <span class="local-routing-identity">
+          <strong>${escapeHtml(node.name)}</strong>
+          <small>${escapeHtml(localNodeStatusLabel(node.status))} · ${(node.models ?? []).filter((model) => model.enabled && model.installed).length} enabled models</small>
+        </span>
+        <label>
+          <span>Participation</span>
+          <select data-local-routing-mode ${node.status === "revoked" ? "disabled" : ""}>
+            <option value="normal" ${node.routingMode === "normal" ? "selected" : ""}>Normal order</option>
+            <option value="prefer-local" ${node.routingMode === "prefer-local" ? "selected" : ""}>Prefer local</option>
+            <option value="local-only" ${node.routingMode === "local-only" ? "selected" : ""}>Local only</option>
+          </select>
+        </label>
+        <button class="secondary compact-button" type="button" data-local-routing-save ${node.status === "revoked" ? "disabled" : ""}>Save</button>
+      </article>`).join("")
+    : `<div class="inline-empty"><strong>No local routing targets</strong><span>Connect a Local LLM node from Providers to configure its routing participation.</span></div>`;
+}
+
 function renderSettings() {
   if (!state.account) return;
 
@@ -3822,6 +4103,7 @@ function renderSettings() {
   }
 
   renderRoutingProviderOrder();
+  renderLocalRoutingSettings();
   renderReliabilitySettings();
   renderDeduplicationSettings();
   renderModelAliases();
@@ -3927,48 +4209,67 @@ function renderPlaygroundCapabilityPreview() {
   const apiFormat = $("#test-api-format")?.value ?? "openai-compatible";
   const scenario = $("#test-capability")?.value ?? "basic";
   const directMode = state.playgroundMode === "direct";
+  const localMode = state.playgroundMode === "local";
   const directProvider = directMode ? providerById($("#test-direct-provider")?.value) : undefined;
   const directModel = directMode ? $("#test-direct-model")?.value : undefined;
+  const localNode = localMode
+    ? state.localNodes.find((node) => node.id === $("#test-local-node")?.value)
+    : undefined;
+  const localModel = localMode ? $("#test-local-model")?.value : undefined;
   const aliasId = $("#test-model-alias")?.value ?? defaultModelForApi(apiFormat);
   const alias = modelAliasById(aliasId, state.account?.modelAliases ?? []);
   const requirements = [...new Set([
     ...playgroundRequiredCapabilities(apiFormat, scenario),
-    ...(directMode ? [] : alias?.requiredCapabilities ?? []),
+    ...(directMode || localMode ? [] : alias?.requiredCapabilities ?? []),
   ])];
 
   preview.innerHTML = `
-    <span class="playground-preview-label">${directMode ? "Direct target" : "Router requirements"}</span>
+    <span class="playground-preview-label">${directMode ? "Direct target" : localMode ? "Local target" : "Router requirements"}</span>
     <span class="playground-preview-chips">
-      <span class="model-alias-preview-chip">${escapeHtml(directMode
-        ? `${directProvider?.name ?? "Provider"} · ${directModel ?? "Select a model"}`
-        : alias?.name ?? aliasId)}</span>
+      <span class="model-alias-preview-chip">${escapeHtml(
+        directMode
+          ? `${directProvider?.name ?? "Provider"} · ${directModel ?? "Select a model"}`
+          : localMode
+            ? `${localNode ? `${localNodeInitials(localNode.name)} · ${localNode.name}` : "Local node"} · ${localModel ?? "Select a model"}`
+            : alias?.name ?? aliasId,
+      )}</span>
       ${requirements.length
       ? requirements.map((capability) => `<span class="capability-requirement-chip">${escapeHtml(capabilityLabel(capability))}</span>`).join("")
       : `<span class="capability-neutral-chip">No special capability required</span>`}
     </span>
     <small>${escapeHtml(directMode
       ? "The exact provider model is called once. Ranking, fallback, cooldown, and circuit selection are bypassed for this diagnostic request. Configured provider quotas still apply."
-      : alias ? `${aliasStrategyLabel(alias.routingStrategy)} · ${modelAliasProviderSummary(alias)}` : "The router-wide policy will be used.")}</small>
+      : localMode
+        ? "The exact Ollama model is called through its protected node. Cloud providers, ranking, and fallback are bypassed."
+        : alias ? `${aliasStrategyLabel(alias.routingStrategy)} · ${modelAliasProviderSummary(alias)}` : "The router-wide policy will be used.")}</small>
   `;
 }
 
 function updatePlaygroundHint() {
-  const count = state.account?.configuredProviderIds?.length ?? 0;
+  const cloudCount = state.account?.configuredProviderIds?.length ?? 0;
+  const localCount = playableLocalNodes().length;
   const apiFormat = $("#test-api-format")?.value ?? "openai-compatible";
   const directMode = state.playgroundMode === "direct";
+  const localMode = state.playgroundMode === "local";
   const aliasId = $("#test-model-alias")?.value ?? defaultModelForApi(apiFormat);
   const directProvider = providerById($("#test-direct-provider")?.value);
   const directModel = $("#test-direct-model")?.value;
+  const localNode = state.localNodes.find((node) => node.id === $("#test-local-node")?.value);
+  const localModel = $("#test-local-model")?.value;
   const endpoint = apiFormat === "claude-code-compatible"
     ? "/v1/messages"
     : apiFormat === "openai-responses-compatible"
       ? "/v1/responses"
       : "/v1/chat/completions";
-  $("#test-hint").textContent = count
+  const available = localMode ? localCount > 0 : cloudCount > 0 || (!directMode && localCount > 0);
+  $("#test-hint").textContent = available
     ? directMode
       ? `${apiFormatLabel(apiFormat)} · ${directProvider?.name ?? "Provider"} · ${directModel ?? "Select a model"} · direct diagnostic`
-      : `${apiFormatLabel(apiFormat)} · ${aliasId} · POST ${endpoint}`
-    : "Connect a provider to run a test.";
+      : localMode
+        ? `${apiFormatLabel(apiFormat)} · ${localNode?.name ?? "Local node"} · ${localModel ?? "Select a model"} · private diagnostic`
+        : `${apiFormatLabel(apiFormat)} · ${aliasId} · POST ${endpoint}`
+    : localMode ? "Connect an online Local LLM node to run this test." : "Connect a provider to run a test.";
+  $("#test-button").disabled = !available;
   renderPlaygroundCapabilityPreview();
 }
 
@@ -3977,7 +4278,8 @@ function render() {
   dashboard.hidden = false;
 
   $("#router-name").textContent = state.account.name;
-  const count = state.account.configuredProviderIds.length;
+  const localModelCount = state.localNodes.flatMap((node) => node.models ?? []).filter((model) => model.enabled && model.installed).length;
+  const count = state.account.configuredProviderIds.length + localModelCount;
   $("#provider-count").textContent = String(count);
   $("#provider-summary").textContent = count ? "Ready to route requests" : "Add your first provider";
   $("#overview-empty").hidden = count > 0;
@@ -3991,6 +4293,7 @@ function render() {
   $("#router-key-preview").textContent = `${state.account.routerKeyPrefix}••••••••••••`;
 
   renderProviders($("#provider-search")?.value ?? "");
+  renderLocalNodes();
   renderHealthList();
   renderSnippets();
   renderAnalytics();
@@ -4003,6 +4306,7 @@ async function loadDashboard() {
     const payload = await api("/api/me");
     state.account = payload.account;
     state.providers = payload.providers;
+    await loadLocalNodes().catch(() => { state.localNodes = []; });
     state.modelAliasesDirty = false;
     render();
 
@@ -4022,7 +4326,10 @@ async function loadDashboard() {
 }
 
 async function showSignedInState(clerk) {
-  state.sessionToken = await clerk.session.getToken();
+  state.sessionToken = await clerk.session?.getToken({ skipCache: true });
+  if (!state.sessionToken) {
+    throw new Error("Clerk signed in without an active session. Refresh the page and try again.");
+  }
   saveAuthUserFromClerk(clerk);
 
   $("#auth-user").textContent =
@@ -4252,7 +4559,7 @@ function newAliasFromPreset(id, name, preset) {
     routingStrategy: "inherit",
     requiredCapabilities: [],
     eligibleProviderIds: [],
-    providerOrder: configuredProviders().map((provider) => provider.id),
+    providerOrder: routableProviders().map((provider) => provider.id),
   };
 
   if (preset === "fastest") {
@@ -4429,7 +4736,7 @@ $("#model-alias-list").addEventListener("change", (event) => {
   if (target.hasAttribute("data-alias-all-providers")) {
     alias.eligibleProviderIds = target.checked
       ? []
-      : configuredProviders().map((provider) => provider.id);
+      : routableProviders().map((provider) => provider.id);
   }
 
   const providerId = target.dataset.aliasProvider;
@@ -4708,12 +5015,150 @@ async function retryCircuitForProvider(
   }
 }
 $("#provider-search").addEventListener("input", (event) => renderProviders(event.target.value));
+$$('[data-provider-workspace-tab]').forEach((button) => {
+  button.addEventListener("click", () => {
+    setProviderWorkspaceTab(button.dataset.providerWorkspaceTab);
+  });
+  button.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    event.preventDefault();
+    const next = state.activeProviderWorkspace === "cloud" ? "local" : "cloud";
+    setProviderWorkspaceTab(next);
+    $('[data-provider-workspace-tab="' + next + '"]')?.focus();
+  });
+});
+setProviderWorkspaceTab(state.activeProviderWorkspace);
 $("#open-provider-modal").addEventListener("click", () => {
   const firstAvailableProvider =
     state.providers.find((provider) => !provider.configured) ?? state.providers[0];
 
   if (firstAvailableProvider) {
     openProviderModal(firstAvailableProvider.id);
+  }
+});
+
+$("#connect-local-node")?.addEventListener("click", async () => {
+  const button = $("#connect-local-node");
+  button.disabled = true;
+  try {
+    const pairing = await api("/api/local-nodes/pairing-code", { method: "POST", body: "{}" });
+    $("#local-node-pairing-code").textContent = pairing.code;
+    $("#local-node-pairing-expiry").textContent = `Expires ${formatTimestamp(pairing.expiresAt)}`;
+    const localCheckout = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+    const cliCommand = localCheckout ? "npm run cli --" : "npx @free-llm-router/cli";
+    $("#local-node-pairing-command").textContent = `${cliCommand} connect ollama --code ${pairing.code} --router-url ${location.origin}`;
+    $("#local-node-pairing").hidden = false;
+    notify("One-time pairing code created.");
+  } catch (error) {
+    notify(error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$("#local-node-list")?.addEventListener("change", async (event) => {
+  const toggle = event.target.closest("[data-local-model-toggle]");
+  const capability = event.target.closest("[data-local-capability]");
+  if (!toggle && !capability) return;
+  const control = toggle ?? capability;
+  const card = control.closest("[data-local-node-id]");
+  const row = control.closest("[data-local-model-id]");
+  try {
+    await api(`/api/local-nodes/${encodeURIComponent(card.dataset.localNodeId)}/models/${encodeURIComponent(row.dataset.localModelId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(toggle
+        ? { enabled: toggle.checked }
+        : { capabilities: { [capability.dataset.localCapability]: capability.value } }),
+    });
+    await loadLocalNodes();
+    notify(toggle
+      ? `Local model ${toggle.checked ? "enabled" : "disabled"}.`
+      : "Local model capabilities updated.");
+  } catch (error) {
+    if (toggle) toggle.checked = !toggle.checked;
+    notify(error.message);
+  }
+});
+
+$("#local-node-list")?.addEventListener("click", async (event) => {
+  const action = event.target.closest("[data-local-save], [data-local-revoke], [data-local-delete], [data-local-test-all], [data-local-model-test], [data-local-toggle-settings], [data-local-open-playground]");
+  if (!action) return;
+  const card = action.closest("[data-local-node-id]");
+  const nodeId = card.dataset.localNodeId;
+  if (action.hasAttribute("data-local-toggle-settings")) {
+    const panel = card.querySelector("[data-local-config]");
+    panel.hidden = !panel.hidden;
+    if (panel.hidden) state.expandedLocalNodeIds.delete(nodeId);
+    else state.expandedLocalNodeIds.add(nodeId);
+    action.textContent = panel.hidden ? "Manage node" : "Close settings";
+    return;
+  }
+  if (action.hasAttribute("data-local-open-playground")) {
+    await switchTab("playground");
+    switchPlaygroundMode("local");
+    renderPlaygroundLocalNodeOptions();
+    if ($("#test-local-node")) $("#test-local-node").value = nodeId;
+    renderPlaygroundLocalModelOptions(true);
+    updatePlaygroundHint();
+    return;
+  }
+  action.disabled = true;
+  try {
+    if (action.hasAttribute("data-local-save")) {
+      const limits = {};
+      card.querySelectorAll("[data-local-limit]").forEach((input) => { limits[input.dataset.localLimit] = Number(input.value); });
+      await api(`/api/local-nodes/${encodeURIComponent(nodeId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: card.querySelector("[data-local-name]").value.trim(), limits }),
+      });
+      notify("Local node settings saved.");
+    } else if (action.hasAttribute("data-local-revoke")) {
+      if (!confirm("Revoke this local node? Its running CLI will lose access immediately, but the node record will remain until you delete it.")) return;
+      await api(`/api/local-nodes/${encodeURIComponent(nodeId)}`, { method: "DELETE" });
+      notify("Local node revoked.");
+    } else if (action.hasAttribute("data-local-delete")) {
+      const node = state.localNodes.find((candidate) => candidate.id === nodeId);
+      const nodeName = node?.name ?? "this local node";
+      if (!confirm('Permanently delete "' + nodeName + '"? This revokes its credential and removes all saved node and model settings. This cannot be undone.')) return;
+      await api("/api/local-nodes/" + encodeURIComponent(nodeId) + "/permanent", { method: "DELETE" });
+      state.localNodes = state.localNodes.filter((candidate) => candidate.id !== nodeId);
+      state.expandedLocalNodeIds.delete(nodeId);
+      notify("Local node permanently deleted.");
+    } else if (action.hasAttribute("data-local-test-all")) {
+      const result = await api(`/api/local-nodes/${encodeURIComponent(nodeId)}/test-all`, { method: "POST", body: "{}" });
+      const healthy = result.results.filter((item) => item.ok).length;
+      notify(`${healthy}/${result.results.length} local models responded.`);
+    } else {
+      const row = action.closest("[data-local-model-id]");
+      const result = await api(`/api/local-nodes/${encodeURIComponent(nodeId)}/models/${encodeURIComponent(row.dataset.localModelId)}/test`, { method: "POST", body: "{}" });
+      notify(result.ok ? `Local model responded in ${result.latencyMs} ms.` : result.message);
+    }
+    await loadLocalNodes();
+    render();
+  } catch (error) {
+    notify(error.message);
+  } finally {
+    action.disabled = false;
+  }
+});
+
+$("#local-routing-settings")?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-local-routing-save]");
+  const row = button?.closest("[data-local-routing-node]");
+  if (!button || !row) return;
+  button.disabled = true;
+  try {
+    await api(`/api/local-nodes/${encodeURIComponent(row.dataset.localRoutingNode)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ routingMode: row.querySelector("[data-local-routing-mode]").value }),
+    });
+    await loadLocalNodes();
+    render();
+    notify("Local routing updated.");
+  } catch (error) {
+    notify(error.message);
+  } finally {
+    button.disabled = false;
   }
 });
 
@@ -4877,6 +5322,11 @@ $("#test-direct-provider")?.addEventListener("change", () => {
   updatePlaygroundHint();
 });
 $("#test-direct-model")?.addEventListener("change", updatePlaygroundHint);
+$("#test-local-node")?.addEventListener("change", () => {
+  renderPlaygroundLocalModelOptions(true);
+  updatePlaygroundHint();
+});
+$("#test-local-model")?.addEventListener("change", updatePlaygroundHint);
 $("#test-capability").addEventListener("change", updatePlaygroundHint);
 $("#test-all-models-button")?.addEventListener("click", testAllProviderModels);
 
@@ -4899,10 +5349,15 @@ $("#test-form").addEventListener("submit", async (event) => {
       : "/v1/chat/completions";
   const apiLabel = apiFormatLabel(apiFormat);
   const directMode = state.playgroundMode === "direct";
+  const localMode = state.playgroundMode === "local";
+  const diagnosticMode = directMode || localMode;
   const selectedProviderId = directMode ? $("#test-direct-provider")?.value : undefined;
+  const selectedLocalNodeId = localMode ? $("#test-local-node")?.value : undefined;
   const selectedModel = directMode
     ? $("#test-direct-model")?.value
-    : $("#test-model-alias").value || defaultModelForApi(apiFormat);
+    : localMode
+      ? $("#test-local-model")?.value
+      : $("#test-model-alias").value || defaultModelForApi(apiFormat);
   const prompt = $("#test-prompt").value.trim();
   const temperature = Number($("#test-temperature").value || 0.2);
   const maxTokensValue = $("#test-max-tokens").value.trim();
@@ -4914,6 +5369,10 @@ $("#test-form").addEventListener("submit", async (event) => {
 
   if (directMode && (!selectedProviderId || !selectedModel)) {
     notify("Select a configured provider and saved model.");
+    return;
+  }
+  if (localMode && (!selectedLocalNodeId || !selectedModel)) {
+    notify("Select an online local node and enabled model.");
     return;
   }
 
@@ -4960,7 +5419,9 @@ $("#test-form").addEventListener("submit", async (event) => {
   status.textContent = `Testing ${apiLabel}`;
   provider.textContent = directMode
     ? `${providerDisplayName(selectedProviderId)} · ${selectedModel}`
-    : endpoint;
+    : localMode
+      ? `${state.localNodes.find((node) => node.id === selectedLocalNodeId)?.name ?? "Local node"} · ${selectedModel}`
+      : endpoint;
   output.textContent = "";
 
   try {
@@ -4972,6 +5433,7 @@ $("#test-form").addEventListener("submit", async (event) => {
     let resolvedProviderModel;
     let requiredCapabilities = [];
     let directLatencyMs;
+    let localNodeName;
 
     if (directMode) {
       const directResult = await api("/api/playground/direct", {
@@ -4993,6 +5455,27 @@ $("#test-form").addEventListener("submit", async (event) => {
       resolvedProviderModel = directResult.modelId;
       requiredCapabilities = directResult.requiredCapabilities ?? [];
       directLatencyMs = directResult.latencyMs;
+    } else if (localMode) {
+      const localResult = await api("/api/playground/local", {
+        method: "POST",
+        body: JSON.stringify({
+          nodeId: selectedLocalNodeId,
+          modelId: selectedModel,
+          apiFormat,
+          requestBody,
+        }),
+      });
+      if (!localResult.ok) {
+        throw new Error(
+          `${localResult.status ?? "Local node"} · ${localResult.message ?? "Local model request failed"}`,
+        );
+      }
+      body = localResult.response;
+      handledBy = localResult.providerId;
+      localNodeName = localResult.nodeName;
+      resolvedProviderModel = localResult.modelId;
+      requiredCapabilities = localResult.requiredCapabilities ?? [];
+      directLatencyMs = localResult.latencyMs;
     } else {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -5035,20 +5518,20 @@ $("#test-form").addEventListener("submit", async (event) => {
           : "")
         : body.choices?.[0]?.message?.content;
 
-    status.textContent = directMode
-      ? `${apiLabel} direct request is working`
+    status.textContent = diagnosticMode
+      ? `${apiLabel} ${localMode ? "local" : "direct"} request is working`
       : `${apiLabel} endpoint is working`;
-    provider.textContent = directMode
-      ? `${providerDisplayName(handledBy)} · ${resolvedProviderModel}${directLatencyMs !== undefined ? ` · ${directLatencyMs} ms` : ""}`
+    provider.textContent = diagnosticMode
+      ? `${localMode ? localNodeName ?? "Local node" : providerDisplayName(handledBy)} · ${resolvedProviderModel}${directLatencyMs !== undefined ? ` · ${directLatencyMs} ms` : ""}`
       : handledBy
         ? `${endpoint} · Handled by ${providerDisplayName(handledBy)}`
         : `${endpoint} · Request completed`;
 
     routingDecision.hidden = false;
-    routingDecision.innerHTML = directMode
+    routingDecision.innerHTML = diagnosticMode
       ? `
-        <span><small>Request mode</small><strong>Direct provider</strong></span>
-        <span><small>Selected provider</small><strong>${escapeHtml(handledBy ? providerDisplayName(handledBy) : "Unknown")}</strong></span>
+        <span><small>Request mode</small><strong>${localMode ? "Local LLM" : "Direct provider"}</strong></span>
+        <span><small>Selected provider</small><strong>${escapeHtml(localMode ? localNodeName ?? "Local node" : handledBy ? providerDisplayName(handledBy) : "Unknown")}</strong></span>
         <span><small>Provider model</small><strong>${escapeHtml(resolvedProviderModel ?? "Unknown")}</strong></span>
         <span><small>Routing</small><strong>Bypassed</strong></span>
         <span><small>Fallback</small><strong>Disabled</strong></span>
@@ -5072,7 +5555,9 @@ $("#test-form").addEventListener("submit", async (event) => {
     status.textContent = `${apiLabel} test failed`;
     provider.textContent = directMode
       ? `${providerDisplayName(selectedProviderId)} · ${selectedModel}`
-      : endpoint;
+      : localMode
+        ? `${state.localNodes.find((node) => node.id === selectedLocalNodeId)?.name ?? "Local node"} · ${selectedModel}`
+        : endpoint;
     routingDecision.hidden = true;
     output.textContent = error instanceof Error ? error.message : "Request failed";
   } finally {
@@ -5082,8 +5567,8 @@ $("#test-form").addEventListener("submit", async (event) => {
       refreshProviderProtectionState(),
     ]);
 
-    button.disabled = state.account.configuredProviderIds.length === 0;
     button.textContent = "Send test request";
+    updatePlaygroundHint();
   }
 });
 
@@ -5238,4 +5723,7 @@ document.addEventListener("click", async (event) => {
 });
 
 window.setInterval(updateCooldownCountdowns, 1_000);
+window.setInterval(() => {
+  if (!dashboard.hidden && state.routerKey) void loadLocalNodes().catch(() => undefined);
+}, 20_000);
 initializeAuth();

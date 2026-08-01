@@ -32,6 +32,9 @@ Create a `.env` file in the root directory with the following variables:
 CLERK_SECRET_KEY=sk_test_your_clerk_secret_key
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_clerk_publishable_key
 
+# Recommended for production; comma-separate every public dashboard origin
+CLERK_AUTHORIZED_PARTIES=https://your-dashboard.example.com
+
 # Strongly recommended for production (encrypts stored API keys)
 ACCOUNT_ENCRYPTION_KEY=your_32_byte_base64url_secret
 
@@ -40,6 +43,12 @@ ACCOUNT_ENCRYPTION_KEY=your_32_byte_base64url_secret
 # GROQ_API_KEY=your_groq_key
 # ... (add others as needed)
 ```
+
+The publishable and secret Clerk keys must belong to the same Clerk instance. If
+the dashboard is served through a proxy or custom domain, include its exact
+origin (scheme and hostname) in `CLERK_AUTHORIZED_PARTIES`. The router also
+recognizes standard forwarded host headers, so preview and proxied deployments
+can verify the browser session without weakening Clerk's authorized-party check.
 
 ### Generating an Encryption Key
 

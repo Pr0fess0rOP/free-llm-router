@@ -79,7 +79,7 @@
           </p>
           <h1>From deployment to first routed request.</h1>
           <p>
-            Connect provider keys, create a private router, and point an
+            Connect provider keys or a private Ollama node, create a router, and point an
             existing OpenAI or Anthropic-compatible client at one stable
             endpoint. Detailed documentation available withing the app.
           </p>
@@ -92,6 +92,7 @@
           <a href="#overview">Overview</a>
 
           <a href="#configure">Configure providers</a>
+          <a href="#local-llm">Connect a Local LLM</a>
           <a href="#first-request">First request</a>
           <strong>API surfaces</strong>
           <a href="#chat-completions">Chat Completions</a>
@@ -161,6 +162,49 @@
               <strong>Provider identity and model are separate.</strong> For
               example, the provider ID is <code>openrouter</code>, while
               <code>qwen/qwen3-coder:free</code> belongs to its model catalog.
+            </div>
+          </section>
+
+          <section id="local-llm" class="docs-section">
+            <p class="section-label">Local integration</p>
+            <h2>Connect and test a private Ollama model</h2>
+            <p>
+              Open <strong>Providers → Local LLMs</strong>, create a one-time
+              pairing code, and run the generated command on the computer where
+              Ollama is installed. Node limits and model capabilities remain in
+              that node's card; routing participation lives under
+              <strong>Settings → Router &amp; Policies → Routing Policies</strong>.
+            </p>
+            <div class="docs-code">
+              <div class="code-heading">
+                <span>Local LLM integration</span
+                ><button type="button" data-copy-target="docs-local-llm">
+                  Copy
+                </button>
+              </div>
+              <pre><code id="docs-local-llm">npx @free-llm-router/cli connect ollama \
+  --code FLR-XXXX-XXXX \
+  --router-url https://your-router-domain.com
+
+curl https://your-router-domain.com/v1/chat/completions \
+  -H "Authorization: Bearer flm_YOUR_KEY_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "free-router",
+    "messages": [{"role":"user","content":"Reply from my local model"}],
+    "max_tokens": 256
+  }'</code></pre>
+            </div>
+            <p>
+              Use the Playground's <strong>Local LLM</strong> tab to choose one
+              exact online node and enabled model, then test prompts,
+              temperature, capability scenarios, API compatibility, and output
+              token caps without cloud fallback.
+            </p>
+            <div class="docs-note">
+              <strong>Private by design:</strong> every request is signed and
+              travels through the protected local agent. Raw Ollama stays bound
+              to loopback and is never exposed directly.
             </div>
           </section>
 

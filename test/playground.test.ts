@@ -10,9 +10,15 @@ import {
   setProviderModelCatalog,
   setProviderQuota,
 } from "../src/accounts.js";
-import { directProviderPlaygroundRequest } from "../src/server.js";
+import { directProviderPlaygroundRequest, localNodePlaygroundRequest } from "../src/server.js";
 import { getRoutingStats } from "../src/routing-state.js";
 import { hashRouterKey } from "../src/accounts.js";
+import { createLocalNodePairingCode, pairLocalNode } from "../src/local-nodes/pairing-service.js";
+import {
+  recordLocalNodeHeartbeat,
+  registerLocalNodeEndpoint,
+} from "../src/local-nodes/local-node-service.js";
+import { resetLocalNodeSigningKeyCache } from "../src/local-nodes/local-node-request-auth.js";
 
 async function listen(server: ReturnType<typeof createServer>): Promise<number> {
   return await new Promise<number>((resolve) => {
@@ -124,6 +130,104 @@ test("direct playground calls one exact saved provider model and respects quota"
     if (previous.analytics === undefined) delete process.env.ANALYTICS_PATH; else process.env.ANALYTICS_PATH = previous.analytics;
     if (previous.routing === undefined) delete process.env.ROUTING_STATE_PATH; else process.env.ROUTING_STATE_PATH = previous.routing;
     if (previous.providers === undefined) delete process.env.PROVIDERS_CONFIG; else process.env.PROVIDERS_CONFIG = previous.providers;
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("local playground calls one exact enabled Ollama model through the protected node", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "free-llm-local-playground-"));
+  const environmentNames = [
+    "ACCOUNTS_PATH", "ANALYTICS_PATH", "ROUTING_STATE_PATH", "LOCAL_NODES_PATH",
+    "LOCAL_NODE_SIGNING_KEY_PATH", "LOCAL_NODE_ALLOW_HTTP_LOOPBACK",
+    "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_URL",
+    "KV_REST_API_TOKEN",
+  ] as const;
+  const previous = Object.fromEntries(environmentNames.map((name) => [name, process.env[name]]));
+  for (const name of environmentNames) delete process.env[name];
+  process.env.ACCOUNTS_PATH = path.join(directory, "accounts.json");
+  process.env.ANALYTICS_PATH = path.join(directory, "analytics.json");
+  process.env.ROUTING_STATE_PATH = path.join(directory, "routing.json");
+  process.env.LOCAL_NODES_PATH = path.join(directory, "nodes.json");
+  process.env.LOCAL_NODE_SIGNING_KEY_PATH = path.join(directory, "signing.json");
+  process.env.LOCAL_NODE_ALLOW_HTTP_LOOPBACK = "true";
+  resetLocalNodeSigningKeyCache();
+
+  let receivedModel = "";
+  let receivedMaxTokens = 0;
+  let receivedAuthorization = "";
+  let nodeId = "";
+  const localAgent = createServer(async (request, response) => {
+    if (request.url === "/health") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ nodeId, runtime: "ollama" }));
+      return;
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.from(chunk));
+    const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+      model: string;
+      max_tokens: number;
+    };
+    receivedModel = body.model;
+    receivedMaxTokens = body.max_tokens;
+    receivedAuthorization = String(request.headers.authorization ?? "");
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({
+      id: "local_playground",
+      model: body.model,
+      choices: [{ index: 0, message: { role: "assistant", content: "LOCAL PLAYGROUND" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 4, completion_tokens: 3, total_tokens: 7 },
+    }));
+  });
+  const port = await listen(localAgent);
+
+  try {
+    const account = await createAccount("Local playground router");
+    const pairing = await createLocalNodePairingCode(account.account.id);
+    const paired = await pairLocalNode({
+      code: pairing.code,
+      name: "Office Ollama",
+      runtime: "ollama",
+      models: [{ id: "qwen3:8b", enabled: true }],
+    });
+    nodeId = paired.node.id;
+    await registerLocalNodeEndpoint(nodeId, `http://127.0.0.1:${port}`);
+    await recordLocalNodeHeartbeat(nodeId, {
+      agentVersion: "0.7.0",
+      ollamaVersion: "0.30.9",
+      activeRequests: 0,
+      maxConcurrentRequests: 1,
+      models: [{ id: "qwen3:8b", installed: true }],
+    });
+
+    const result = await localNodePlaygroundRequest({
+      routerKey: account.routerKey,
+      nodeId,
+      modelId: "qwen3:8b",
+      apiFormat: "openai-compatible",
+      requestBody: {
+        model: "ignored",
+        messages: [{ role: "user", content: "hello locally" }],
+        max_tokens: 321,
+      },
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.nodeName, "Office Ollama");
+    assert.equal(result.modelId, "qwen3:8b");
+    assert.equal(receivedModel, "qwen3:8b");
+    assert.equal(receivedMaxTokens, 321);
+    assert.match(receivedAuthorization, /^Bearer [^.]+\.[^.]+\.[^.]+$/);
+    assert.equal(result.usage?.totalTokens, 7);
+    assert.equal((result.response as { choices?: Array<{ message?: { content?: string } }> })
+      .choices?.[0]?.message?.content, "LOCAL PLAYGROUND");
+  } finally {
+    await new Promise<void>((resolve) => localAgent.close(() => resolve()));
+    for (const name of environmentNames) {
+      const value = previous[name];
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+    resetLocalNodeSigningKeyCache();
     await rm(directory, { recursive: true, force: true });
   }
 });

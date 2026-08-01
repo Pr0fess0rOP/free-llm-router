@@ -3,6 +3,7 @@ import path from "node:path";
 import { Redis } from "@upstash/redis";
 import type {
   ProviderAttemptMetric,
+  ProviderUsageWindow,
   ProviderRoutingStats,
   TokenUsage,
 } from "./types.js";
@@ -299,6 +300,46 @@ export async function recordRoutingAttempt(
       state.providers[attempt.providerId],
       attempt,
     );
+  });
+}
+
+/** Reclassifies the most recently recorded successful attempt when a stream fails
+ * after response headers have already committed the provider choice. */
+export async function recordRoutingStreamFailure(
+  routerKeyHash: string,
+  providerId: string,
+  message: string,
+): Promise<void> {
+  providerId = normalizeProviderId(providerId);
+  await mutateRouterState(routerKeyHash, (state) => {
+    const current = state.providers[providerId];
+    if (!current || current.successes < 1) return;
+    const now = new Date().toISOString();
+    const reclassifyWindow = (window: ProviderUsageWindow): ProviderUsageWindow => ({
+      ...window,
+      successfulRequests: Math.max(0, window.successfulRequests - 1),
+      failedRequests: window.failedRequests + 1,
+    });
+    state.providers[providerId] = {
+      ...current,
+      successes: current.successes - 1,
+      failures: current.failures + 1,
+      successScore: Math.max(0, current.successScore - 0.2),
+      consecutiveFailures: Math.max(1, current.consecutiveFailures + 1),
+      lastFailureAt: now,
+      lastError: message.slice(0, 500),
+      lastFailureType: "connection_error",
+      ...(current.quotaUsage
+        ? {
+            quotaUsage: {
+              ...current.quotaUsage,
+              daily: reclassifyWindow(current.quotaUsage.daily),
+              monthly: reclassifyWindow(current.quotaUsage.monthly),
+              lastUpdatedAt: now,
+            },
+          }
+        : {}),
+    };
   });
 }
 

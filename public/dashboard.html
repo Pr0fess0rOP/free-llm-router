@@ -262,38 +262,114 @@
             </section>
 
             <section id="providers-panel" class="tab-panel page-panel" hidden>
-              <div class="section-heading">
+              <div class="section-heading provider-page-heading">
                 <div>
-                  <p class="eyebrow">Provider directory</p>
-                  <h2>Provider keys</h2>
+                  <p class="eyebrow">Connections</p>
+                  <h2>Providers</h2>
                   <p>
-                    Keys stay on this server and are never shown again after
-                    saving.
+                    Manage hosted API providers and private Ollama nodes from
+                    separate workspaces.
                   </p>
                 </div>
-                <div class="section-actions">
-                  <label class="search">
-                    <span class="sr-only">Search providers</span>
-                    <input
-                      id="provider-search"
-                      type="search"
-                      placeholder="Search providers"
-                    />
-                  </label>
-                  <button
-                    id="open-provider-modal"
-                    class="primary"
-                    type="button"
-                  >
-                    Add provider
-                  </button>
-                </div>
               </div>
+
+              <div class="provider-workspace-tabs" role="tablist" aria-label="Provider type">
+                <button
+                  id="cloud-providers-tab"
+                  class="provider-workspace-tab active"
+                  type="button"
+                  role="tab"
+                  aria-selected="true"
+                  aria-controls="cloud-providers-workspace"
+                  data-provider-workspace-tab="cloud"
+                >
+                  <span>Cloud providers</span>
+                  <small id="cloud-provider-tab-count">0 connected</small>
+                </button>
+                <button
+                  id="local-providers-tab"
+                  class="provider-workspace-tab"
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                  aria-controls="local-providers-workspace"
+                  data-provider-workspace-tab="local"
+                >
+                  <span>Local LLMs</span>
+                  <small id="local-provider-tab-count">0 nodes</small>
+                </button>
+              </div>
+
               <div
-                id="provider-list"
-                class="provider-grid"
-                aria-live="polite"
-              ></div>
+                id="cloud-providers-workspace"
+                class="provider-workspace-panel"
+                role="tabpanel"
+                aria-labelledby="cloud-providers-tab"
+                data-provider-workspace-panel="cloud"
+              >
+                <div class="section-heading provider-workspace-heading">
+                  <div>
+                    <p class="eyebrow">Provider directory</p>
+                    <h3>Provider keys</h3>
+                    <p>Keys stay on this server and are never shown again after saving.</p>
+                  </div>
+                  <div class="section-actions">
+                    <label class="search">
+                      <span class="sr-only">Search providers</span>
+                      <input
+                        id="provider-search"
+                        type="search"
+                        placeholder="Search providers"
+                      />
+                    </label>
+                    <button
+                      id="open-provider-modal"
+                      class="primary"
+                      type="button"
+                    >
+                      Add provider
+                    </button>
+                  </div>
+                </div>
+                <div
+                  id="provider-list"
+                  class="provider-grid"
+                  aria-live="polite"
+                ></div>
+              </div>
+
+              <div
+                id="local-providers-workspace"
+                class="provider-workspace-panel"
+                role="tabpanel"
+                aria-labelledby="local-providers-tab"
+                data-provider-workspace-panel="local"
+                hidden
+              >
+                <section class="local-node-directory" aria-labelledby="local-node-heading">
+                  <div class="local-node-directory-heading">
+                    <div>
+                      <p class="eyebrow">Private compute</p>
+                      <h3 id="local-node-heading">Connect Local LLM</h3>
+                      <p>Run models from your own Ollama computer through this router with optional cloud fallback.</p>
+                    </div>
+                    <button id="connect-local-node" class="primary" type="button">Connect Ollama</button>
+                  </div>
+                  <div id="local-node-pairing" class="local-node-pairing" hidden>
+                    <div>
+                      <strong>Pairing code</strong>
+                      <code id="local-node-pairing-code"></code>
+                      <small id="local-node-pairing-expiry"></small>
+                    </div>
+                    <div class="local-node-command">
+                      <code id="local-node-pairing-command"></code>
+                      <button class="copy-button" data-copy="local-node-pairing-command" type="button">Copy command</button>
+                    </div>
+                    <p>Run this command on the computer where Ollama is installed. The code works once and expires after ten minutes.</p>
+                  </div>
+                  <div id="local-node-list" class="local-node-list" aria-live="polite"></div>
+                </section>
+              </div>
             </section>
 
             <section id="playground-panel" class="tab-panel page-panel" hidden>
@@ -332,6 +408,15 @@
                   >
                     Provider + model
                   </button>
+                  <button
+                    class="playground-mode-button"
+                    type="button"
+                    role="tab"
+                    aria-selected="false"
+                    data-playground-mode="local"
+                  >
+                    Local LLM
+                  </button>
                 </div>
 
                 <div class="playground-mode-intro" data-playground-router-only>
@@ -360,6 +445,23 @@
                     </p>
                   </div>
                   <span class="playground-mode-badge neutral">Direct diagnostic</span>
+                </div>
+
+                <div
+                  class="playground-mode-intro local-playground-intro"
+                  data-playground-local-only
+                  hidden
+                >
+                  <div>
+                    <span class="feature-kicker">Local LLM</span>
+                    <h3>Test one model running on your computer</h3>
+                    <p>
+                      Send a prompt directly to an enabled Ollama model with
+                      explicit compatibility, capability, temperature, and
+                      output-token controls. Cloud routing and fallback stay off.
+                    </p>
+                  </div>
+                  <span class="playground-mode-badge local">Private node</span>
                 </div>
 
                 <form id="test-form" class="tester-form">
@@ -403,6 +505,20 @@
                           hidden
                           >Provider model
                           <select id="test-direct-model"></select>
+                        </label>
+                        <label
+                          for="test-local-node"
+                          data-playground-local-only
+                          hidden
+                          >Local node
+                          <select id="test-local-node"></select>
+                        </label>
+                        <label
+                          for="test-local-model"
+                          data-playground-local-only
+                          hidden
+                          >Ollama model
+                          <select id="test-local-model"></select>
                         </label>
                         <label for="test-capability"
                           >Request type
@@ -1416,6 +1532,13 @@
                   <button
                     class="snippet-tab"
                     type="button"
+                    data-snippet="local"
+                  >
+                    Local LLM
+                  </button>
+                  <button
+                    class="snippet-tab"
+                    type="button"
                     data-snippet="codex"
                   >
                     Codex
@@ -1459,7 +1582,7 @@
                     <p>
                       Your application sends one request with one private router
                       key. The gateway resolves the requested virtual model,
-                      checks provider compatibility and health, applies the
+                      checks cloud and local model compatibility and health, applies the
                       selected routing policy, retries safe failures, returns
                       the response in the caller's API format, and records the
                       complete decision in Analysis.
@@ -1573,6 +1696,11 @@
                       <li>
                         <a href="#feature-playground"
                           ><span>16</span>Playground</a
+                        >
+                      </li>
+                      <li>
+                        <a href="#feature-local-llm"
+                          ><span>16A</span>Private Local LLM nodes</a
                         >
                       </li>
                       <li>
@@ -3292,6 +3420,89 @@ x-free-llm-deduplication-source: in-flight | completed</code></pre>
 
                     <section
                       class="docs-feature-section feature-detail-section"
+                      id="feature-local-llm"
+                    >
+                      <div class="feature-detail-heading">
+                        <div>
+                          <span class="feature-number">16A</span
+                          ><span class="feature-kicker">Private compute</span>
+                        </div>
+                        <h3>Connected Local LLM nodes</h3>
+                        <p>
+                          Pair Ollama computers as first-class providers while
+                          keeping each node private to its router account.
+                        </p>
+                      </div>
+                      <div class="feature-explanation-grid">
+                        <article>
+                          <strong>Provider-style cards</strong>
+                          <p>
+                            Local nodes use the same summary-first card flow as
+                            cloud providers. Uppercase letter icons identify
+                            nodes and models without pretending they are hosted brands.
+                          </p>
+                        </article>
+                        <article>
+                          <strong>Card-scoped controls</strong>
+                          <p>
+                            Rename a node, set concurrency, queue, token and
+                            timeout limits, enable models, and verify capabilities
+                            from that node's Manage area.
+                          </p>
+                        </article>
+                        <article>
+                          <strong>Router-scoped policy</strong>
+                          <p>
+                            Normal, Prefer local, and Local only participation
+                            live under Settings → Router &amp; Policies → Routing
+                            Policies beside the wider routing controls.
+                          </p>
+                        </article>
+                        <article>
+                          <strong>Dedicated playground</strong>
+                          <p>
+                            The Local LLM tab targets one online node and enabled
+                            Ollama model with API format, capability scenario,
+                            temperature, prompt, and output-token controls.
+                          </p>
+                        </article>
+                        <article>
+                          <strong>Protected transport</strong>
+                          <p>
+                            The router signs each request and sends it through
+                            the protected loopback agent and HTTPS tunnel. Raw
+                            Ollama is never exposed directly.
+                          </p>
+                        </article>
+                        <article>
+                          <strong>Independent lifecycle</strong>
+                          <p>
+                            Revoke invalidates device access while preserving the
+                            record; Delete permanently removes the node and its
+                            saved model configuration without touching Ollama.
+                          </p>
+                        </article>
+                      </div>
+                      <div class="docs-example-block">
+                        <div class="docs-example-heading">
+                          <strong>Local integration</strong><span>CLI + gateway</span>
+                        </div>
+                        <pre><code>npx @free-llm-router/cli connect ollama \
+  --code FLR-XXXX-XXXX \
+  --router-url https://your-router.example
+
+curl https://your-router.example/v1/chat/completions \
+  -H "Authorization: Bearer flm_your_router_key" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"free-router","messages":[{"role":"user","content":"Hello locally"}],"max_tokens":256}'</code></pre>
+                      </div>
+                      <a class="feature-back-link" href="#feature-overview"
+                        >Back to top</a
+                      >
+                    </section>
+
+                    <section
+                      class="docs-feature-section feature-detail-section"
                       id="feature-security"
                     >
                       <div class="feature-detail-heading">
@@ -3672,6 +3883,20 @@ Content-Type: application/json</code></pre>
                           id="routing-provider-order"
                           class="routing-provider-order"
                         ></div>
+                      </section>
+
+                      <section class="settings-card local-routing-card router-settings-full-card">
+                        <div class="settings-card-heading">
+                          <div>
+                            <span class="summary-label">Local routing</span>
+                            <h3>Choose how local nodes join the provider pool</h3>
+                            <p>
+                              Routing scope belongs here. Limits, model access,
+                              and capabilities remain on each Local LLM card.
+                            </p>
+                          </div>
+                        </div>
+                        <div id="local-routing-settings" class="local-routing-settings"></div>
                       </section>
 
                       <section

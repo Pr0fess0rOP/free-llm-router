@@ -1,0 +1,8 @@
+Deck content is based only on repository-owned documentation and assets:
+- README.md
+- docs/MANUAL.md
+- docs/CONNECT_LOCAL_LLM.md
+- CONNECT_LOCAL_LLM_V1_ROADMAP.md
+- public/assets/brand/logo-mark-white-bg.png
+
+No external statistics, quotations, or third-party images are used.
