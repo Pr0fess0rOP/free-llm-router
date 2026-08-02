@@ -351,7 +351,7 @@
                     <div>
                       <p class="eyebrow">Private compute</p>
                       <h3 id="local-node-heading">Connect Local LLM</h3>
-                      <p>Run models from your own Ollama computer through this router with optional cloud fallback.</p>
+                      <p>Connect and inspect Ollama computers here. Configure routing gates, limits, models, and lifecycle under Settings → Router &amp; Policies → Local LLM Properties.</p>
                     </div>
                     <button id="connect-local-node" class="primary" type="button">Connect Ollama</button>
                   </div>
@@ -3443,19 +3443,20 @@ x-free-llm-deduplication-source: in-flight | completed</code></pre>
                           </p>
                         </article>
                         <article>
-                          <strong>Card-scoped controls</strong>
+                          <strong>Connection surface</strong>
                           <p>
-                            Rename a node, set concurrency, queue, token and
-                            timeout limits, enable models, and verify capabilities
-                            from that node's Manage area.
+                            Providers shows connection health, installed-model
+                            summaries, and shortcuts to the Playground or the
+                            node's dedicated Settings workspace.
                           </p>
                         </article>
                         <article>
-                          <strong>Router-scoped policy</strong>
+                          <strong>Local LLM Properties</strong>
                           <p>
-                            Normal, Prefer local, and Local only participation
-                            live under Settings → Router &amp; Policies → Routing
-                            Policies beside the wider routing controls.
+                            Routing gate, Normal/Prefer local/Local only mode,
+                            name, limits, models, capabilities, tests, revoke,
+                            and permanent deletion stay together under Settings
+                            → Router &amp; Policies → Local LLM Properties.
                           </p>
                         </article>
                         <article>
@@ -3487,7 +3488,7 @@ x-free-llm-deduplication-source: in-flight | completed</code></pre>
                         <div class="docs-example-heading">
                           <strong>Local integration</strong><span>CLI + gateway</span>
                         </div>
-                        <pre><code>npx @free-llm-router/cli connect ollama \
+                        <pre><code>npx --yes @free-llm-router/cli@latest connect ollama \
   --code FLR-XXXX-XXXX \
   --router-url https://your-router.example
 
@@ -3712,6 +3713,15 @@ Content-Type: application/json</code></pre>
                     >
                       Capability Registry
                     </button>
+                    <button
+                      class="router-settings-tab"
+                      type="button"
+                      role="tab"
+                      aria-selected="false"
+                      data-router-settings-tab="local"
+                    >
+                      Local LLM Properties
+                    </button>
                   </div>
 
                   <section
@@ -3883,20 +3893,6 @@ Content-Type: application/json</code></pre>
                           id="routing-provider-order"
                           class="routing-provider-order"
                         ></div>
-                      </section>
-
-                      <section class="settings-card local-routing-card router-settings-full-card">
-                        <div class="settings-card-heading">
-                          <div>
-                            <span class="summary-label">Local routing</span>
-                            <h3>Choose how local nodes join the provider pool</h3>
-                            <p>
-                              Routing scope belongs here. Limits, model access,
-                              and capabilities remain on each Local LLM card.
-                            </p>
-                          </div>
-                        </div>
-                        <div id="local-routing-settings" class="local-routing-settings"></div>
                       </section>
 
                       <section
@@ -4388,7 +4384,47 @@ Content-Type: application/json</code></pre>
                     </section>
                   </section>
 
-                  <div class="router-settings-actions">
+                  <section
+                    class="router-settings-subpanel"
+                    data-router-settings-panel="local"
+                    hidden
+                  >
+                    <section
+                      class="settings-card local-node-properties-card router-settings-full-card"
+                    >
+                      <div class="settings-card-heading">
+                        <div>
+                          <span class="summary-label">Local LLM properties</span>
+                          <h3>Control each private inference node</h3>
+                          <p>
+                            Gate routed traffic, choose participation, and manage
+                            limits, installed models, capabilities, tests, and
+                            node lifecycle in one place.
+                          </p>
+                        </div>
+                        <span id="local-routing-gate-count" class="routing-policy-badge"
+                          >0 routed</span
+                        >
+                      </div>
+                      <div class="local-properties-guidance">
+                        <span
+                          ><strong>Routing gate</strong> immediately excludes a
+                          node from normal API routing without disconnecting it.</span
+                        >
+                        <span
+                          ><strong>Direct testing</strong> remains available in
+                          Playground even while the routing gate is closed.</span
+                        >
+                      </div>
+                      <div
+                        id="local-node-properties"
+                        class="local-node-properties"
+                        aria-live="polite"
+                      ></div>
+                    </section>
+                  </section>
+
+                  <div class="router-settings-actions" data-router-global-actions>
                     <span id="routing-save-hint"
                       >Changes apply to new API requests.</span
                     >

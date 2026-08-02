@@ -146,6 +146,7 @@ export async function pairLocalNode(params: {
     ...(params.cliVersion ? { cliVersion: params.cliVersion.slice(0, 40) } : {}),
     limits: { ...DEFAULT_LOCAL_NODE_LIMITS },
     activeRequests: 0,
+    routingEnabled: true,
     routingMode: "normal",
     models,
     credential: {

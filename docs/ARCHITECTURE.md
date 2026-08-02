@@ -1,12 +1,13 @@
 # Free LLM Router — Complete Routing Flow and Scenario Reference
 
-> This document describes the behavior implemented in the current `llm-router-provider-failover-bug-fixed` build. It is a practical routing reference, not a description of every behavior that an upstream provider might implement internally.
+> This document describes the behavior implemented in Free LLM Router v0.7.0. It is a practical routing reference, not a description of every behavior that an upstream provider or local runtime might implement internally.
 
 ## Table of contents
 
 1. [Quick mental model](#1-quick-mental-model)
 2. [Supported API surfaces](#2-supported-api-surfaces)
 3. [Complete shared routing pipeline](#3-complete-shared-routing-pipeline)
+   - [Private Local Ollama candidates](#361-private-local-ollama-candidates)
 4. [Model aliases](#4-model-aliases)
 5. [Capability detection and matching](#5-capability-detection-and-matching)
 6. [Current provider capability registry](#6-current-provider-capability-registry)
@@ -31,10 +32,11 @@
 
 ## 1. Quick mental model
 
-Every inference request ultimately becomes an OpenAI-style upstream call to:
+Every inference request ultimately becomes an OpenAI-style call to either a configured cloud provider or the protected agent for an owned Local LLM:
 
 ```text
 <provider.baseUrl>/chat/completions
+<signed-local-node-endpoint>/v1/chat/completions
 ```
 
 The incoming client may speak OpenAI Chat Completions, OpenAI Responses/Codex, or Anthropic Messages/Claude Code. The router normalizes those request formats, chooses a provider, and converts the result back into the caller's expected format.
@@ -46,7 +48,7 @@ flowchart TD
     C --> D{Deduplication reusable?}
     D -->|Yes| E[Return original captured response]
     D -->|No or bypassed| F[Resolve model alias]
-    F --> G[Load configured providers]
+    F --> G[Load configured cloud providers and owned local candidates]
     G --> H[Apply alias provider eligibility]
     H --> I[Detect required capabilities]
     I --> J[Remove incompatible providers]
@@ -271,6 +273,36 @@ A provider enters the initial pool only when:
 3. Its API key is available for the current router or configured environment
 
 A provider with a missing required key is skipped before routing.
+
+### 3.6.1 Private Local Ollama candidates
+
+The router also loads enabled models from Local LLM nodes owned by the authenticated account. A local candidate is represented internally as:
+
+```text
+local-node:<nodeId>:model:<modelId>
+```
+
+It enters normal API routing only when all of these conditions hold:
+
+- The node belongs to the current account and has not been revoked or deleted.
+- Its **routing gate** is open.
+- Its status and heartbeat are recent enough for routing.
+- The model is installed, enabled, and compatible with the request.
+- The node is within its concurrency and circuit limits.
+
+The node's routing mode changes candidate ordering and fallback boundaries:
+
+| Mode | Behavior |
+|---|---|
+| `normal` | Participates in the ordinary ranked candidate pool. |
+| `prefer-local` | Compatible local candidates are ranked before cloud candidates. |
+| `local-only` | Only compatible local candidates are eligible; the router never silently sends the request to a cloud provider. |
+
+For a local attempt, the router creates a short-lived Ed25519 token bound to the owning account, node, model, and request ID. The protected loopback agent verifies the token and replay state, enforces the synchronized allowlist and limits, and forwards only the inference request to Ollama. The router never exposes raw Ollama administration routes.
+
+Cloud fallback can occur only if a local attempt fails before output begins. Once a local stream emits its first token, a later failure terminates that stream rather than mixing output from a second model. The Playground's **Local LLM** mode intentionally calls one exact node/model and bypasses candidate ranking and cloud fallback, even when the node's normal routing gate is closed.
+
+See [Connect a private Ollama node](CONNECT_LOCAL_LLM.md) and [Local-node security](LOCAL_NODE_SECURITY.md) for setup and trust-boundary details.
 
 ## 3.7 Alias eligibility restriction
 
@@ -1801,6 +1833,8 @@ flowchart TD
 11. **Every 5xx is circuit-eligible even when it is not configured as retryable.**
 12. **A `429` creates cooldown state even when `429` is removed from retry codes.**
 13. **Anthropic compatibility is best-effort** when routing Claude Code to non-Claude OpenAI-compatible models.
+14. **Ollama is the only Local LLM runtime in v0.7.0.** LM Studio, llama.cpp, vLLM, LocalAI, and TGI adapters are future work.
+15. **Local routing currently uses the protected ngrok topology.** Arbitrary public inference URLs and direct exposure of Ollama are intentionally rejected.
 
 ---
 

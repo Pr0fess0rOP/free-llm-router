@@ -171,9 +171,10 @@
             <p>
               Open <strong>Providers → Local LLMs</strong>, create a one-time
               pairing code, and run the generated command on the computer where
-              Ollama is installed. Node limits and model capabilities remain in
-              that node's card; routing participation lives under
-              <strong>Settings → Router &amp; Policies → Routing Policies</strong>.
+              Ollama is installed. Providers remains the connection and status
+              surface; routing gates, participation, limits, models,
+              capabilities, and lifecycle controls live under
+              <strong>Settings → Router &amp; Policies → Local LLM Properties</strong>.
             </p>
             <div class="docs-code">
               <div class="code-heading">
@@ -182,7 +183,7 @@
                   Copy
                 </button>
               </div>
-              <pre><code id="docs-local-llm">npx @free-llm-router/cli connect ollama \
+              <pre><code id="docs-local-llm">npx --yes @free-llm-router/cli@latest connect ollama \
   --code FLR-XXXX-XXXX \
   --router-url https://your-router-domain.com
 
@@ -200,6 +201,22 @@ curl https://your-router-domain.com/v1/chat/completions \
               exact online node and enabled model, then test prompts,
               temperature, capability scenarios, API compatibility, and output
               token caps without cloud fallback.
+            </p>
+            <p>
+              Under <strong>Local LLM Properties</strong>, each node has a
+              routing gate plus normal, prefer-local, or local-only
+              participation. You can also configure concurrency, queue, input,
+              token, and timeout limits; enable models; override capabilities;
+              test models; rotate credentials; revoke access; or permanently
+              delete the node without deleting Ollama models.
+            </p>
+            <p>
+              Pairing is reusable: <code>free-llm disconnect</code> stops the
+              connection while preserving its credential, and
+              <code>free-llm start</code> reconnects later from the user-level
+              <code>~/.freellm/</code> configuration without a new code.
+              Cloud fallback can occur only before a local stream emits its
+              first token.
             </p>
             <div class="docs-note">
               <strong>Private by design:</strong> every request is signed and

@@ -1,4 +1,6 @@
-import { chmod, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { chmod, copyFile, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import type { LocalNodeLimits, LocalNodeModel } from "../local-node-types.js";
 import {
@@ -31,9 +33,33 @@ export interface LocalAgentConfig {
 }
 
 export function localAgentConfigPath(): string {
-  return path.resolve(
-    process.env.FREE_LLM_LOCAL_NODE_CONFIG ?? ".freellm/local-node.json",
-  );
+  if (process.env.FREE_LLM_LOCAL_NODE_CONFIG) {
+    return path.resolve(process.env.FREE_LLM_LOCAL_NODE_CONFIG);
+  }
+  return path.join(os.homedir(), ".freellm", "local-node.json");
+}
+
+export function legacyLocalAgentConfigPath(): string {
+  return path.resolve(".freellm", "local-node.json");
+}
+
+export async function migrateLegacyLocalAgentConfig(
+  legacy = legacyLocalAgentConfigPath(),
+  target = localAgentConfigPath(),
+): Promise<boolean> {
+  if (process.env.FREE_LLM_LOCAL_NODE_CONFIG || path.resolve(legacy) === path.resolve(target)) {
+    return false;
+  }
+  try {
+    await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+    await copyFile(legacy, target, constants.COPYFILE_EXCL);
+    await chmod(target, 0o600);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "EEXIST") return false;
+    throw error;
+  }
 }
 
 export function normalizeRouterBaseUrl(value: string): string {
@@ -108,6 +134,7 @@ export async function createLocalAgentConfig(params: {
 }
 
 export async function loadLocalAgentConfig(): Promise<LocalAgentConfig | undefined> {
+  await migrateLegacyLocalAgentConfig();
   try {
     const config = JSON.parse(await readFile(localAgentConfigPath(), "utf8")) as LocalAgentConfig;
     if (!config.nodeId || !config.ownerAccountId || !config.routerBaseUrl) {

@@ -66,6 +66,7 @@ function publicNode(node: StoredLocalNode | undefined, now = Date.now()): LocalN
   return {
     ...safeNode,
     activeRequests: safeNode.activeRequests ?? 0,
+    routingEnabled: safeNode.routingEnabled !== false,
     status: effectiveLocalNodeStatus(safeNode, now),
     ...(cliVersionWarning ? { cliVersionWarning } : {}),
   };
@@ -189,6 +190,7 @@ export async function updateLocalNode(
   nodeId: string,
   updates: {
     name?: string;
+    routingEnabled?: boolean;
     routingMode?: LocalNodeRoutingMode;
     limits?: Partial<LocalNodeLimits>;
   },
@@ -207,6 +209,9 @@ export async function updateLocalNode(
         throw new LocalNodeValidationError("Unknown local routing mode");
       }
       stored.routingMode = updates.routingMode;
+    }
+    if (updates.routingEnabled !== undefined) {
+      stored.routingEnabled = updates.routingEnabled;
     }
     if (updates.limits) stored.limits = normalizeLimits(stored.limits, updates.limits);
   });
@@ -415,6 +420,7 @@ export async function eligibleLocalNodeProviders(
   return nodes.flatMap((stored) => {
     const node = publicNode(stored, now)!;
     if (node.status !== "online" || !node.endpoint || node.revokedAt) return [];
+    if (!node.routingEnabled) return [];
     if (node.activeRequests >= node.limits.maxConcurrentRequests) return [];
     const endpoint = node.endpoint;
     return node.models

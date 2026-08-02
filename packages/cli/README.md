@@ -1,24 +1,59 @@
 # Free LLM Router CLI
 
-The CLI is currently built from the root package (`src/cli.ts`) and published through the `free-llm` and `free-llm-router` binaries. This directory documents its local-node surface while preserving a future move to a dedicated `@free-llm-router/cli` workspace package.
+Connect an Ollama installation on your computer to a deployed Free LLM Router.
 
-## Local Ollama commands
+## Requirements
 
-```text
-npx @free-llm-router/cli connect ollama --code <code> [--router-url <url>]
-npx @free-llm-router/cli start
-npx @free-llm-router/cli status
-npx @free-llm-router/cli models [sync]
-npx @free-llm-router/cli logs
-npx @free-llm-router/cli disconnect
-npx @free-llm-router/cli revoke
-npx @free-llm-router/cli credential rotate
+- Node.js 20 or newer
+- Ollama running on `http://127.0.0.1:11434`
+- At least one installed Ollama model
+- A one-time pairing code from the Free LLM Router dashboard
+- ngrok installed and authenticated
+
+## Connect a Local LLM
+
+Generate a pairing code under **Providers → Local LLMs**, then run:
+
+```powershell
+npx --yes @free-llm-router/cli@latest connect ollama `
+  --code FLR-XXXX-XXXX `
+  --router-url https://your-router.example
 ```
 
-For an unpublished local checkout, use `npm run cli -- <command>` from the
-repository root. The unscoped `free-llm-router` name on npm belongs to a
-different CLI and must not be used for this integration.
+The pairing code is used once. The CLI stores configuration in the current user's `~/.freellm/` directory and protects the device credential with Windows DPAPI, macOS Keychain, or Linux Secret Service when available.
 
-Use `free-llm-router serve` to start the router/dashboard server explicitly. `start` starts a paired local node when local-node configuration exists, otherwise it retains the original router-server behavior.
+## Commands
 
-See [the complete guide](../../docs/CONNECT_LOCAL_LLM.md), [security model](../../docs/LOCAL_NODE_SECURITY.md), and [troubleshooting](../../docs/LOCAL_NODE_TROUBLESHOOTING.md).
+```text
+free-llm connect ollama --code <code> --router-url <https-url>
+free-llm start
+free-llm status
+free-llm models
+free-llm models sync
+free-llm logs
+free-llm disconnect
+free-llm revoke
+free-llm credential rotate
+free-llm help
+```
+
+`disconnect` stops the node while preserving its pairing. `revoke` invalidates the device credential and removes the local pairing.
+
+Providers shows whether the node is connected. Configure its routing gate, normal/prefer-local/local-only mode, limits, models, capabilities, tests, revocation, and permanent deletion under **Settings → Router & Policies → Local LLM Properties**. Dashboard deletion removes router-side node data but never deletes Ollama models.
+
+## Maintainer: build and inspect
+
+Install the repository dependencies from the repository root, then build from this directory:
+
+```powershell
+npm run build
+npm run pack:check
+```
+
+Publish only after the package contents, project tests, and a local tarball installation have been verified:
+
+```powershell
+npm publish --access public
+```
+
+See the [complete Local LLM guide](https://github.com/Pr0fess0rOP/free-llm-router/blob/main/docs/CONNECT_LOCAL_LLM.md) and [troubleshooting guide](https://github.com/Pr0fess0rOP/free-llm-router/blob/main/docs/LOCAL_NODE_TROUBLESHOOTING.md).

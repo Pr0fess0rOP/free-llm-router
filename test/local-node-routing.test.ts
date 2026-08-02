@@ -184,6 +184,11 @@ test("local routing supports prefer-local, cloud fallback, local-only, and accou
     assert.equal(preferred.headers.get("x-free-llm-provider"), localProviderId(paired.node.id, "qwen:latest"));
     assert.equal(((await preferred.json()) as { choices: Array<{ message: { content: string } }> }).choices[0]?.message.content, "LOCAL");
 
+    await updateLocalNode(owner.account.id, paired.node.id, { routingEnabled: false });
+    const gated = await route(owner.routerKey);
+    assert.equal(gated.headers.get("x-free-llm-provider"), "cloud");
+    await updateLocalNode(owner.account.id, paired.node.id, { routingEnabled: true });
+
     const streamed = await route(owner.routerKey, true);
     assert.equal(streamed.status, 200);
     assert.equal(streamed.headers.get("x-free-llm-provider"), localProviderId(paired.node.id, "qwen:latest"));
@@ -250,6 +255,10 @@ test("local routing supports prefer-local, cloud fallback, local-only, and accou
     await updateLocalNode(owner.account.id, paired.node.id, { routingMode: "local-only" });
     const localOnlySuccess = await route(owner.routerKey);
     assert.equal(localOnlySuccess.headers.get("x-free-llm-provider"), localId);
+    await updateLocalNode(owner.account.id, paired.node.id, { routingEnabled: false });
+    const gatedLocalOnly = await route(owner.routerKey);
+    assert.equal(gatedLocalOnly.headers.get("x-free-llm-provider"), "cloud");
+    await updateLocalNode(owner.account.id, paired.node.id, { routingEnabled: true });
     await recordLocalNodeHeartbeat(paired.node.id, {
       agentVersion: "test",
       activeRequests: 0,

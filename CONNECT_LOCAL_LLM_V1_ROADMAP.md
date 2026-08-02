@@ -4,8 +4,11 @@
 **Feature:** Connect Local LLM  
 **Initial runtime:** Ollama only  
 **Access model:** A local node is private and usable only by the Free LLM Router account that paired it  
-**Status:** Implementation plan  
-**Target release:** Future minor release; version to be assigned before merge
+**Status:** Implemented
+
+**Target release:** v0.7.0
+
+> This roadmap preserves the v1 design rationale. For the authoritative user flow, commands, and operational behavior in v0.7.0, see [Connect a private Ollama node](docs/CONNECT_LOCAL_LLM.md), [Local-node security](docs/LOCAL_NODE_SECURITY.md), and [Local-node troubleshooting](docs/LOCAL_NODE_TROUBLESHOOTING.md).
 
 ---
 
@@ -34,13 +37,13 @@ The first version is **not** a public compute marketplace. A node belongs to one
 
 ### Dashboard flow
 
-1. User opens **Providers → Connect Local LLM**.
-2. User chooses **Ollama**.
+1. User opens **Providers → Local LLMs**.
+2. User chooses **Connect Ollama**.
 3. Dashboard creates a short-lived pairing code.
 4. Dashboard shows the CLI command:
 
 ```bash
-npx @free-llm-router/cli connect ollama --code FLR-XXXX-XXXX
+npx --yes @free-llm-router/cli@latest connect ollama --code FLR-XXXX-XXXX --router-url https://your-router.example
 ```
 
 5. The CLI:
@@ -53,12 +56,11 @@ npx @free-llm-router/cli connect ollama --code FLR-XXXX-XXXX
    - Registers the tunnel with Free LLM Router.
 6. The dashboard shows the node as **Online**.
 7. The user can:
-   - Enable or disable individual models.
-   - Test one model.
-   - Test all local models.
-   - Prefer local models before cloud providers.
-   - Use local models only.
-   - Remove or revoke the node.
+   - Open the exact node/model in the Local LLM Playground.
+   - Manage the routing gate, limits, models, and capabilities under **Settings → Router & Policies → Local LLM Properties**.
+   - Choose normal, prefer-local, or local-only routing participation.
+   - Test one model or all enabled local models.
+   - Revoke access or permanently delete the node without changing Ollama models.
 
 ### Expected CLI output
 
@@ -102,6 +104,9 @@ Maximum output tokens: 2048
 - Streaming chat completions.
 - Cloud fallback when the local node fails before the first token.
 - Node revocation.
+- Permanent node deletion.
+- Per-node routing gate and Settings-level management.
+- Exact Local LLM Playground testing without cloud fallback.
 - Basic concurrency and output limits.
 - Request authentication and replay protection.
 
@@ -267,7 +272,7 @@ Total generation timeout:  10 minutes
 
 ### 5.1 Dashboard
 
-Add a **Connect Local LLM** area under Providers.
+The implemented dashboard uses a **Local LLMs** tab under Providers for pairing and connection status, plus **Settings → Router & Policies → Local LLM Properties** for configuration.
 
 Responsibilities:
 
@@ -538,8 +543,7 @@ Only the router should be able to invoke the inference endpoint successfully.
 ### Connect
 
 ```bash
-free-llm-router connect ollama
-free-llm-router connect ollama --code FLR-XXXX-XXXX
+free-llm connect ollama --code FLR-XXXX-XXXX --router-url https://your-router.example
 ```
 
 Actions:
@@ -558,7 +562,7 @@ Actions:
 ### Start
 
 ```bash
-free-llm-router start
+free-llm start
 ```
 
 Starts the agent and reconnects the registered node.
@@ -566,7 +570,7 @@ Starts the agent and reconnects the registered node.
 ### Status
 
 ```bash
-free-llm-router status
+free-llm status
 ```
 
 Displays:
@@ -583,8 +587,8 @@ Displays:
 ### Models
 
 ```bash
-free-llm-router models
-free-llm-router models sync
+free-llm models
+free-llm models sync
 ```
 
 Lists or synchronizes installed Ollama models.
@@ -592,7 +596,7 @@ Lists or synchronizes installed Ollama models.
 ### Logs
 
 ```bash
-free-llm-router logs
+free-llm logs
 ```
 
 Shows local agent events without printing full prompts or secrets by default.
@@ -600,7 +604,7 @@ Shows local agent events without printing full prompts or secrets by default.
 ### Disconnect
 
 ```bash
-free-llm-router disconnect
+free-llm disconnect
 ```
 
 Stops the local connection. It should not delete local Ollama models.
@@ -608,10 +612,18 @@ Stops the local connection. It should not delete local Ollama models.
 ### Revoke
 
 ```bash
-free-llm-router revoke
+free-llm revoke
 ```
 
 Revokes the node credential and removes the node from router eligibility.
+
+### Rotate credential
+
+```bash
+free-llm credential rotate
+```
+
+Invalidates the previous device credential and stores its replacement in the operating-system credential store or restrictive fallback file.
 
 ---
 

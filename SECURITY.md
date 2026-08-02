@@ -61,6 +61,11 @@ security properties include:
 - Provider requests are sent only to configured provider endpoints.
 - Reliability features such as retry handling, cooldowns, circuit breakers,
   quotas, and request deduplication reduce accidental request amplification.
+- Private Ollama nodes are account-owned, use hashed one-time pairing codes and
+  device credentials, and accept only short-lived signed inference requests.
+- The local agent binds to loopback, exposes no Ollama model-administration
+  routes, enforces the configured model allowlist and limits, and is reached
+  through an HTTPS ngrok endpoint validated by the router.
 
 These controls do not replace secure deployment practices.
 
@@ -89,6 +94,13 @@ Production operators should:
 9. Enable GitHub secret scanning, push protection, Dependabot, and code scanning.
 10. Apply request-rate, concurrency, token, and spending limits appropriate for
     the deployment.
+11. For Local LLM support, configure stable Ed25519 signing keys in hosted
+    deployments, point ngrok only at the protected agent on port `11500`, and
+    revoke or permanently delete nodes that are no longer trusted.
+
+See [Local-node Security](docs/LOCAL_NODE_SECURITY.md) for the complete trust
+boundary, credential lifecycle, endpoint validation, replay protection, and
+agent-enforcement model.
 
 ## Out of Scope
 

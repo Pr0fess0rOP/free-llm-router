@@ -6,19 +6,19 @@ Run `ollama serve`, verify `curl http://127.0.0.1:11434/api/version`, then retry
 
 ## No models are found
 
-Run `ollama list`. Install a model yourself with Ollama, then run `free-llm-router models sync`. The router never pulls or deletes models.
+Run `ollama list`. Install a model yourself with Ollama, then run `free-llm models sync`. The router never pulls or deletes models.
 
 ## Pairing code is invalid or expired
 
-Generate a new code in the Providers dashboard. Codes expire after ten minutes and cannot be reused, including after a successful exchange.
+Generate a new code under **Providers → Local LLMs**. Codes expire after ten minutes and cannot be reused, including after a successful exchange.
 
 ## ngrok does not start
 
-Install ngrok, run `ngrok config add-authtoken YOUR_TOKEN`, and ensure `ngrok version` works. If the executable is elsewhere, pass `--ngrok-path /absolute/path/to/ngrok` during pairing or set `NGROK_PATH` before `free-llm-router start`.
+Install ngrok, run `ngrok config add-authtoken YOUR_TOKEN`, and ensure `ngrok version` works. If the executable is elsewhere, pass `--ngrok-path /absolute/path/to/ngrok` during pairing or set `NGROK_PATH` before `free-llm start`.
 
 ## Node stays offline
 
-Run `free-llm-router status` and `free-llm-router logs`. Confirm the CLI remains running, the router URL is reachable, and the registered tunnel reaches `GET /health`. A node becomes unstable after 45 seconds without a heartbeat and offline after 90 seconds.
+Run `free-llm status` and `free-llm logs`. Confirm the CLI remains running, the router URL is reachable, and the registered tunnel reaches `GET /health`. A node becomes unstable after 45 seconds without a heartbeat and offline after 90 seconds.
 
 ## Requests fall back to cloud
 
@@ -30,10 +30,10 @@ This is intentional after the first output token. Switching providers mid-stream
 
 ## Stop, reconnect, or revoke
 
-`free-llm-router disconnect` stops the current agent without revoking it. `free-llm-router start` reconnects with the stored credential. `free-llm-router revoke` invalidates the credential and removes local configuration. You can also revoke from the Providers dashboard.
+`free-llm disconnect` stops the current agent without revoking it. `free-llm start` reconnects with the stored credential. `free-llm revoke` invalidates the credential and removes local configuration. The owner can also revoke or permanently delete the node under **Settings → Router & Policies → Local LLM Properties**.
 
-If the node was permanently deleted from the dashboard first, `free-llm-router revoke` recognizes the already-invalid credential and still removes the stale local pairing configuration.
+If the node was permanently deleted from the dashboard first, `free-llm revoke` recognizes the already-invalid credential and still removes the stale local pairing configuration.
 
 ## Rotate the credential
 
-Run `free-llm-router credential rotate`. The old credential stops working immediately; the replacement is written to the OS-protected or restrictive fallback store.
+Run `free-llm credential rotate`. The old credential stops working immediately; the replacement is written to the OS-protected or restrictive fallback store.

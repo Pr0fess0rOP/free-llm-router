@@ -1243,7 +1243,7 @@ async function createRoutedProviderRouter(params: {
   );
   const localNodes = account ? await listLocalNodes(account.id) : [];
   const localOnly = localNodes.some(
-    (node) => node.status !== "revoked" && node.routingMode === "local-only",
+    (node) => node.status !== "revoked" && node.routingEnabled && node.routingMode === "local-only",
   );
   const localProviders = account
     ? await eligibleLocalNodeProviders(account.id, params.requestId)
@@ -2619,6 +2619,9 @@ async function handleRequestCore(
           try {
             const node = await updateLocalNode(authorizedAccount.id, nodeId, {
               ...(typeof body.name === "string" ? { name: body.name } : {}),
+              ...(typeof body.routingEnabled === "boolean"
+                ? { routingEnabled: body.routingEnabled }
+                : {}),
               ...(typeof body.routingMode === "string"
                 ? { routingMode: body.routingMode as "normal" | "prefer-local" | "local-only" }
                 : {}),

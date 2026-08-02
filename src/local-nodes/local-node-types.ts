@@ -67,6 +67,7 @@ export interface LocalNode {
   lastCredentialError?: string;
   activeRequests: number;
   limits: LocalNodeLimits;
+  routingEnabled: boolean;
   routingMode: LocalNodeRoutingMode;
   models: LocalNodeModel[];
 }

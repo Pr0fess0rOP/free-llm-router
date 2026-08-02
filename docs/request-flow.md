@@ -4,7 +4,7 @@ This document explains how **free-llm-router** handles a request from the moment
 
 It is intentionally written in simple language first, with the exact technical behavior and source-code locations included afterward.
 
-> **Version note:** This document describes the routing behavior in the reviewed `free-llm-router` v0.6.0 codebase.
+> **Version note:** This document describes the routing behavior implemented in `free-llm-router` v0.7.0, including account-owned Local LLM candidates.
 
 ---
 
@@ -19,6 +19,7 @@ The available delivery drivers are AI providers such as:
 - NVIDIA
 - OpenRouter
 - Groq
+- A private Ollama model connected by the current account
 - Other configured providers
 
 The teacher does not blindly give the package to the first driver. The teacher asks:
@@ -40,7 +41,7 @@ That teacher is the router in `src/router.ts`.
 
 ```mermaid
 flowchart TD
-    A[Request received] --> B[Validate router key and load isolated configuration]
+    A[Request received] --> B[Validate router key and load isolated cloud and local configuration]
     B --> C[Resolve requested model or model alias]
     C --> D[Detect request capabilities]
     D --> E[Merge alias-required capabilities]
@@ -101,6 +102,9 @@ Failure → stop, fail over now, or wait and fail over
 | `src/router.ts` | Filters, ranks, calls, fails over, applies cooldowns, and manages circuit-breaker behavior. |
 | `src/routing-state.ts` | Stores provider attempts, latency, reliability, cooldown, and circuit state. |
 | `src/reliability-settings.ts` | Defines timeout, attempt, retry-status, and backoff defaults. |
+| `src/local-nodes/local-node-service.ts` | Loads owned local candidates, applies gates and routing modes, signs attempts, and tracks model health. |
+| `src/local-nodes/local-node-request-auth.ts` | Signs and verifies short-lived node/model/request-bound inference tokens. |
+| `src/local-nodes/agent/server.ts` | Enforces local limits and forwards allowed inference requests to loopback Ollama. |
 | `src/types.ts` | Defines routing strategies, failure types, circuit states, and stop reasons. |
 
 ---
@@ -468,6 +472,20 @@ This is different from capability filtering:
 
 - **Alias-ineligible:** The configuration does not permit the provider.
 - **Capability-incompatible:** The provider is permitted but cannot satisfy the request.
+
+### Local LLM routing gate and participation mode
+
+After account authentication, the router may add models from that account's connected Ollama nodes. Another account's nodes are never visible or eligible. A local model is excluded before ranking when its node is revoked, deleted, offline, gated off, over capacity, circuit-open, or when the model is disabled, uninstalled, or capability-incompatible.
+
+Each eligible local candidate uses the synthetic identity `local-node:<nodeId>:model:<modelId>` and participates according to the node setting:
+
+- `normal` places it in the ordinary ranked pool.
+- `prefer-local` puts compatible local candidates ahead of cloud candidates.
+- `local-only` removes all cloud candidates for that routed request.
+
+The router signs each local attempt for one account, node, model, and request ID. The agent validates that token, rejects replay, enforces input/token/concurrency/queue/timeout limits, and forwards the request to loopback Ollama. A failure before the first token may follow the allowed fallback policy; a failure after streaming begins ends the response without combining model output.
+
+The Playground's **Local LLM** mode is a diagnostic direct call: it selects one exact enabled model through the same signed agent path but intentionally bypasses normal ranking and cloud fallback. Closing a node's routing gate does not disable this owner-authorized diagnostic test.
 
 ---
 
@@ -2247,19 +2265,28 @@ src/reliability-settings.ts
 
 src/routing-state.ts
   Provider attempt and health-state persistence
+
+src/local-nodes/local-node-service.ts
+  Owned-node candidate loading, routing modes, signed attempts, and model health
+
+src/local-nodes/local-node-request-auth.ts
+  Short-lived Ed25519 request tokens and replay-bound claims
+
+src/local-nodes/agent/server.ts
+  Loopback enforcement and allowed Ollama inference forwarding
 ```
 
 ---
 
 ## 43. Final summary
 
-The free-llm-router does not simply choose a provider and hope for the best.
+The free-llm-router does not simply choose a cloud provider or local model and hope for the best.
 
 It performs four major jobs:
 
 1. **Understand the request** through aliases and capability detection.
 2. **Protect the system** using quotas, cooldowns, timeouts, and circuit breakers.
-3. **Choose intelligently** using priority, round robin, least used, fastest, reliability, or smart routing.
+3. **Choose intelligently** using account ownership, local routing gates and modes, capability/health checks, and priority, round robin, least used, fastest, reliability, or smart ranking.
 4. **Recover from failure** by stopping, immediately failing over, or failing over after backoff.
 
 The most important current behavior to remember is:

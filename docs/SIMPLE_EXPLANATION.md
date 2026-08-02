@@ -13,6 +13,7 @@ Free LLM Router is like a smart switchboard that lets you use ALL of these AI as
 3. **You get one master key** - The system gives you a special code (starting with "flm_") that you use in your apps
 4. **Your apps talk to the router** - Instead of your app talking directly to each AI service, it talks to this router
 5. **The router chooses the best AI** - Behind the scenes, it picks which AI service to use based on what you need, cost, speed, and availability
+6. **You can connect your own computer** - If you run Ollama locally, the router can treat selected models on that computer like private AI providers owned only by your account
 
 ## Real-world analogy
 
@@ -42,6 +43,7 @@ Free LLM Router does the same thing for AI services:
 - If one AI service has problems, the router automatically tries another
 - You manage all your AI service accounts in one place
 - You can switch which services you prefer without changing your app
+- You can prefer your private local model, fall back to cloud providers, or prohibit cloud fallback entirely
 
 ## Who is this for?
 
@@ -58,6 +60,7 @@ Free LLM Router does the same thing for AI services:
 - **Cost optimization** - Can automatically choose the cheapest option that meets your needs
 - **No vendor lock-in** - Not stuck with just one AI company's offerings
 - **Simple setup and management** - Configure everything through an easy-to-use dashboard
+- **Private local option** - Pair Ollama through a protected agent, choose exactly which models may run, and close the routing gate during maintenance without deleting the connection
 
 ## Real example
 
@@ -69,6 +72,10 @@ Let's say you're building a homework helper app:
 Without this router: Your app would need separate connections for each type of request
 With this router: Your app sends all requests to one place, and the router automatically sends each request to the best AI service for that specific task
 
+If the homework helper owner has Ollama on an office computer, they can choose **prefer local** so ordinary work runs there first. If that computer is offline before any answer begins, the router can try an allowed cloud provider. With **local only**, the request fails safely instead of sending the homework prompt to the cloud. The Playground can also test that exact Ollama model without involving cloud routing.
+
+The local connection does not expose Ollama's administration API. A loopback-only agent accepts signed inference requests for enabled models through an encrypted tunnel. The local computer still sees prompts and responses because it performs the inference.
+
 ## In short
 
-Free LLM Router makes it easier, cheaper, and more reliable to use AI in your applications by handling all the complexity of working with multiple AI services behind the scenes. You get the benefits of many different AI services without the complexity of managing them individually.
+Free LLM Router makes it easier, cheaper, more private, and more reliable to use AI in your applications by handling cloud providers and your own Ollama models behind one API. You get the benefits of multiple AI services without making every application manage them individually.

@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import path from "node:path";
 import { verifyLocalNodeRequestToken } from "../local-node-request-auth.js";
 import type { LocalNodeModel } from "../local-node-types.js";
-import type { LocalAgentConfig } from "./local-node-config.js";
+import { localAgentConfigPath, type LocalAgentConfig } from "./local-node-config.js";
 
 const replayedRequestIds = new Map<string, number>();
 const MAX_REPLAY_ENTRIES = 10_000;
@@ -149,7 +149,7 @@ function sanitizedBody(body: Record<string, unknown>, config: LocalAgentConfig):
 }
 
 async function logAgent(config: LocalAgentConfig, event: string, details: Record<string, unknown>): Promise<void> {
-  const target = path.resolve(path.dirname(process.env.FREE_LLM_LOCAL_NODE_CONFIG ?? ".freellm/local-node.json"), "local-node.log");
+  const target = path.resolve(path.dirname(localAgentConfigPath()), "local-node.log");
   await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
   await appendFile(target, `${JSON.stringify({
     timestamp: new Date().toISOString(),
