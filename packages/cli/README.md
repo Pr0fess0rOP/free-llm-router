@@ -22,6 +22,21 @@ npx --yes @free-llm-router/cli@latest connect ollama `
 
 The pairing code is used once. The CLI stores configuration in the current user's `~/.freellm/` directory and protects the device credential with Windows DPAPI, macOS Keychain, or Linux Secret Service when available.
 
+`npx` does not install a permanent command. To use the shorter `free-llm`
+commands shown below, install the CLI globally once:
+
+```powershell
+npm install --global @free-llm-router/cli@latest
+free-llm --version
+```
+
+Alternatively, prefix any command with
+`npx --yes @free-llm-router/cli@latest`, for example:
+
+```powershell
+npx --yes @free-llm-router/cli@latest disconnect
+```
+
 ## Commands
 
 ```text

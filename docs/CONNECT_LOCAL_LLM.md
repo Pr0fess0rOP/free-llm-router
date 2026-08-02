@@ -36,6 +36,18 @@ npm run cli -- connect ollama --code FLR-XXXX-XXXX --router-url http://localhost
 
 The CLI stores its configuration under the current user's `~/.freellm/` directory, starts a protected agent on `127.0.0.1:11500`, starts or connects to an ngrok HTTPS tunnel, registers the tunnel, and sends an authenticated heartbeat every 20 seconds. Older checkout-local configuration is copied forward automatically without deleting the original. Raw Ollama is never exposed.
 
+`npx` runs the package without installing a permanent `free-llm` command. You
+can either keep using the full `npx --yes @free-llm-router/cli@latest ...`
+form for every command, or install the command once:
+
+```bash
+npm install --global @free-llm-router/cli@latest
+free-llm --version
+```
+
+The shorter commands below assume the global installation. Installing it does
+not pair again or replace the credential already stored in `~/.freellm/`.
+
 ## Routing modes
 
 Configure the node under **Settings → Router & Policies → Local LLM Properties**. The per-node routing gate can exclude the node from normal API routing without disconnecting it; direct Local LLM Playground tests remain available while the gate is closed.

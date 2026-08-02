@@ -45,6 +45,16 @@ test("Providers dashboard exposes complete local-node pairing and management con
   assert.match(css, /\.local-node-properties/);
   assert.match(css, /\.local-node-routing-gate/);
   assert.match(vercel, /\/api\/local-nodes\/:path\*/);
+  const rewrites = (JSON.parse(vercel) as {
+    rewrites: Array<{ source: string; destination: string }>;
+  }).rewrites;
+  assert.deepEqual(
+    rewrites.find((rewrite) => rewrite.source === "/api/local-nodes"),
+    {
+      source: "/api/local-nodes",
+      destination: "/api/handler?__route=/api/local-nodes",
+    },
+  );
 });
 
 test("CLI and documentation expose the complete local Ollama lifecycle", async () => {

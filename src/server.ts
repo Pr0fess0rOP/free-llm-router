@@ -2499,7 +2499,10 @@ async function handleRequestCore(
         return;
       }
 
-      if (request.method === "GET" && url.pathname === "/api/local-nodes") {
+      if (
+        request.method === "GET" &&
+        (url.pathname === "/api/local-nodes" || url.pathname === "/api/local-nodes/")
+      ) {
         sendJson(response, 200, {
           nodes: await listLocalNodes(authorizedAccount.id),
         });
