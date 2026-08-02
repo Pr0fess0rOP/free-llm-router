@@ -97,7 +97,7 @@ If Ollama is running on this computer or another computer you control:
 4. Select which installed models the router may use and give the node a recognizable name.
 5. Leave the command running while the node should remain online.
 
-The CLI stores the pairing under the current user's `~/.freellm/` directory. Later, `free-llm start` reconnects the same node without another pairing code. Providers shows connection status; configuration lives under **Settings → Router & Policies → Local LLM Properties**.
+The CLI stores the pairing under the current user's `~/.freellm/` directory. Later, `npx --yes @free-llm-router/cli@latest start` reconnects the same node without another pairing code. To use the shorter `free-llm start` form, first run `npm install --global @free-llm-router/cli@latest`. Providers shows connection status; configuration lives under **Settings → Router & Policies → Local LLM Properties**.
 
 See [Connect a private Ollama node](CONNECT_LOCAL_LLM.md) for routing modes, limits, model capabilities, testing, revocation, deletion, and CLI lifecycle commands.
 

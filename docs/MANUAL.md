@@ -1180,7 +1180,7 @@ The public Local LLM CLI is a separate, focused npm package. Generate a pairing 
 npx --yes @free-llm-router/cli@latest connect ollama --code FLR-XXXX-XXXX --router-url https://your-router.example
 ```
 
-After pairing, the `free-llm` executable supports `start`, `status`, `models`, `models sync`, `logs`, `disconnect`, `revoke`, and `credential rotate`. `free-llm start` reuses the credential stored in `~/.freellm/`, so restarting from another directory does not require another pairing code.
+After pairing, use `npx --yes @free-llm-router/cli@latest <command>` for `start`, `status`, `models`, `models sync`, `logs`, `disconnect`, `revoke`, and `credential rotate`. The `npx` form is temporary and does not install `free-llm` as a Windows command. Run `npm install --global @free-llm-router/cli@latest` once if you want the shorter `free-llm <command>` form. Both forms reuse the credential stored in `~/.freellm/`, so restarting from another directory does not require another pairing code.
 
 ---
 

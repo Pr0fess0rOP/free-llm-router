@@ -211,10 +211,14 @@ curl https://your-router-domain.com/v1/chat/completions \
               delete the node without deleting Ollama models.
             </p>
             <p>
-              Pairing is reusable: <code>free-llm disconnect</code> stops the
-              connection while preserving its credential, and
-              <code>free-llm start</code> reconnects later from the user-level
+              Pairing is reusable:
+              <code>npx --yes @free-llm-router/cli@latest disconnect</code>
+              stops the connection while preserving its credential, and
+              <code>npx --yes @free-llm-router/cli@latest start</code>
+              reconnects later from the user-level
               <code>~/.freellm/</code> configuration without a new code.
+              Install <code>@free-llm-router/cli</code> globally with npm if
+              you prefer the shorter <code>free-llm</code> command.
               Cloud fallback can occur only before a local stream emits its
               first token.
             </p>
