@@ -129,6 +129,21 @@ function notify(message) {
   window.setTimeout(() => toast.classList.remove("visible"), 2400);
 }
 
+async function responseBody(response) {
+  if (response.status === 204) return null;
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {
+      error: {
+        message: text.trim().slice(0, 500) || `Request failed (${response.status})`,
+      },
+    };
+  }
+}
+
 async function api(path, options = {}) {
   let freshSessionToken =
     (await window.freeLlmClerk?.session?.getToken()) ?? state.sessionToken;
@@ -154,9 +169,14 @@ async function api(path, options = {}) {
     }
   }
 
-  const body = response.status === 204 ? null : await response.json();
+  const body = await responseBody(response);
   if (!response.ok) {
-    throw new Error(body?.error?.message ?? body?.error ?? "Request failed");
+    const candidate = body?.error?.message ?? body?.error ?? body?.message;
+    throw new Error(
+      typeof candidate === "string"
+        ? candidate
+        : `Request failed (${response.status})`,
+    );
   }
   return body;
 }
@@ -5543,8 +5563,10 @@ $("#test-form").addEventListener("submit", async (event) => {
         },
         body: JSON.stringify(requestBody),
       });
-      body = await response.json();
-      if (!response.ok) throw new Error(body.error?.message ?? "Test request failed");
+      body = await responseBody(response);
+      if (!response.ok) {
+        throw new Error(body?.error?.message ?? `Test request failed (${response.status})`);
+      }
 
       handledBy = response.headers.get("x-free-llm-provider");
       routingPolicy = response.headers.get("x-free-llm-routing-policy");

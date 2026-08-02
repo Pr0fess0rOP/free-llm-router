@@ -45,6 +45,10 @@ test("Vercel rewrites preserve landing, docs, dashboard, and sign-in routes", as
   assert.equal(bySource.get("/dashboard"), "/dashboard.html");
   assert.equal(bySource.get("/sign-in"), "/dashboard.html");
   assert.equal(bySource.get("/docs"), "/docs.html");
+  assert.equal(
+    bySource.get("/api/playground/:path*"),
+    "/api/handler?__route=/api/playground/:path*",
+  );
 });
 
 test("dashboard authentication returns to the dashboard route", async () => {

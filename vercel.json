@@ -96,6 +96,10 @@
       "destination": "/api/handler?__route=/api/router/settings"
     },
     {
+      "source": "/api/playground/:path*",
+      "destination": "/api/handler?__route=/api/playground/:path*"
+    },
+    {
       "source": "/v1/:path*",
       "destination": "/api/handler?__route=/v1/:path*"
     }
