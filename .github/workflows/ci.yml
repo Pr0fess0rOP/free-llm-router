@@ -41,3 +41,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Build npm CLI package
+        run: npm --prefix packages/cli run build
+
+      - name: Inspect npm CLI package
+        run: npm --prefix packages/cli run pack:check

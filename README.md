@@ -8,8 +8,7 @@ Bring your own LLM API keys and route **OpenAI Chat Completions**, **OpenAI Resp
 
 Free LLM Router handles provider failover, request deduplication, analytics, rate-limit cooldowns, and more—making it easier, cheaper, and more reliable to use AI in your applications.
 
-## ![Feature Showcase](public/assets/demo/feature-showcase.gif)
-
+## ![Feature Showcase](public\assets\demo\feature-showcase.gif)
 
 ## 📖 What is this product?
 
@@ -20,10 +19,10 @@ Imagine you have several different AI assistants (like different brands of smart
 ### How it works
 
 1. **You sign in once** — Log into the dashboard with your Clerk account.
-2. **You add your AI service keys** — These are like passwords for each AI service you want to use (you only have to enter them once).
+2. **You add cloud keys or pair Ollama** — Connect hosted AI services, private models on a computer you control, or both.
 3. **You get one master key** — The system gives you a special code (starting with `flm_`) that you use in your apps.
 4. **Your apps talk to the router** — Instead of your app talking directly to each AI service, it talks to this router.
-5. **The router chooses the best AI** — Behind the scenes, it picks which AI service to use based on what you need, cost, speed, availability, and rate-limits.
+5. **The router chooses the best AI** — Behind the scenes, it picks an eligible cloud or local model based on capabilities, policy, speed, availability, health, quotas, and local routing gates.
 
 ---
 
@@ -34,8 +33,9 @@ Imagine you have several different AI assistants (like different brands of smart
 - **Rate-Limit & Quota Protection:** Automatically honors `Retry-After` headers and tracks your free-tier limits to avoid unexpected charges.
 - **Request Deduplication:** Coalesces identical in-flight requests and briefly reuses successful responses, saving provider quota.
 - **Model Aliases & Capabilities:** Create virtual models (like `vision-router`) that only route to providers with specific capabilities.
-- **Comprehensive Dashboard:** Manage providers, test prompts in the Playground, and view detailed request analytics and performance timings.
+- **Comprehensive Dashboard:** Manage cloud and local providers with matching card flows, test routed, exact cloud, or exact Local LLM prompts in the Playground, and inspect detailed request analytics and performance timings.
 - **Full Compatibility:** Works out of the box as an OpenAI-compatible endpoint, Codex CLI gateway, and Claude Code gateway.
+- **Private Local Ollama Nodes:** Pair Ollama through a protected loopback agent and ngrok tunnel, inspect connections in Providers, manage routing gates, limits, lifecycle, and model capabilities under **Settings → Router & Policies → Local LLM Properties**, and test exact local models in the Playground.
 
 ---
 
@@ -50,7 +50,7 @@ Imagine you have several different AI assistants (like different brands of smart
 ### 1. Installation
 
 ```bash
-git clone https://github.com/your-username/free-llm-router.git
+git clone https://github.com/Pr0fess0rOP/free-llm-router.git
 cd free-llm-router
 npm install
 ```
@@ -63,6 +63,9 @@ Create a `.env` file in the root directory:
 # Required for Clerk authentication
 CLERK_SECRET_KEY=sk_test_your_clerk_secret_key
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_clerk_publishable_key
+
+# Recommended when deployed behind Vercel, a reverse proxy, or a custom domain
+CLERK_AUTHORIZED_PARTIES=https://your-dashboard.example.com
 
 # Strongly recommended for production (encrypts stored API keys)
 # Generate with: openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
@@ -77,14 +80,17 @@ npm run dev
 
 The dashboard will start at `http://localhost:8787`.
 
-### 4. Create a Router & Add Keys
+### 4. Create a Router & Connect Models
 
 1. Open `http://localhost:8787` and sign in.
 2. Create your first router to generate your `flm_...` router key.
 3. Go to the **Providers** page and add your API keys for services like Groq or OpenRouter.
-4. Head to the **Playground** to test your setup immediately!
+4. Optionally open **Providers → Local LLMs** and pair an Ollama computer.
+5. Head to the **Playground** to test a routed request, exact hosted model, or exact Local LLM immediately.
 
 For detailed setup instructions, see [Getting Started](docs/GETTING_STARTED.md).
+
+To connect Ollama running on your own computer, see [Connect a private Ollama node](docs/CONNECT_LOCAL_LLM.md).
 
 ---
 
@@ -96,12 +102,14 @@ Detailed documentation has been moved to the `docs/` folder to keep this README 
 - **[Architecture & Flow](docs/ARCHITECTURE.md)** - Deep dive into request flows and system design.
 - **[Simple Explanation](docs/SIMPLE_EXPLANATION.md)** - A non-technical overview of the product.
 - **[Getting Started](docs/GETTING_STARTED.md)** - Step-by-step setup and testing guide.
+- **[Connect a Local LLM](docs/CONNECT_LOCAL_LLM.md)** - Pair, configure, route to, test, and remove a private Ollama node.
+- **[Local-node Security](docs/LOCAL_NODE_SECURITY.md)** - Network boundaries, credentials, signed requests, and agent limits.
+- **[Local-node Troubleshooting](docs/LOCAL_NODE_TROUBLESHOOTING.md)** - Diagnose Ollama, ngrok, heartbeat, routing, and credential problems.
+- **[Changelog](CHANGELOG.md)** - Release-by-release feature and behavior changes.
 
 ---
 
 ## 🤝 Contributing
-
-Special thanks to [digitalPlat](https://github.com/DigitalPlatDev/FreeDomain) for providing a free subdomain for this project.
 
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) to learn how to get started, run tests, and submit pull requests.
 
@@ -119,4 +127,3 @@ Please review our [Security Policy](SECURITY.md) for information on reporting vu
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
-

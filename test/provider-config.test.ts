@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { PROVIDER_CATALOG } from "../src/provider-catalog.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -71,18 +72,18 @@ test("expanded provider catalog includes the 13 requested providers and official
 });
 
 test("expanded providers have catalog metadata and local logo assets", async () => {
-  const logoMap = JSON.parse(
-    await readFile(new URL("provider-logo-map.json", root), "utf8"),
-  ) as Record<string, { name: string; logo: string }>;
+  const providerFile = JSON.parse(
+    await readFile(new URL("providers.json", root), "utf8"),
+  ) as { providers: Array<{ id: string; model: string }> };
   const ids = [
     "together", "fireworks", "deepinfra", "gemini", "xai", "novita",
     "baseten", "cohere", "anthropic", "openai", "deepseek", "perplexity", "friendli",
   ];
   for (const id of ids) {
-    assert.ok(logoMap[id]?.name, `${id} should have display metadata`);
-    assert.equal(logoMap[id]?.logo, `/assets/providers/${id}.svg`);
+    const provider = providerFile.providers.find((candidate) => candidate.id === id);
+    assert.ok(PROVIDER_CATALOG[id]?.name, `${id} should have display metadata`);
+    assert.ok(provider?.model, `${id} should include an initial model catalog entry`);
     const asset = await readFile(new URL(`public/assets/providers/${id}.svg`, root), "utf8");
     assert.match(asset, /<svg/);
   }
 });
-

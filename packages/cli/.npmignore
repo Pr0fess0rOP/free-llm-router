@@ -1,9 +1,8 @@
 .env
 .env.*
 .freellm
-test
 src
-coverage
-.github
+test
 *.log
 *.tgz
+tsconfig.json

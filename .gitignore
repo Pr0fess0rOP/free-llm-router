@@ -56,6 +56,9 @@ typings/
 # Optional npm cache directory
 .npm
 
+# Generated local workspaces and smoke-test artifacts
+.tmp/
+
 # Optional eslint cache
 .eslintcache
 

@@ -10,10 +10,12 @@ Before reaching out, please check the existing documentation:
 - [Detailed Manual & Features](docs/MANUAL.md)
 - [Architecture & Flow](docs/ARCHITECTURE.md)
 - [Getting Started Guide](docs/GETTING_STARTED.md)
+- [Connect a Local LLM](docs/CONNECT_LOCAL_LLM.md)
+- [Local-node Troubleshooting](docs/LOCAL_NODE_TROUBLESHOOTING.md)
 
 ## 2. GitHub Issues
 
-If you've found a bug or have a feature request, please [open an issue](https://github.com/your-username/free-llm-router/issues) on GitHub.
+If you've found a bug or have a feature request, please [open an issue](https://github.com/Pr0fess0rOP/free-llm-router/issues) on GitHub.
 
 When opening an issue, please include:
 
@@ -21,7 +23,7 @@ When opening an issue, please include:
 - Steps to reproduce the behavior (if reporting a bug).
 - Expected behavior vs. what actually happened.
 - Any relevant logs (you can find request logs in your Dashboard's **Analysis** section).
-- Your environment details (OS, Node version).
+- Your environment details (OS and Node version). For Local LLM issues, also include the Ollama, `free-llm`, and ngrok versions, but never include pairing codes, router keys, device credentials, or ngrok credentials.
 
 ## 3. Discussions / Q&A
 

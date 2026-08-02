@@ -378,10 +378,38 @@ export class ProviderRouter {
     attempts: ProviderAttemptMetric[];
   }> {
     const requestStartedAt = this.options.requestStartedAt ?? Date.now();
-    const { candidates, evaluations } = await this.orderedCandidates(requirements);
+    const ordered = await this.orderedCandidates(requirements);
+    const evaluations = ordered.evaluations;
+    const candidates = ordered.candidates.filter((provider) => {
+      if (provider.providerType !== "local-ollama" || !provider.localMaxInputBytes) return true;
+      const requestBytes = Buffer.byteLength(JSON.stringify({
+        ...incomingBody,
+        model: provider.model,
+      }));
+      if (requestBytes <= provider.localMaxInputBytes) return true;
+      const evaluation = evaluations.find((candidate) => candidate.providerId === provider.id);
+      if (evaluation) evaluation.state = "limit-exceeded";
+      return false;
+    });
     const failures: AttemptFailure[] = [];
     const providerAttempts: ProviderAttemptMetric[] = [];
     let finalStopReason: RetryStopReason | undefined;
+
+    if (candidates.length === 0 && ordered.candidates.length > 0) {
+      throw new AllProvidersFailedError(
+        ordered.candidates.map((provider) => ({
+          provider: provider.id,
+          providerModel: provider.model,
+          message: "Request exceeds the local node input limit",
+          retryable: false,
+          recoveryAction: "stop",
+          retryStopReason: "no_more_candidates",
+        })),
+        evaluations,
+        [],
+        "no_more_candidates",
+      );
+    }
 
     for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
       const provider = candidates[candidateIndex]!;
@@ -422,6 +450,14 @@ export class ProviderRouter {
       const startedAt = Date.now();
 
       try {
+        const upstreamBody = {
+          ...incomingBody,
+          model: provider.model,
+        };
+        const requestHeaders = await provider.requestHeaders?.(
+          upstreamBody,
+          this.options.requestId,
+        );
         const response = await this.fetcher(`${provider.baseUrl}/chat/completions`, {
           method: "POST",
           headers: {
@@ -431,14 +467,13 @@ export class ProviderRouter {
               ? { authorization: `Bearer ${provider.apiKeyValue}` }
               : {}),
             ...provider.headers,
+            ...requestHeaders,
             ...(this.options.requestId
               ? { "x-request-id": this.options.requestId }
               : {}),
           },
-          body: JSON.stringify({
-            ...incomingBody,
-            model: provider.model,
-          }),
+          body: JSON.stringify(upstreamBody),
+          redirect: provider.redirect ?? "follow",
           signal: controller.signal,
         });
 
@@ -541,6 +576,8 @@ export class ProviderRouter {
         );
         const failoverReason = observedUnsupportedCapabilities.length
           ? "provider_capability_unsupported" as const
+          : provider.providerType === "local-ollama" && response.status >= 300 && response.status < 400
+            ? "provider_model_or_endpoint_unavailable" as const
           : providerFailoverReason(response.status);
         const retryable = failoverReason === undefined
           && this.reliability.retryStatusCodes.includes(response.status);
@@ -768,6 +805,7 @@ export class ProviderRouter {
     if (halfOpen) return this.reliability.halfOpenProbeTimeoutMs;
     const override = this.reliability.providerTimeoutOverrides[provider.id];
     if (override) return override;
+    if (streaming && provider.streamingTimeoutMs) return provider.streamingTimeoutMs;
     if (provider.timeoutMs) return provider.timeoutMs;
     return streaming
       ? this.reliability.streamingConnectionTimeoutMs
@@ -1145,7 +1183,14 @@ export class ProviderRouter {
       )?.remainingRatio ?? 1;
       return compareNumbers(rightRemaining, leftRemaining);
     });
-    return [...this.orderPool(healthy), ...orderedWarning];
+    const orderByTier = (providers: ProviderRuntime[]): ProviderRuntime[] => {
+      const tiers = [...new Set(providers.map((provider) => provider.routingTier ?? 0))]
+        .sort((left, right) => left - right);
+      return tiers.flatMap((tier) =>
+        this.orderPool(providers.filter((provider) => (provider.routingTier ?? 0) === tier)),
+      );
+    };
+    return [...orderByTier(healthy), ...orderedWarning];
   }
 
   private throwIfEveryProviderUnavailable(

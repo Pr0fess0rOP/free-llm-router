@@ -76,6 +76,10 @@
       "destination": "/api/handler?__route=/api/me"
     },
     {
+      "source": "/api/local-nodes/:path*",
+      "destination": "/api/handler?__route=/api/local-nodes/:path*"
+    },
+    {
       "source": "/api/providers/:path*",
       "destination": "/api/handler?__route=/api/providers/:path*"
     },

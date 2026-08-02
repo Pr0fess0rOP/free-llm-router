@@ -1,6 +1,6 @@
 # Free LLM Router
 
-A self-hosted LLM router and dashboard that lets a signed-in user bring their own provider API keys, call OpenAI-compatible applications, Codex, or Claude Code through one gateway, fail over across providers, and analyze which provider handled each request.
+A self-hosted LLM router and dashboard that lets a signed-in user bring provider API keys or connect private Ollama nodes, call OpenAI-compatible applications, Codex, or Claude Code through one gateway, fail over across eligible cloud and local candidates, and analyze which provider or node handled each request.
 
 This project is an adaptation of [`harivilasp/freellm`](https://github.com/harivilasp/freellm). The upstream project provides the core idea of a self-hosted free-tier LLM router with Clerk auth, provider key management, Redis/local storage options, and OpenAI-compatible failover. This adaptation builds on that foundation with a product-style dashboard, provider logos, analytics, request inspection, integration snippets, settings/account details, persistent rate-limit and quota protection, provider usage tracking, one-active-model provider catalogs, model-aware capability detection and runtime learning, request deduplication, end-to-end request correlation, rich routing headers, detailed router/provider/first-token/stream timing, aggregated token/fallback/tool/client analytics, and a simplified routing-first UX.
 
@@ -62,9 +62,10 @@ Typical flow:
 2. User creates a router/project.
 3. Server generates a private router key beginning with `flm_`.
 4. User adds provider API keys from the built-in 26-provider catalog, including Groq, OpenRouter, Together AI, Fireworks AI, Gemini, Anthropic, OpenAI, DeepSeek, and more.
-5. User calls `/v1/chat/completions`, `/v1/responses`, or `/v1/messages` with the router key.
-6. Router forwards the request to an available configured provider.
-7. Dashboard records request analytics and shows which provider was used.
+5. Optionally, the user pairs one or more private Ollama computers and enables selected installed models.
+6. User calls `/v1/chat/completions`, `/v1/responses`, or `/v1/messages` with the router key.
+7. Router forwards the request to an eligible cloud provider or account-owned Local LLM candidate according to the saved policy.
+8. Dashboard records request analytics and shows which provider, node, and exact model was used.
 
 ---
 
@@ -459,6 +460,19 @@ Mistral / new-model           tools=unknown (provider) → fallback in flexible 
 
 Capability-aware routing always evaluates the **active model**. Inactive saved models remain configuration choices and are never silently attempted. Analysis records the active provider model, required capabilities, effective values, sources, and why each provider/model pair was eligible or skipped. A clear model capability rejection triggers immediate provider failover, updates that model's runtime evidence, and does not damage the provider circuit.
 
+### Private Local Ollama Nodes
+
+- **Providers → Local LLMs** creates a short-lived, single-use pairing code and shows the public npm CLI command to run beside Ollama.
+- `@free-llm-router/cli` discovers installed models, stores the pairing under the current user's `~/.freellm/` directory, starts the protected loopback agent, manages ngrok, registers its HTTPS endpoint, and sends authenticated heartbeats.
+- Providers is the connection/status surface. Node configuration lives under **Settings → Router & Policies → Local LLM Properties**.
+- Each node has an independent routing gate, `normal`, `prefer-local`, or `local-only` participation, concurrency/queue/input/token/timeout limits, model allowlist, and capability matrix.
+- A closed routing gate excludes the node from normal API routing without disconnecting it. Owner-authorized direct Playground tests remain available for diagnostics.
+- The Playground's **Local LLM** mode calls one exact enabled Ollama model through the signed agent path without cloud ranking or fallback.
+- **Revoke** immediately invalidates the device credential while retaining the node record. **Delete** permanently removes the node, its models, and routing settings. Neither operation changes local Ollama models.
+- Cloud fallback is allowed only before a local response begins. A failure after the first streamed token terminates that stream instead of combining output from another model.
+
+See [Connect a private Ollama node](CONNECT_LOCAL_LLM.md), [Local-node security](LOCAL_NODE_SECURITY.md), and [Local-node troubleshooting](LOCAL_NODE_TROUBLESHOOTING.md).
+
 ### Bring Your Own API Keys
 
 - Users add provider API keys through the dashboard or CLI.
@@ -548,6 +562,7 @@ This index mirrors the dashboard's **Docs → Project Features** guide. It expla
 | 14 | Advanced analytics | Aggregates tokens, fallback paths, tool activity, structured-output validation, provider reliability, and safely detected client applications. | Filter the last seven days to see that Codex CLI generated 86 tool-enabled requests, Groq → Mistral was the most common fallback, and Mistral succeeded on 98% of attempts. |
 | 15 | Expanded dashboards | Provides dedicated Overview, Providers, APIs & Models, and Applications workspaces with shared filters and drill-down links to Request Logs. | Compare Groq's P95 attempt latency and fallback starts, then click **View logs** to inspect only Groq requests. |
 | 16 | Playground | Tests the configured router without writing a separate client. | Send a prompt with a selected API format and immediately inspect the chosen provider and response. |
+| 16A | Private Local LLM nodes | Pairs protected Ollama computers as first-class providers with per-node routing gates, limits, per-model capabilities, Settings-level management, and exact-model Playground tests. | An uppercase `OO` card represents Office Ollama; its routing gate is closed during maintenance while Local LLM mode still calls `qwen3:8b` directly for diagnostics. |
 | 17 | Recovery controls | Gives administrators compact actions for protected providers. | **Clear cooldown**, **Test recovery**, or **Reset circuit** restores service without deleting the provider key. |
 | 18 | Provider quotas | Tracks provider request/token usage and prevents configured free-tier limits from being exceeded. | At 80% usage a provider is deprioritized; at 100% it is skipped until the daily or monthly window resets. |
 | 19 | Retry and timeout controls | Separates transient retry/backoff rules from immediate provider failover while enforcing timeouts, deadlines, and attempt limits. | OpenRouter returns provider-specific `404` and fails over immediately; a later `503` uses the configured backoff before the next attempt. |
@@ -786,6 +801,12 @@ typescript
 │   └── assets/
 │       ├── brand/
 │       └── providers/
+├── packages/
+│   └── cli/
+│       ├── src/cli.ts
+│       ├── scripts/clean.mjs
+│       ├── package.json
+│       └── README.md
 ├── src/
 │   ├── accounts.ts
 │   ├── analytics.ts
@@ -794,6 +815,15 @@ typescript
 │   ├── config.ts
 │   ├── dashboard.ts
 │   ├── deduplication.ts
+│   ├── local-nodes/
+│   │   ├── agent/
+│   │   │   ├── cli-commands.ts
+│   │   │   ├── server.ts
+│   │   │   └── run.ts
+│   │   ├── local-node-service.ts
+│   │   ├── local-node-store.ts
+│   │   ├── local-node-request-auth.ts
+│   │   └── pairing-service.ts
 │   ├── model-aliases.ts
 │   ├── performance-timing.ts
 │   ├── request-analytics.ts
@@ -820,12 +850,18 @@ typescript
 │   ├── deduplication.test.ts
 │   ├── performance-timing-api.test.ts
 │   ├── performance-timing.test.ts
+│   ├── cli-package.test.ts
+│   ├── local-node-config.test.ts
+│   ├── local-node-dashboard.test.ts
+│   ├── local-node-routing.test.ts
 │   ├── provider-capabilities.test.ts
 │   ├── router.test.ts
 │   ├── routing-state.test.ts
 │   └── responses.test.ts
 ├── providers.json
 ├── providers.example.json
+├── CHANGELOG.md
+├── CONNECT_LOCAL_LLM_V1_ROADMAP.md
 ├── package.json
 ├── tsconfig.json
 ├── vercel.json
@@ -1007,7 +1043,14 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```env
 ACCOUNTS_PATH=.freellm/accounts.json
 ANALYTICS_PATH=.freellm/analytics.json
+ROUTING_STATE_PATH=.freellm/routing-state.json
+LOCAL_NODES_PATH=.freellm/local-nodes.json
+LOCAL_NODE_SIGNING_KEY_PATH=.freellm/local-node-signing-key.json
 ```
+
+### Hosted Local LLM Signing
+
+Hosted or serverless deployments that accept Local LLM connections must set stable Ed25519 PEM values in `LOCAL_NODE_SIGNING_PRIVATE_KEY` and `LOCAL_NODE_SIGNING_PUBLIC_KEY`. Local development may reuse the restrictive file at `LOCAL_NODE_SIGNING_KEY_PATH`; production serverless instances intentionally refuse to create ephemeral signing identities. See [Local-node security](LOCAL_NODE_SECURITY.md) before enabling pairing in production.
 
 ### Optional Redis/KV Storage
 
@@ -1131,6 +1174,14 @@ npm run cli -- add groq --no-open
 
 The CLI is useful for local development when you want to avoid dashboard setup or quickly add provider keys.
 
+The public Local LLM CLI is a separate, focused npm package. Generate a pairing code under **Providers → Local LLMs**, then run:
+
+```bash
+npx --yes @free-llm-router/cli@latest connect ollama --code FLR-XXXX-XXXX --router-url https://your-router.example
+```
+
+After pairing, the `free-llm` executable supports `start`, `status`, `models`, `models sync`, `logs`, `disconnect`, `revoke`, and `credential rotate`. `free-llm start` reuses the credential stored in `~/.freellm/`, so restarting from another directory does not require another pairing code.
+
 ---
 
 ## Public Product Surface
@@ -1160,9 +1211,11 @@ The landing page uses only local CSS, JavaScript, brand assets, and provider log
 
 ### Providers
 
-- Provider cards.
+- Matching **Cloud providers** and **Local LLMs** workspace tabs.
+- Summary-first provider and local-node cards with company logos or uppercase local initials.
 - Company logos.
 - Add/replace/remove provider key.
+- Local-node connection status and shortcuts to Playground or Local LLM Properties.
 - Rate-limit, circuit, failure, and quota awareness.
 - Daily/monthly request and token usage bars.
 - Quota editor and usage-reset action.
@@ -1170,11 +1223,13 @@ The landing page uses only local CSS, JavaScript, brand assets, and provider log
 
 ### Playground
 
-- API compatibility selector for OpenAI-compatible or Claude Code-compatible requests.
-- Sends the matching request shape to `/v1/chat/completions` or `/v1/messages`.
+- Three modes: **Router request**, exact hosted **Provider + model**, and exact **Local LLM**.
+- API compatibility selector for OpenAI Chat, Responses/Codex, or Claude Messages requests.
+- Local LLM mode selects one online node and enabled Ollama model, then calls it through the protected signed node connection without cloud ranking or fallback.
 - Prompt input.
 - Temperature.
-- Max tokens.
+- Output token cap.
+- Capability test scenarios for basic text, JSON, structured output, tools, and reasoning.
 - Test request button.
 - Endpoint and provider-used output.
 - Protocol-aware response display.
@@ -1192,15 +1247,15 @@ The Analysis workspace is split into two focused tabs so aggregate reporting doe
 
 The Docs workspace is divided into two tabs:
 
-- **Setup & Code** — cURL, JavaScript, Python, OpenAI SDK, Codex custom-provider, and Claude Code setup snippets.
-- **Project Features** — an indexed, example-driven guide to the complete request lifecycle, API compatibility, provider keys, all six routing policies, provider priority, retry/failover behavior, persistent cooldowns, circuit breakers, model aliases, capability-aware routing, the full chronological request timeline, request IDs and routing headers, Analysis logs, Playground testing, recovery controls, provider quotas, configurable retry/timeout controls, security, and storage.
+- **Setup & Code** — cURL, JavaScript, Python, OpenAI SDK, Local LLM pairing/gateway, Codex custom-provider, and Claude Code setup snippets.
+- **Project Features** — an indexed, example-driven guide to the complete request lifecycle, API compatibility, cloud providers, private Local LLM nodes, all six routing policies, provider priority, retry/failover behavior, persistent cooldowns, circuit breakers, model aliases, capability-aware routing, the full chronological request timeline, request IDs and routing headers, Analysis logs, all three Playground modes, recovery controls, provider quotas, configurable retry/timeout controls, security, and storage.
 
 ### Settings
 
 The Settings workspace is divided into three tabs:
 
 - **Account** — identity, login method, sign-in metadata, and session controls.
-- **Router & Policies** — contains nested **Routing Policies**, **Model Aliases**, and **Capability Registry** tabs so each workspace remains compact. Routing Policies contains the router identity, strategy, provider fallback order, provider/total/stream/probe timeouts, retry status codes, maximum attempts, backoff, jitter, and per-provider timeout overrides. Model aliases may override the three primary reliability limits.
+- **Router & Policies** — contains nested **Routing Policies**, **Model Aliases**, **Capability Registry**, and **Local LLM Properties** tabs so each workspace remains compact. Routing Policies contains router identity, strategy, cloud provider order, provider/total/stream/probe timeouts, retry status codes, maximum attempts, backoff, jitter, and per-provider timeout overrides. Local LLM Properties contains each node's routing gate and participation mode, limits, models, capabilities, testing, revoke, and deletion controls. Model aliases may override the three primary reliability limits.
 - **Logs & Data** — storage/security information and analytics-log deletion.
 
 ---
@@ -1446,6 +1501,30 @@ curl -X DELETE http://localhost:8787/api/providers/groq \
   -H "Authorization: Bearer $ROUTER_API_KEY" \
   -H "x-clerk-session-token: $CLERK_SESSION_TOKEN"
 ```
+
+### Local-node management routes
+
+Dashboard routes require both signed-in Clerk access and the owning router key. Device routes require the node's device credential; another account cannot list, configure, test, revoke, delete, or route to the node.
+
+```txt
+POST   /api/local-nodes/pairing-code
+POST   /api/local-nodes/pair
+GET    /api/local-nodes
+GET    /api/local-nodes/:nodeId
+PATCH  /api/local-nodes/:nodeId
+DELETE /api/local-nodes/:nodeId
+DELETE /api/local-nodes/:nodeId/permanent
+PATCH  /api/local-nodes/:nodeId/models/:modelId
+POST   /api/local-nodes/:nodeId/models/:modelId/test
+POST   /api/local-nodes/:nodeId/test-all
+POST   /api/local-nodes/:nodeId/heartbeat
+POST   /api/local-nodes/:nodeId/endpoint
+POST   /api/local-nodes/:nodeId/models/sync
+POST   /api/local-nodes/:nodeId/rotate-credential
+POST   /api/local-nodes/:nodeId/revoke
+```
+
+`DELETE /api/local-nodes/:nodeId` revokes access but retains the record. `DELETE /api/local-nodes/:nodeId/permanent` permanently deletes the owner-scoped node and model configuration.
 
 ### `PUT /api/providers/:providerId/quota`
 
@@ -2111,6 +2190,12 @@ ROUTING_STATE_PATH=.freellm/routing-state.json
 
 Tracks per-provider attempt count, success/failure count, moving average latency, success score, consecutive failures, rate-limit cooldowns, circuit state, circuit failure/open counts, failure classification, half-open probes, and recovery timestamps.
 
+### `.freellm/local-nodes.json`
+
+Default router-side Local LLM store when Redis/KV is not configured. It is controlled by `LOCAL_NODES_PATH` and contains hashed pairing records, owner-scoped node metadata, hashed device credentials, registered endpoints, heartbeats, routing gates, limits, model allowlists, capabilities, and model health. Raw device credentials, prompts, responses, and ngrok credentials are not stored here.
+
+The Local LLM computer separately keeps its agent configuration under the current user's `~/.freellm/` directory. `FREE_LLM_LOCAL_NODE_CONFIG` may override that path. Supported operating systems protect the device credential with DPAPI, Keychain, or Secret Service; the fallback file is restricted to the current user.
+
 ### `.freellm/analytics.json`
 
 Default analytics store.
@@ -2400,6 +2485,9 @@ The project is being implemented incrementally. Completed items remain listed he
 
 ### Phase 7 — Playground and Evaluation Lab
 
+- [x] Exact hosted provider/model and Local LLM node/model test modes
+- [x] Bounded all-model provider health checks
+- [x] Text, JSON, structured-output, tool, and reasoning test scenarios
 - [ ] Multi-provider comparison mode
 - [ ] Side-by-side output, latency, usage, and status
 - [ ] Tool-call and structured-output validation
@@ -2410,6 +2498,7 @@ The project is being implemented incrementally. Completed items remain listed he
 
 - [x] **P8.1** Public landing page, friendly `/dashboard` and `/docs` routes, and public integration quick start.
 - [x] **P8.2** Interactive landing motion with route-trace playback, scroll reveals, counters, chart animation, pointer depth, and reduced-motion support.
+- [x] **P8.3** Public `@free-llm-router/cli` package for pairing and operating private Ollama nodes.
 
 - [ ] OpenAPI specification
 - [ ] Postman collection
@@ -2428,11 +2517,22 @@ The project is being implemented incrementally. Completed items remain listed he
 - [ ] Public status page
 - [ ] Packaged self-hosted edition
 
+### Phase 10 — Private Local LLM Nodes
+
+- [x] Account-owned Ollama pairing with expiring, single-use codes
+- [x] Protected loopback agent, ngrok endpoint registration, signed requests, and replay protection
+- [x] Model inventory, allowlists, capabilities, health, limits, heartbeat, and cancellation
+- [x] Normal, prefer-local, and local-only routing with a per-node routing gate
+- [x] Settings-level Local LLM Properties and provider-style status cards
+- [x] Exact Local LLM Playground testing
+- [x] Credential rotation, disconnect/reconnect, revocation, and permanent node deletion
+- [x] Stable user-level CLI configuration and checkout-local migration
+
 ---
 
 ## Potential Future Updates
 
-The Responses API, Codex/Claude compatibility, intelligent routing, model aliases, persistent cooldowns, and circuit breakers are implemented. The next roadmap items focus on automatic recovery monitoring, application keys, privacy, and evaluation tooling.
+The Responses API, Codex/Claude compatibility, intelligent routing, model aliases, persistent cooldowns, circuit breakers, and private Ollama nodes are implemented. The next roadmap items focus on automatic recovery monitoring, application keys, privacy, broader evaluation tooling, and additional local runtimes.
 
 ### 1. Test All Providers
 

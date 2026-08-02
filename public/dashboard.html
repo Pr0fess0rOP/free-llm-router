@@ -262,136 +262,403 @@
             </section>
 
             <section id="providers-panel" class="tab-panel page-panel" hidden>
-              <div class="section-heading">
+              <div class="section-heading provider-page-heading">
                 <div>
-                  <p class="eyebrow">Provider directory</p>
-                  <h2>Provider keys</h2>
+                  <p class="eyebrow">Connections</p>
+                  <h2>Providers</h2>
                   <p>
-                    Keys stay on this server and are never shown again after
-                    saving.
+                    Manage hosted API providers and private Ollama nodes from
+                    separate workspaces.
                   </p>
                 </div>
-                <div class="section-actions">
-                  <label class="search">
-                    <span class="sr-only">Search providers</span>
-                    <input
-                      id="provider-search"
-                      type="search"
-                      placeholder="Search providers"
-                    />
-                  </label>
-                  <button
-                    id="open-provider-modal"
-                    class="primary"
-                    type="button"
-                  >
-                    Add provider
-                  </button>
-                </div>
               </div>
+
+              <div class="provider-workspace-tabs" role="tablist" aria-label="Provider type">
+                <button
+                  id="cloud-providers-tab"
+                  class="provider-workspace-tab active"
+                  type="button"
+                  role="tab"
+                  aria-selected="true"
+                  aria-controls="cloud-providers-workspace"
+                  data-provider-workspace-tab="cloud"
+                >
+                  <span>Cloud providers</span>
+                  <small id="cloud-provider-tab-count">0 connected</small>
+                </button>
+                <button
+                  id="local-providers-tab"
+                  class="provider-workspace-tab"
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                  aria-controls="local-providers-workspace"
+                  data-provider-workspace-tab="local"
+                >
+                  <span>Local LLMs</span>
+                  <small id="local-provider-tab-count">0 nodes</small>
+                </button>
+              </div>
+
               <div
-                id="provider-list"
-                class="provider-grid"
-                aria-live="polite"
-              ></div>
+                id="cloud-providers-workspace"
+                class="provider-workspace-panel"
+                role="tabpanel"
+                aria-labelledby="cloud-providers-tab"
+                data-provider-workspace-panel="cloud"
+              >
+                <div class="section-heading provider-workspace-heading">
+                  <div>
+                    <p class="eyebrow">Provider directory</p>
+                    <h3>Provider keys</h3>
+                    <p>Keys stay on this server and are never shown again after saving.</p>
+                  </div>
+                  <div class="section-actions">
+                    <label class="search">
+                      <span class="sr-only">Search providers</span>
+                      <input
+                        id="provider-search"
+                        type="search"
+                        placeholder="Search providers"
+                      />
+                    </label>
+                    <button
+                      id="open-provider-modal"
+                      class="primary"
+                      type="button"
+                    >
+                      Add provider
+                    </button>
+                  </div>
+                </div>
+                <div
+                  id="provider-list"
+                  class="provider-grid"
+                  aria-live="polite"
+                ></div>
+              </div>
+
+              <div
+                id="local-providers-workspace"
+                class="provider-workspace-panel"
+                role="tabpanel"
+                aria-labelledby="local-providers-tab"
+                data-provider-workspace-panel="local"
+                hidden
+              >
+                <section class="local-node-directory" aria-labelledby="local-node-heading">
+                  <div class="local-node-directory-heading">
+                    <div>
+                      <p class="eyebrow">Private compute</p>
+                      <h3 id="local-node-heading">Connect Local LLM</h3>
+                      <p>Connect and inspect Ollama computers here. Configure routing gates, limits, models, and lifecycle under Settings → Router &amp; Policies → Local LLM Properties.</p>
+                    </div>
+                    <button id="connect-local-node" class="primary" type="button">Connect Ollama</button>
+                  </div>
+                  <div id="local-node-pairing" class="local-node-pairing" hidden>
+                    <div>
+                      <strong>Pairing code</strong>
+                      <code id="local-node-pairing-code"></code>
+                      <small id="local-node-pairing-expiry"></small>
+                    </div>
+                    <div class="local-node-command">
+                      <code id="local-node-pairing-command"></code>
+                      <button class="copy-button" data-copy="local-node-pairing-command" type="button">Copy command</button>
+                    </div>
+                    <p>Run this command on the computer where Ollama is installed. The code works once and expires after ten minutes.</p>
+                  </div>
+                  <div id="local-node-list" class="local-node-list" aria-live="polite"></div>
+                </section>
+              </div>
             </section>
 
             <section id="playground-panel" class="tab-panel page-panel" hidden>
-              <section class="tester">
-                <div class="tester-copy">
+              <div class="section-heading playground-page-heading">
+                <div>
                   <p class="eyebrow">Live check</p>
                   <h2>Test your router</h2>
                   <p>
-                    Send a real request through your connected providers before
-                    using the endpoint in another app.
+                    Validate the complete routing path or call one exact provider
+                    model before using the endpoint in another app.
                   </p>
                 </div>
-                <form id="test-form" class="tester-form">
-                  <div class="form-grid playground-form-grid">
-                    <label for="test-api-format"
-                      >API compatibility
-                      <select id="test-api-format">
-                        <option value="openai-compatible">OpenAI</option>
-                        <option value="openai-responses-compatible">
-                          Codex
-                        </option>
-                        <option value="claude-code-compatible">Claude</option>
-                      </select>
-                    </label>
-                    <label for="test-model-alias"
-                      >Model alias
-                      <select id="test-model-alias">
-                        <option value="free-router">Free Router</option>
-                      </select>
-                    </label>
-                    <label for="test-capability"
-                      >Request type
-                      <select id="test-capability">
-                        <option value="basic">Basic text</option>
-                        <option value="json">JSON response</option>
-                        <option value="schema">Structured output</option>
-                        <option value="tools">Tool calling</option>
-                        <option value="reasoning">Reasoning</option>
-                      </select>
-                    </label>
-                    <label for="test-temperature"
-                      >Temperature
-                      <input
-                        id="test-temperature"
-                        type="number"
-                        min="0"
-                        max="2"
-                        step="0.1"
-                        value="0.2"
-                      />
-                    </label>
-                    <label for="test-max-tokens"
-                      >Max tokens
-                      <input
-                        id="test-max-tokens"
-                        type="number"
-                        min="16"
-                        max="4096"
-                        step="16"
-                        value="256"
-                      />
-                    </label>
-                  </div>
-                  <div
-                    id="test-capability-preview"
-                    class="playground-capability-preview"
-                    aria-live="polite"
-                  ></div>
-                  <label for="test-prompt">Prompt</label>
-                  <textarea id="test-prompt" rows="5" maxlength="4000" required>
-Reply with exactly: Router is working.</textarea
-                  >
-                  <div class="tester-actions">
-                    <span id="test-hint"
-                      >Connect a provider to run a test.</span
-                    >
-                    <button id="test-button" class="primary" type="submit">
-                      Send test request
-                    </button>
-                  </div>
-                </form>
+              </div>
+
+              <section class="tester playground-shell">
                 <div
-                  id="test-result"
-                  class="test-result"
-                  aria-live="polite"
+                  class="playground-mode-switch"
+                  role="tablist"
+                  aria-label="Playground request mode"
+                >
+                  <button
+                    class="playground-mode-button active"
+                    type="button"
+                    role="tab"
+                    aria-selected="true"
+                    data-playground-mode="router"
+                  >
+                    Router request
+                  </button>
+                  <button
+                    class="playground-mode-button"
+                    type="button"
+                    role="tab"
+                    aria-selected="false"
+                    data-playground-mode="direct"
+                  >
+                    Provider + model
+                  </button>
+                  <button
+                    class="playground-mode-button"
+                    type="button"
+                    role="tab"
+                    aria-selected="false"
+                    data-playground-mode="local"
+                  >
+                    Local LLM
+                  </button>
+                </div>
+
+                <div class="playground-mode-intro" data-playground-router-only>
+                  <div>
+                    <span class="feature-kicker">Router request</span>
+                    <h3>Test the full routing pipeline</h3>
+                    <p>
+                      Send through a model alias and observe capability filtering,
+                      ranking, protection, fallback, and the provider that wins.
+                    </p>
+                  </div>
+                  <span class="playground-mode-badge">Routing enabled</span>
+                </div>
+
+                <div
+                  class="playground-mode-intro"
+                  data-playground-direct-only
                   hidden
                 >
-                  <div class="test-result-heading">
-                    <strong id="test-status">Response</strong>
-                    <span id="test-provider"></span>
+                  <div>
+                    <span class="feature-kicker">Provider + model</span>
+                    <h3>Test one exact provider model</h3>
+                    <p>
+                      Bypass ranking and fallback to diagnose one saved model, or
+                      run a lightweight health check against every saved model.
+                    </p>
                   </div>
-                  <div
-                    id="test-routing-decision"
-                    class="test-routing-decision"
-                    hidden
-                  ></div>
-                  <pre><code id="test-output"></code></pre>
+                  <span class="playground-mode-badge neutral">Direct diagnostic</span>
                 </div>
+
+                <div
+                  class="playground-mode-intro local-playground-intro"
+                  data-playground-local-only
+                  hidden
+                >
+                  <div>
+                    <span class="feature-kicker">Local LLM</span>
+                    <h3>Test one model running on your computer</h3>
+                    <p>
+                      Send a prompt directly to an enabled Ollama model with
+                      explicit compatibility, capability, temperature, and
+                      output-token controls. Cloud routing and fallback stay off.
+                    </p>
+                  </div>
+                  <span class="playground-mode-badge local">Private node</span>
+                </div>
+
+                <form id="test-form" class="tester-form">
+                  <div class="playground-workspace">
+                    <section class="playground-parameters-panel">
+                      <div class="playground-column-heading">
+                        <div>
+                          <span class="feature-kicker">Request setup</span>
+                          <h3>Test parameters</h3>
+                        </div>
+                        <small>Configure the request sent by the playground.</small>
+                      </div>
+
+                      <div class="form-grid playground-form-grid">
+                        <label for="test-api-format"
+                          >API compatibility
+                          <select id="test-api-format">
+                            <option value="openai-compatible">OpenAI</option>
+                            <option value="openai-responses-compatible">
+                              Codex
+                            </option>
+                            <option value="claude-code-compatible">Claude</option>
+                          </select>
+                        </label>
+                        <label for="test-model-alias" data-playground-router-only
+                          >Model alias
+                          <select id="test-model-alias">
+                            <option value="free-router">Free Router</option>
+                          </select>
+                        </label>
+                        <label
+                          for="test-direct-provider"
+                          data-playground-direct-only
+                          hidden
+                          >Provider
+                          <select id="test-direct-provider"></select>
+                        </label>
+                        <label
+                          for="test-direct-model"
+                          data-playground-direct-only
+                          hidden
+                          >Provider model
+                          <select id="test-direct-model"></select>
+                        </label>
+                        <label
+                          for="test-local-node"
+                          data-playground-local-only
+                          hidden
+                          >Local node
+                          <select id="test-local-node"></select>
+                        </label>
+                        <label
+                          for="test-local-model"
+                          data-playground-local-only
+                          hidden
+                          >Ollama model
+                          <select id="test-local-model"></select>
+                        </label>
+                        <label for="test-capability"
+                          >Request type
+                          <select id="test-capability">
+                            <option value="basic">Basic text</option>
+                            <option value="json">JSON response</option>
+                            <option value="schema">Structured output</option>
+                            <option value="tools">Tool calling</option>
+                            <option value="reasoning">Reasoning</option>
+                          </select>
+                        </label>
+                        <label for="test-temperature"
+                          >Temperature
+                          <input
+                            id="test-temperature"
+                            type="number"
+                            min="0"
+                            max="2"
+                            step="0.1"
+                            value="0.2"
+                          />
+                        </label>
+                        <label for="test-max-tokens"
+                          >Output token cap
+                          <span class="optional-field">Optional</span>
+                          <input
+                            id="test-max-tokens"
+                            type="number"
+                            min="1"
+                            max="65536"
+                            step="1"
+                            value="256"
+                            placeholder="Provider default"
+                          />
+                          <small class="field-help"
+                            >Limits generated output for safer tests. Clear it to
+                            use the protocol or provider fallback.</small
+                          >
+                        </label>
+                      </div>
+
+                      <div
+                        id="test-capability-preview"
+                        class="playground-capability-preview"
+                        aria-live="polite"
+                      ></div>
+
+                      <label class="playground-prompt-field" for="test-prompt">
+                        Prompt
+                        <textarea id="test-prompt" rows="6" maxlength="4000" required>Reply with exactly: Router is working.</textarea>
+                      </label>
+
+                      <div class="tester-actions">
+                        <span id="test-hint"
+                          >Connect a provider to run a test.</span
+                        >
+                        <div class="tester-action-buttons">
+                          <button
+                            id="test-all-models-button"
+                            class="secondary"
+                            type="button"
+                            data-playground-direct-only
+                            hidden
+                          >
+                            Test all models
+                          </button>
+                          <button id="test-button" class="primary" type="submit">
+                            Send test request
+                          </button>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section class="playground-output-panel">
+                      <div class="playground-column-heading">
+                        <div>
+                          <span class="feature-kicker">Test output</span>
+                          <h3>Result</h3>
+                        </div>
+                        <small>Response details appear here without shifting the form.</small>
+                      </div>
+
+                      <div id="test-result-empty" class="playground-result-empty">
+                        <span class="playground-result-empty-mark" aria-hidden="true"></span>
+                        <strong>No request sent yet</strong>
+                        <p>
+                          Choose your parameters and send a test. The response,
+                          selected provider, model, latency, and routing decision
+                          will appear in this column.
+                        </p>
+                      </div>
+
+                      <section
+                        id="model-health-test-results"
+                        class="model-health-test-results"
+                        aria-live="polite"
+                        hidden
+                      >
+                        <div class="model-health-test-heading">
+                          <span>All-model health check</span>
+                          <strong id="model-health-test-summary">Preparing tests…</strong>
+                        </div>
+                        <div
+                          class="model-health-test-progress-track"
+                          role="progressbar"
+                          aria-label="Model health-check progress"
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                          aria-valuenow="0"
+                        >
+                          <span id="model-health-test-progress"></span>
+                        </div>
+                        <p>
+                          One tiny direct request is sent to every saved model, with
+                          up to three checks running at once. Routing and fallback
+                          are bypassed.
+                        </p>
+                        <div id="model-health-test-list" class="model-health-test-list"></div>
+                      </section>
+
+                      <div
+                        id="test-result"
+                        class="test-result"
+                        aria-live="polite"
+                        hidden
+                      >
+                        <div class="test-result-heading">
+                          <strong id="test-status">Response</strong>
+                          <span id="test-provider"></span>
+                        </div>
+                        <div
+                          id="test-routing-decision"
+                          class="test-routing-decision"
+                          hidden
+                        ></div>
+                        <pre><code id="test-output"></code></pre>
+                      </div>
+                    </section>
+                  </div>
+                </form>
               </section>
             </section>
 
@@ -1265,6 +1532,13 @@ Reply with exactly: Router is working.</textarea
                   <button
                     class="snippet-tab"
                     type="button"
+                    data-snippet="local"
+                  >
+                    Local LLM
+                  </button>
+                  <button
+                    class="snippet-tab"
+                    type="button"
                     data-snippet="codex"
                   >
                     Codex
@@ -1308,7 +1582,7 @@ Reply with exactly: Router is working.</textarea
                     <p>
                       Your application sends one request with one private router
                       key. The gateway resolves the requested virtual model,
-                      checks provider compatibility and health, applies the
+                      checks cloud and local model compatibility and health, applies the
                       selected routing policy, retries safe failures, returns
                       the response in the caller's API format, and records the
                       complete decision in Analysis.
@@ -1422,6 +1696,11 @@ Reply with exactly: Router is working.</textarea
                       <li>
                         <a href="#feature-playground"
                           ><span>16</span>Playground</a
+                        >
+                      </li>
+                      <li>
+                        <a href="#feature-local-llm"
+                          ><span>16A</span>Private Local LLM nodes</a
                         >
                       </li>
                       <li>
@@ -2719,17 +2998,29 @@ Python SDK     172 requests · 94% success · 14% fallback · Chat Completions</
                       </div>
                       <div class="feature-two-column">
                         <div>
-                          <h4>What you can test</h4>
+                          <h4>Router request mode</h4>
                           <p>
                             Select an API compatibility mode, choose an enabled
                             alias, enter a prompt, and send the request using
                             the same routing path as production traffic.
                           </p>
+                          <h4>Provider + model mode</h4>
+                          <p>
+                            Select one configured provider and one of its saved
+                            models to make an exact diagnostic request without
+                            ranking or fallback. Configured provider quotas still
+                            apply and usage is counted.
+                          </p>
                           <h4>What you learn</h4>
                           <p>
                             The result shows the endpoint, response, latency,
-                            and provider used. The same request also appears in
-                            Analysis.
+                            provider, and provider model used. Routed requests
+                            also appear in Analysis with their routing decision.
+                          </p>
+                          <p>
+                            The output-token cap is optional for OpenAI-style
+                            requests. Compatibility adapters may apply a safe
+                            fallback when their protocol requires one.
                           </p>
                         </div>
                         <div class="feature-example-card">
@@ -2741,6 +3032,10 @@ Python SDK     172 requests · 94% success · 14% fallback · Chat Completions</
                             <li>
                               Open Analysis to inspect the winner and fallback
                               decisions.
+                            </li>
+                            <li>
+                              Switch to Provider + model to compare the winning
+                              model with another saved model directly.
                             </li>
                           </ol>
                         </div>
@@ -3125,6 +3420,90 @@ x-free-llm-deduplication-source: in-flight | completed</code></pre>
 
                     <section
                       class="docs-feature-section feature-detail-section"
+                      id="feature-local-llm"
+                    >
+                      <div class="feature-detail-heading">
+                        <div>
+                          <span class="feature-number">16A</span
+                          ><span class="feature-kicker">Private compute</span>
+                        </div>
+                        <h3>Connected Local LLM nodes</h3>
+                        <p>
+                          Pair Ollama computers as first-class providers while
+                          keeping each node private to its router account.
+                        </p>
+                      </div>
+                      <div class="feature-explanation-grid">
+                        <article>
+                          <strong>Provider-style cards</strong>
+                          <p>
+                            Local nodes use the same summary-first card flow as
+                            cloud providers. Uppercase letter icons identify
+                            nodes and models without pretending they are hosted brands.
+                          </p>
+                        </article>
+                        <article>
+                          <strong>Connection surface</strong>
+                          <p>
+                            Providers shows connection health, installed-model
+                            summaries, and shortcuts to the Playground or the
+                            node's dedicated Settings workspace.
+                          </p>
+                        </article>
+                        <article>
+                          <strong>Local LLM Properties</strong>
+                          <p>
+                            Routing gate, Normal/Prefer local/Local only mode,
+                            name, limits, models, capabilities, tests, revoke,
+                            and permanent deletion stay together under Settings
+                            → Router &amp; Policies → Local LLM Properties.
+                          </p>
+                        </article>
+                        <article>
+                          <strong>Dedicated playground</strong>
+                          <p>
+                            The Local LLM tab targets one online node and enabled
+                            Ollama model with API format, capability scenario,
+                            temperature, prompt, and output-token controls.
+                          </p>
+                        </article>
+                        <article>
+                          <strong>Protected transport</strong>
+                          <p>
+                            The router signs each request and sends it through
+                            the protected loopback agent and HTTPS tunnel. Raw
+                            Ollama is never exposed directly.
+                          </p>
+                        </article>
+                        <article>
+                          <strong>Independent lifecycle</strong>
+                          <p>
+                            Revoke invalidates device access while preserving the
+                            record; Delete permanently removes the node and its
+                            saved model configuration without touching Ollama.
+                          </p>
+                        </article>
+                      </div>
+                      <div class="docs-example-block">
+                        <div class="docs-example-heading">
+                          <strong>Local integration</strong><span>CLI + gateway</span>
+                        </div>
+                        <pre><code>npx --yes @free-llm-router/cli@latest connect ollama \
+  --code FLR-XXXX-XXXX \
+  --router-url https://your-router.example
+
+curl https://your-router.example/v1/chat/completions \
+  -H "Authorization: Bearer flm_your_router_key" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"free-router","messages":[{"role":"user","content":"Hello locally"}],"max_tokens":256}'</code></pre>
+                      </div>
+                      <a class="feature-back-link" href="#feature-overview"
+                        >Back to top</a
+                      >
+                    </section>
+
+                    <section
+                      class="docs-feature-section feature-detail-section"
                       id="feature-security"
                     >
                       <div class="feature-detail-heading">
@@ -3333,6 +3712,15 @@ Content-Type: application/json</code></pre>
                       data-router-settings-tab="capabilities"
                     >
                       Capability Registry
+                    </button>
+                    <button
+                      class="router-settings-tab"
+                      type="button"
+                      role="tab"
+                      aria-selected="false"
+                      data-router-settings-tab="local"
+                    >
+                      Local LLM Properties
                     </button>
                   </div>
 
@@ -3996,7 +4384,47 @@ Content-Type: application/json</code></pre>
                     </section>
                   </section>
 
-                  <div class="router-settings-actions">
+                  <section
+                    class="router-settings-subpanel"
+                    data-router-settings-panel="local"
+                    hidden
+                  >
+                    <section
+                      class="settings-card local-node-properties-card router-settings-full-card"
+                    >
+                      <div class="settings-card-heading">
+                        <div>
+                          <span class="summary-label">Local LLM properties</span>
+                          <h3>Control each private inference node</h3>
+                          <p>
+                            Gate routed traffic, choose participation, and manage
+                            limits, installed models, capabilities, tests, and
+                            node lifecycle in one place.
+                          </p>
+                        </div>
+                        <span id="local-routing-gate-count" class="routing-policy-badge"
+                          >0 routed</span
+                        >
+                      </div>
+                      <div class="local-properties-guidance">
+                        <span
+                          ><strong>Routing gate</strong> immediately excludes a
+                          node from normal API routing without disconnecting it.</span
+                        >
+                        <span
+                          ><strong>Direct testing</strong> remains available in
+                          Playground even while the routing gate is closed.</span
+                        >
+                      </div>
+                      <div
+                        id="local-node-properties"
+                        class="local-node-properties"
+                        aria-live="polite"
+                      ></div>
+                    </section>
+                  </section>
+
+                  <div class="router-settings-actions" data-router-global-actions>
                     <span id="routing-save-hint"
                       >Changes apply to new API requests.</span
                     >

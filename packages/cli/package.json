@@ -1,0 +1,51 @@
+{
+  "name": "@free-llm-router/cli",
+  "version": "0.7.0",
+  "description": "Connect private Ollama nodes to Free LLM Router.",
+  "type": "module",
+  "private": false,
+  "bin": {
+    "free-llm": "dist/packages/cli/src/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prebuild": "node scripts/clean.mjs",
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build",
+    "pack:check": "npm pack --dry-run"
+  },
+  "keywords": [
+    "llm",
+    "ollama",
+    "local-llm",
+    "llm-router",
+    "private-ai",
+    "openai-compatible"
+  ],
+  "author": "Pathik Anilkumar Viramgama",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pr0fess0rOP/free-llm-router.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/Pr0fess0rOP/free-llm-router/issues"
+  },
+  "homepage": "https://github.com/Pr0fess0rOP/free-llm-router#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

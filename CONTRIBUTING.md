@@ -7,6 +7,7 @@ First off, thank you for considering contributing to Free LLM Router! It's peopl
 We welcome contributions in many forms, especially:
 
 - **New Provider Adapters:** Adding support for providers that aren't natively OpenAI-compatible.
+- **Local Runtime Adapters:** Extending the protected local-node architecture beyond Ollama without exposing raw runtime administration APIs.
 - **Catalog Updates:** Keeping the provider catalog and available models up to date.
 - **Security Enhancements:** Improving credential encryption, router-key rotation, and revocation flows.
 - **Testing:** Writing unit and integration tests for routing and management flows.
@@ -26,6 +27,10 @@ npm run typecheck
 
 # Run tests
 npm test
+
+# Verify the publishable Local LLM CLI package
+npm --prefix packages/cli run build
+npm --prefix packages/cli run pack:check
 
 # Initialize the CLI and start the server
 npm run cli -- init
