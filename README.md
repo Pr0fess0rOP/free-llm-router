@@ -2,6 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org/)
+[![npm Downloads](https://shields.io)](https://www.npmjs.com/package/@free-llm-router/cli)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 
 Bring your own LLM API keys and route **OpenAI Chat Completions**, **OpenAI Responses/Codex**, and **Claude Code** through one gateway with a beautiful, self-hosted dashboard.
