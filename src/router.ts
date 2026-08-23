@@ -90,7 +90,15 @@ function circuitOpenDurationMs(openCount: number): number {
 
 export function providerFailoverReason(
   status: number,
+  message = "",
 ): ProviderFailoverReason | undefined {
+  const normalized = message.toLowerCase();
+  if (
+    [400, 404, 422].includes(status) &&
+    /(?:requested\s+)?model(?:\s+['"`][^'"`]+['"`])?.*(?:does not exist|not found|unavailable|not available|unknown|unsupported)/.test(normalized)
+  ) {
+    return "provider_model_or_endpoint_unavailable";
+  }
   switch (status) {
     case 401:
       return "provider_authentication_failed";
@@ -578,10 +586,13 @@ export class ProviderRouter {
           ? "provider_capability_unsupported" as const
           : provider.providerType === "local-ollama" && response.status >= 300 && response.status < 400
             ? "provider_model_or_endpoint_unavailable" as const
-          : providerFailoverReason(response.status);
+          : providerFailoverReason(response.status, message);
         const retryable = failoverReason === undefined
           && this.reliability.retryStatusCodes.includes(response.status);
-        const recovery = failoverReason
+        const isolatedFailoverReason = failoverReason ?? (!retryable
+          ? "provider_request_rejected" as const
+          : undefined);
+        const recovery = isolatedFailoverReason
           ? this.immediateFailoverDecision({
               attemptNumber,
               candidateIndex,
@@ -596,7 +607,7 @@ export class ProviderRouter {
               requestStartedAt,
             });
         const recoveryAction = recovery.retry
-          ? failoverReason ? "immediate_failover" : "retry_with_backoff"
+          ? isolatedFailoverReason ? "immediate_failover" : "retry_with_backoff"
           : "stop";
         failures.push({
           provider: provider.id,
@@ -604,7 +615,7 @@ export class ProviderRouter {
           message,
           retryable,
           recoveryAction,
-          ...(failoverReason ? { failoverReason } : {}),
+          ...(isolatedFailoverReason ? { failoverReason: isolatedFailoverReason } : {}),
           ...(recovery.stopReason ? { retryStopReason: recovery.stopReason } : {}),
         });
 
@@ -651,7 +662,7 @@ export class ProviderRouter {
             providerTimeoutMs: timeoutMs,
             retryable,
             recoveryAction,
-            ...(failoverReason ? { failoverReason } : {}),
+            ...(isolatedFailoverReason ? { failoverReason: isolatedFailoverReason } : {}),
             ...(recovery.delayMs !== undefined ? { retryDelayMs: recovery.delayMs } : {}),
             ...(recovery.stopReason ? { retryStopReason: recovery.stopReason } : {}),
             ...attemptTiming(startedAt, requestStartedAt),
@@ -686,7 +697,7 @@ export class ProviderRouter {
                 providerTimeoutMs: timeoutMs,
                 retryable,
                 recoveryAction,
-                ...(failoverReason ? { failoverReason } : {}),
+                ...(isolatedFailoverReason ? { failoverReason: isolatedFailoverReason } : {}),
                 ...(recovery.delayMs !== undefined ? { retryDelayMs: recovery.delayMs } : {}),
                 ...(recovery.stopReason ? { retryStopReason: recovery.stopReason } : {}),
                 ...attemptTiming(startedAt, requestStartedAt),
@@ -708,7 +719,7 @@ export class ProviderRouter {
               providerTimeoutMs: timeoutMs,
               retryable,
               recoveryAction,
-              ...(failoverReason ? { failoverReason } : {}),
+              ...(isolatedFailoverReason ? { failoverReason: isolatedFailoverReason } : {}),
               ...(recovery.delayMs !== undefined ? { retryDelayMs: recovery.delayMs } : {}),
               ...(recovery.stopReason ? { retryStopReason: recovery.stopReason } : {}),
               ...attemptTiming(startedAt, requestStartedAt),

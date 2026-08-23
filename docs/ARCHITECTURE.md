@@ -60,11 +60,11 @@ flowchart TD
     O --> P[Attempt provider]
     P --> Q{Outcome}
     Q -->|Valid success| R[Return or translate response]
-    Q -->|401/403/404| S[Immediate failover, no backoff]
+    Q -->|Non-transient upstream HTTP rejection| S[Immediate failover, no backoff]
     Q -->|Retryable transient failure| T[Backoff, then next provider]
     Q -->|429| U[Start cooldown, then recover according to retry policy]
     Q -->|Circuit-eligible failure| V[Increment or open circuit]
-    Q -->|Not retryable| W[Stop request]
+    Q -->|Deadline, attempt limit, or no candidates| W[Stop request]
     S --> P
     T --> P
     U --> P
@@ -85,7 +85,7 @@ There are two recovery modes:
 
 | Recovery mode | Used for | Delay | Circuit penalty |
 |---|---|---:|---:|
-| Immediate provider failover | Provider-specific `401`, `403`, `404` | None | None |
+| Immediate provider failover | Any non-transient upstream HTTP rejection | None | When applicable |
 | Retry with backoff | Configured transient statuses, network failures, timeouts, malformed responses | Yes | Sometimes |
 
 ---
@@ -833,34 +833,37 @@ The list can contain up to 40 unique status codes from `400` through `599`.
 | `200–299` valid | Return success | No | No | No | Subject to malformed-response validation |
 | `200–299` malformed | Try next provider when malformed retry is enabled | Yes | No | Yes | Empty stream, invalid JSON, or non-object JSON |
 | `301–399` | Usually followed automatically by `fetch` | — | — | — | Final response status is what routing sees |
-| `400` | Stop | No | No | No | Considered a client/request error by default |
+| `400` | Immediate next provider | No | No | No | Isolated to the provider; missing-model and capability messages receive specific reasons |
 | `401` | Immediate next provider | No | No | No | Provider credential rejected |
-| `402` | Stop unless added to retry codes | Configurable | No | No | Generic provider/client status |
+| `402` | Immediate next provider unless added to retry codes | Configurable | No | No | Generic provider rejection |
 | `403` | Immediate next provider | No | No | No | Provider access denied |
 | `404` | Immediate next provider | No | No | No | Provider model or endpoint unavailable |
-| `405–407` | Stop unless configured retryable | Configurable | No | No | Generic non-success status |
+| `405–407` | Immediate next provider unless configured for backoff | Configurable | No | No | Generic non-success status |
 | `408` | Next provider with backoff | Yes | No | Yes | Classified as timeout |
 | `409` | Next provider with backoff | Yes | No | No | Default retry status |
-| `410–424` except configured codes | Stop unless configured retryable | Configurable | No | No | `425` is retryable by default |
+| `410–424` except configured codes | Immediate next provider | No | No | No | `425` is retryable with backoff by default |
 | `425` | Next provider with backoff | Yes | No | No | Default retry status |
-| `426–428` | Stop unless configured retryable | Configurable | No | No | Generic non-success status |
+| `426–428` | Immediate next provider | No | No | No | Generic provider rejection |
 | `429` | Start cooldown; normally next provider with backoff | Usually | Yes | No | Honors `Retry-After` |
-| `430–499` | Stop unless configured retryable | Configurable | No | No | Generic 4xx behavior |
+| `430–499` | Immediate next provider unless configured for backoff | Configurable | No | No | Generic provider rejection |
 | `500` | Next provider with backoff | Yes | No | Yes | Server error |
-| `501` | Stop by default, but circuit failure is recorded | No by default | No | Yes | Add `501` to retry codes to continue |
+| `501` | Immediate next provider by default; circuit failure is recorded | No by default | No | Yes | Add `501` to retry codes to use backoff |
 | `502` | Next provider with backoff | Yes | No | Yes | Server error |
 | `503` | Next provider with backoff | Yes | No | Yes | Server error |
 | `504` | Next provider with backoff | Yes | No | Yes | Server error |
-| `505–599` | Stop by default unless configured, but circuit failure is recorded | Configurable | No | Yes | Every 5xx is circuit-eligible |
+| `505–599` | Immediate next provider unless configured for backoff; circuit failure is recorded | Configurable | No | Yes | Every 5xx is circuit-eligible |
 
-## 10.3 Immediate failover statuses
+## 10.3 Immediate provider failover
 
-These statuses always use provider-specific immediate failover logic:
+Recognized failures receive specific provider failover reasons:
 
 ```text
 401 → provider_authentication_failed
 403 → provider_access_denied
 404 → provider_model_or_endpoint_unavailable
+400/404/422 missing-model message → provider_model_or_endpoint_unavailable
+400/404/415/422 capability rejection → provider_capability_unsupported
+other non-transient upstream HTTP rejection → provider_request_rejected
 ```
 
 They do not depend on `retryStatusCodes`.
@@ -893,11 +896,11 @@ status is in retryStatusCodes
 → attempt next candidate
 ```
 
-If it is not in the list:
+If it is not in the list, the failure remains isolated to that provider:
 
 ```text
 status is not retryable
-→ stop the routed request
+→ immediately attempt the next candidate without backoff
 ```
 
 ### Important nuance for 5xx
@@ -907,7 +910,7 @@ Every `5xx` is classified as a circuit-eligible server failure, even if that exa
 Therefore a `501` can:
 
 - Increment circuit failure state
-- Stop the current request immediately by default
+- Immediately fail over without backoff by default
 
 ## 10.5 `429` behavior when removed from retry codes
 
@@ -1182,15 +1185,15 @@ Stop reason:
 total_request_deadline_exceeded
 ```
 
-## 15.4 Non-retryable failure
+## 15.4 Non-retryable provider failure
 
-A generic status not configured as retryable causes:
+A generic upstream status not configured for retry backoff causes:
 
 ```text
-error_not_retryable
+immediate_failover → provider_request_rejected
 ```
 
-This does not apply to the special immediate-failover statuses `401`, `403`, and `404`.
+It stops the whole routed request only when no candidate remains, the maximum attempt count is reached, or the total deadline expires. Gateway-level validation errors occur before provider routing and still return immediately.
 
 ## 15.5 Backoff formula
 
@@ -1478,8 +1481,8 @@ Typical explanations:
 
 | Timeline text | Meaning |
 |---|---|
-| Immediate failover to next provider | `401`, `403`, or `404`; next candidate should start immediately |
-| Retrying stopped because failure is not configured as retryable | Generic status not in `retryStatusCodes` |
+| Immediate failover to next provider | An upstream provider rejected the request without a transient backoff rule; next candidate should start immediately |
+| Retrying stopped because failure is not configured as retryable | A configured network or malformed-response recovery mode was disabled |
 | Maximum attempts reached | Attempt budget exhausted |
 | Total request deadline exceeded | No time remains for another provider |
 | No more candidates | Every ranked candidate has already been attempted or skipped |
@@ -1792,12 +1795,12 @@ flowchart TD
     C -->|Circuit open| G[Wait, test recovery, or reset circuit]
     C -->|No configured providers| H[Add provider keys or fix alias eligibility]
     B -->|Yes| I{Last status/failure}
-    I -->|401/403/404| J{Was another candidate available within limits?}
+    I -->|Upstream HTTP rejection| J{Was another candidate available within limits?}
     J -->|Yes| K[Expect immediate provider_failover event]
     J -->|No| L[Check max attempts, deadline, and candidate count]
     I -->|429| M[Check cooldown and whether 429 remains retryable]
     I -->|Configured retry status| N[Check retry delay, max attempts, and total deadline]
-    I -->|Other 4xx| O[Usually non-retryable; decide whether status should be added]
+    I -->|Other 4xx| O[Expect immediate failover; add status only when backoff is desired]
     I -->|5xx| P[Check retry-status list and circuit state]
     I -->|Timeout/network| Q[Check network retry toggle and provider timeout]
     I -->|Malformed| R[Check malformed retry toggle and upstream content]
@@ -1806,8 +1809,8 @@ flowchart TD
 ### Fast checklist
 
 1. Was the next provider marked `candidate` or was it skipped?
-2. Was the failed status `401`, `403`, or `404`?
-3. If not, is the status in `retryStatusCodes`?
+2. Did the failure receive a specific or generic provider failover reason?
+3. Is the status in `retryStatusCodes`, causing backoff instead of immediate failover?
 4. Did `maxProviderAttempts` already run out?
 5. Did the total deadline leave enough time for another attempt?
 6. Was there another candidate after capability, quota, cooldown, and circuit filtering?
@@ -1829,7 +1832,7 @@ flowchart TD
 7. **A provider is attempted only once per routed request.** Recovery proceeds to the next candidate.
 8. **Mid-stream provider failover is not possible after response data begins.**
 9. **Deduplication is process-local and ephemeral.** Multi-instance deployments require sticky routing or a future shared coordinator.
-10. **Removing a status from `retryStatusCodes` can stop cross-provider recovery for that status.** Special `401`, `403`, and `404` immediate failover remains active.
+10. **Removing a status from `retryStatusCodes` changes it from backoff recovery to immediate provider failover.** It no longer stops cross-provider recovery.
 11. **Every 5xx is circuit-eligible even when it is not configured as retryable.**
 12. **A `429` creates cooldown state even when `429` is removed from retry codes.**
 13. **Anthropic compatibility is best-effort** when routing Claude Code to non-Claude OpenAI-compatible models.
@@ -1858,10 +1861,10 @@ flowchart TD
 15. Apply Priority/Fastest/Round robin/Least used/Reliability/Smart.
 16. Attempt provider with selected timeout and shared request ID.
 17. Valid 2xx → return.
-18. 401/403/404 → immediate next provider, no backoff/circuit penalty.
+18. Non-transient upstream HTTP rejection → immediate next provider; known 401/403/404/model/capability failures receive specific reasons.
 19. Configured transient status → backoff, then next provider.
-20. 429 → create cooldown; continue only when retry policy and limits allow.
+20. 429 → create cooldown; use configured backoff when enabled, otherwise fail over immediately within limits.
 21. 5xx/timeout/network/malformed → update circuit state.
-22. Stop on non-retryable error, max attempts, no candidates, deadline, or client abort.
+22. Stop on disabled network/malformed recovery, max attempts, no candidates, deadline, or client abort.
 23. Return API-format-specific error and store the complete timeline.
 ```

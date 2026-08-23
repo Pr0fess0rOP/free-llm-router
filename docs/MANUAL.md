@@ -138,7 +138,7 @@ Typical flow:
 - Provider cards include a **Models** manager with **Add**, **Add & activate**, **Set active**, **Test**, **Edit**, and **Delete** actions.
 - Inactive saved models are never tried automatically; changing the active model is an explicit production configuration change.
 - Model health is tracked separately from provider circuit health with `healthy`, `unavailable`, `unauthorized`, `rate-limited`, `error`, and `not tested` states.
-- A provider-specific `401`, `403`, or `404` updates the active model state and immediately fails over to the next ranked provider without opening the provider circuit.
+- Every upstream HTTP rejection is isolated to that provider and fails over to the next ranked provider. Known `401`, `403`, `404`, missing-model, and capability failures receive a more specific reason without opening the provider circuit.
 - Analysis records the provider and exact active provider model for every attempt.
 
 Example:
@@ -2390,10 +2390,10 @@ Provider recovery distinguishes **retry with backoff** from **immediate provider
 | `401` provider credential rejected | Try the next ranked provider immediately | No | No |
 | `403` provider access denied | Try the next ranked provider immediately | No | No |
 | `404` provider model or endpoint unavailable | Try the next ranked provider immediately | No | No |
+| Other non-transient HTTP rejection such as `400` | Skip only that provider and try the next ranked provider immediately | No | When applicable |
 | Configured transient status such as `429`, `500`, `502`, `503`, or `504` | Try the next provider using configured retry pacing | Yes | When applicable |
-| Unconfigured client error such as `400` | Stop because the same invalid request would fail elsewhere | No | No |
 
-The attempt limit and total request deadline still apply to both recovery paths. Analysis labels provider-specific recovery as `immediate_failover`, records the reason, and creates a separate **Immediate failover to next provider** timeline event.
+The attempt limit and total request deadline still apply to both recovery paths. Invalid JSON, authentication, alias resolution, and other errors rejected by the gateway before an upstream attempt still fail immediately. Analysis labels provider-isolated recovery as `immediate_failover`, records the reason, and creates a separate **Immediate failover to next provider** timeline event.
 
 Deduplication controls are also persisted with each router. Safe non-streaming requests can be matched automatically or through `Idempotency-Key`. In-flight requests are coalesced, successful responses are reusable only during the configured short window, and failures are never retained for later callers. Deduplicated Analysis records include the original request ID and estimated quota savings, while routing and provider-usage counters remain attached only to the actual upstream request.
 

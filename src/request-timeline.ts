@@ -96,6 +96,8 @@ function immediateFailoverDetail(reason: ProviderAttemptMetric["failoverReason"]
       return "The requested model or endpoint is unavailable on this provider, so the router will immediately try the next eligible provider.";
     case "provider_capability_unsupported":
       return "The active model clearly rejected a required capability, so the registry was updated and the router will immediately try the next eligible provider.";
+    case "provider_request_rejected":
+      return "This provider rejected the request, so only this provider is skipped and the router will immediately try the next eligible provider.";
     default:
       return "This provider-specific failure does not invalidate the client request, so the router will immediately try the next eligible provider.";
   }
