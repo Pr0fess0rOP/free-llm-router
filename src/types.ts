@@ -184,7 +184,8 @@ export type ProviderFailoverReason =
   | "provider_authentication_failed"
   | "provider_access_denied"
   | "provider_model_or_endpoint_unavailable"
-  | "provider_capability_unsupported";
+  | "provider_capability_unsupported"
+  | "provider_request_rejected";
 
 export type RetryStopReason =
   | "maximum_attempts_reached"

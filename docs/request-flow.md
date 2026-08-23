@@ -1484,44 +1484,21 @@ src/router.ts
 
 ---
 
-## 22. Generic non-retryable errors
+## 22. Provider-isolated non-retryable errors
 
-A generic `400 Bad Request` is not in the default retry-status list and has no general immediate-failover rule.
+A generic upstream `400 Bad Request` is not in the default transient retry-status list. It is therefore **not retried with backoff**, but it also does not abort other eligible providers.
 
 Current decision:
 
 ```text
-failoverReason = undefined
 retryable = false
-stopReason = error_not_retryable
+failoverReason = provider_request_rejected
+recoveryAction = immediate_failover
 ```
 
-Routing stops and the next provider is not attempted.
+The responding provider is skipped for this request and the next ranked provider is attempted immediately. Clear missing-model and capability messages receive the more specific `provider_model_or_endpoint_unavailable` or `provider_capability_unsupported` reason.
 
-The current assumption is:
-
-> The original request is invalid, so another provider would probably reject the same request.
-
-That is safe for errors such as:
-
-- Missing required request fields
-- Invalid JSON
-- Invalid field types
-- Fundamentally malformed tool definitions
-- Structurally invalid request bodies
-
-However, providers also sometimes return `400` for provider-specific incompatibilities, such as:
-
-- Wrong provider model name
-- Provider adapter generated an incompatible body
-- Unsupported provider-specific parameter
-- Unsupported tool schema variation
-- Unsupported reasoning configuration
-- Unsupported vision format
-
-Those cases may deserve immediate failover, but the current code can only distinguish them when the error message matches a known unsupported-capability pattern.
-
-This is the behavior behind the Gemini example documented later.
+Malformed JSON, missing router fields, authentication failures, and alias/configuration errors rejected by the gateway itself occur before the upstream provider loop and still return immediately.
 
 ---
 
@@ -1531,13 +1508,13 @@ This is the behavior behind the Gemini example documented later.
 |---|---|---:|---:|---|
 | Valid `2xx` | Return response | No | Reset circuit | No need |
 | Malformed `2xx` | Treat as `502`-like malformed response | No | Yes | After backoff, if enabled and allowed |
-| Generic `400` | Stop | No | No | No |
+| Generic `400` | Immediate failover | No | No | Yes, if available |
 | Capability-specific `400` | Immediate failover | No | No | Yes, if available |
 | `401` | Immediate failover | No | No | Yes, if available |
 | `403` | Immediate failover | No | No | Yes, if available |
 | `404` | Immediate failover | No | No | Yes, if available |
 | Capability-specific `415` or `422` | Immediate failover | No | No | Yes, if available |
-| Generic `415` or `422` | Stop unless configured as retryable | No | No | Usually no |
+| Generic `415` or `422` | Immediate failover unless configured for backoff | No | No | Yes, if available |
 | `408` | Backoff failover | No | Yes: timeout | Yes, if allowed |
 | `409` | Backoff failover | No | No by status alone | Yes, if allowed |
 | `425` | Backoff failover | No | No by status alone | Yes, if allowed |
@@ -1564,7 +1541,6 @@ A provider is skipped before a call when:
 A provider may also remain untried even though it was not formally skipped because:
 
 - A previous provider succeeded.
-- A non-retryable failure stopped routing.
 - Maximum attempts were reached.
 - The total request deadline was reached.
 - It appeared after the allowed number of attempts.
@@ -1588,10 +1564,9 @@ This distinction is useful when reading request timelines.
 ### Move immediately
 
 ```text
-401
-403
-404
+Any upstream HTTP status not configured for transient retry backoff
 Recognized provider capability incompatibility from 400, 404, 415, or 422
+Recognized missing-model response from 400, 404, or 422
 ```
 
 The router still checks:
@@ -1621,11 +1596,10 @@ The error must be configured as retryable, and routing must still have candidate
 ### Do not move
 
 ```text
-Generic 400
-Another non-retryable status
 Maximum attempts reached
 Total request deadline reached
 No more candidates
+Client cancelled the request
 ```
 
 ---
@@ -1637,13 +1611,13 @@ Final retry stop reasons are:
 ### `error_not_retryable`
 
 ```text
-The error classification says routing should not continue.
+An optional non-HTTP recovery mode, such as network-error or malformed-response failover, was explicitly disabled.
 ```
 
 Example:
 
 ```text
-Generic HTTP 400 Bad Request
+Network failure while `retryNetworkErrors` is disabled
 ```
 
 ### `maximum_attempts_reached`
@@ -1912,7 +1886,7 @@ The status is `400`, but routing continues because the message identifies a prov
 
 ---
 
-## 33. Example G: Current generic Gemini `400` stopping behavior
+## 33. Example G: Generic Gemini `400` isolated failover
 
 Timeline:
 
@@ -1923,8 +1897,8 @@ Mistral ranked #2
 Google Gemini ranked #1
 Google Gemini attempt starts
 Google Gemini returns 400 Bad Request
-Routing stops
-Mistral is not attempted
+Immediate provider failover
+Mistral attempt starts
 ```
 
 Decision path:
@@ -1936,15 +1910,13 @@ Extracted message = "400 Bad Request"
     ↓
 No unsupported-capability pattern matches
     ↓
-400 has no general provider failover reason
-    ↓
 400 is not in retryStatusCodes
     ↓
 retryable = false
     ↓
-retryDecision() returns error_not_retryable
+failoverReason = provider_request_rejected
     ↓
-Provider loop breaks
+immediateFailoverDecision() continues without backoff
 ```
 
 Equivalent pseudocode:
@@ -1957,7 +1929,10 @@ const failoverReason = observedUnsupportedCapabilities.length
 const retryable = failoverReason === undefined
   && retryStatusCodes.includes(response.status);
 
-const recovery = failoverReason
+const isolatedFailoverReason = failoverReason
+  ?? (!retryable ? "provider_request_rejected" : undefined);
+
+const recovery = isolatedFailoverReason
   ? immediateFailoverDecision(...)
   : retryDecision({ retryable, ... });
 
@@ -1966,15 +1941,15 @@ if (!recovery.retry) {
 }
 ```
 
-Why Mistral was not called:
+Why Mistral is called:
 
 ```text
 Mistral was eligible and ranked.
 It was not skipped.
-It remained untried because Gemini's generic 400 stopped the provider loop.
+Gemini's generic 400 affects only Gemini, so the loop advances immediately.
 ```
 
-This is a failure-classification issue, not a ranking issue.
+The attempt limit and total deadline still bound the additional work.
 
 ---
 
@@ -2214,7 +2189,7 @@ async function route(request) {
 
 1. **A ranked provider is not guaranteed to be attempted.** Routing may succeed or stop before reaching it.
 2. **`retryable` currently means continue routing after backoff, not retry the same provider.**
-3. **Generic `400` stops routing by default.** A `400` only fails over when its message reveals a known unsupported capability.
+3. **Generic upstream `400` is provider-isolated.** It immediately fails over; recognized missing-model or capability messages receive a more specific reason.
 4. **`429` uses cooldown, not the circuit breaker.**
 5. **`5xx`, timeout, connection, and malformed-response failures count toward the circuit.**
 6. **Full capability matches outrank partial matches.**
@@ -2287,12 +2262,12 @@ It performs four major jobs:
 1. **Understand the request** through aliases and capability detection.
 2. **Protect the system** using quotas, cooldowns, timeouts, and circuit breakers.
 3. **Choose intelligently** using account ownership, local routing gates and modes, capability/health checks, and priority, round robin, least used, fastest, reliability, or smart ranking.
-4. **Recover from failure** by stopping, immediately failing over, or failing over after backoff.
+4. **Recover from failure** by immediately failing over or failing over after backoff, bounded by candidates, attempt count, and total deadline.
 
 The most important current behavior to remember is:
 
 ```text
-Generic 400 → stop routing
+Generic upstream 400 → immediately skip that provider
 Recognized provider-specific incompatibility → immediate failover
 Temporary failure → backoff and fail over
 Repeated provider breakage → open circuit and skip temporarily

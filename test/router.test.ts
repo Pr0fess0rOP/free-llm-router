@@ -848,18 +848,22 @@ test("immediately fails over after provider-specific 401 and 403 responses", asy
   }
 });
 
-test("does not fail over when a client request is rejected with 400", async () => {
-  const { AllProvidersFailedError } = await import("../src/router.js");
+test("isolates a provider HTTP 400 and immediately tries the next provider", async () => {
   const { DEFAULT_RELIABILITY_SETTINGS } = await import("../src/reliability-settings.js");
   const calls: string[] = [];
   const router = new ProviderRouter(
-    [provider("invalid-request", 10), provider("unused", 20)],
+    [provider("rejecting", 10), provider("healthy", 20)],
     async (input) => {
       calls.push(String(input));
-      return new Response(JSON.stringify({ error: { message: "invalid request body" } }), {
-        status: 400,
-        headers: { "content-type": "application/json" },
-      });
+      return String(input).includes("rejecting")
+        ? new Response(JSON.stringify({ error: { message: "invalid request body" } }), {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          })
+        : new Response(JSON.stringify({ choices: [] }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
     },
     {
       reliability: {
@@ -871,17 +875,95 @@ test("does not fail over when a client request is rejected with 400", async () =
     },
   );
 
+  const result = await router.chatCompletion({ messages: [] });
+  assert.equal(result.providerId, "healthy");
+  assert.equal(calls.length, 2);
+  assert.equal(result.attempts[0]?.retryable, false);
+  assert.equal(result.attempts[0]?.recoveryAction, "immediate_failover");
+  assert.equal(result.attempts[0]?.failoverReason, "provider_request_rejected");
+  assert.equal(result.attempts[0]?.retryDelayMs, undefined);
+  assert.equal(result.attempts[0]?.retryStopReason, undefined);
+});
+
+test("treats a provider-specific missing-model HTTP 400 as immediate failover", async () => {
+  const { DEFAULT_RELIABILITY_SETTINGS } = await import("../src/reliability-settings.js");
+  const calls: string[] = [];
+  const router = new ProviderRouter(
+    [provider("huggingface", 10), provider("aion", 20)],
+    async (input) => {
+      calls.push(String(input));
+      return String(input).includes("huggingface")
+        ? new Response(JSON.stringify({
+            error: { message: "The requested model 'missing/model' does not exist." },
+          }), {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          })
+        : new Response(JSON.stringify({ choices: [] }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+    },
+    {
+      reliability: {
+        ...DEFAULT_RELIABILITY_SETTINGS,
+        initialBackoffMs: 2_000,
+        maxBackoffMs: 2_000,
+        useJitter: false,
+      },
+    },
+  );
+
+  const result = await router.chatCompletion({ messages: [] });
+  assert.equal(result.providerId, "aion");
+  assert.equal(calls.length, 2);
+  assert.equal(result.attempts[0]?.retryable, false);
+  assert.equal(result.attempts[0]?.recoveryAction, "immediate_failover");
+  assert.equal(
+    result.attempts[0]?.failoverReason,
+    "provider_model_or_endpoint_unavailable",
+  );
+  assert.equal(result.attempts[0]?.retryDelayMs, undefined);
+});
+
+test("tries every eligible provider after isolated non-retryable HTTP failures", async () => {
+  const { AllProvidersFailedError } = await import("../src/router.js");
+  const { DEFAULT_RELIABILITY_SETTINGS } = await import("../src/reliability-settings.js");
+  let calls = 0;
+  const router = new ProviderRouter(
+    [provider("one", 10), provider("two", 20), provider("three", 30)],
+    async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ error: { message: "provider rejected request" } }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
+    },
+    {
+      reliability: {
+        ...DEFAULT_RELIABILITY_SETTINGS,
+        maxProviderAttempts: 20,
+        initialBackoffMs: 0,
+        maxBackoffMs: 0,
+        useJitter: false,
+      },
+    },
+  );
+
   await assert.rejects(
     () => router.chatCompletion({ messages: [] }),
     (error: unknown) => {
       assert.ok(error instanceof AllProvidersFailedError);
-      assert.equal(error.retryStopReason, "error_not_retryable");
-      assert.equal(error.providerAttempts[0]?.retryable, false);
-      assert.equal(error.providerAttempts[0]?.recoveryAction, "stop");
+      assert.equal(error.retryStopReason, "no_more_candidates");
+      assert.equal(error.providerAttempts.length, 3);
+      assert.equal(error.providerAttempts[0]?.recoveryAction, "immediate_failover");
+      assert.equal(error.providerAttempts[1]?.recoveryAction, "immediate_failover");
+      assert.equal(error.providerAttempts[2]?.recoveryAction, "stop");
+      assert.equal(error.providerAttempts[2]?.retryStopReason, "no_more_candidates");
       return true;
     },
   );
-  assert.equal(calls.length, 1);
+  assert.equal(calls, 3);
 });
 
 test("supports custom retryable statuses and records the configured backoff", async () => {

@@ -193,6 +193,53 @@ test("records immediate provider failover separately from retry backoff", () => 
   assert.equal(timeline.at(-1)?.type, "response_returned");
 });
 
+test("explains that a generic upstream rejection is isolated to its provider", () => {
+  const startedAt = Date.parse("2026-08-22T23:00:00.000Z");
+  const timeline = buildRequestTimeline({
+    startedAt,
+    completedAt: startedAt + 40,
+    latencyMs: 40,
+    status: 200,
+    providerId: "aion",
+    requestedModel: "free-router",
+    resolvedAlias: "free-router",
+    routingStrategy: "reliability",
+    providerAttempts: [
+      {
+        providerId: "huggingface",
+        providerModel: "missing/model",
+        success: false,
+        status: 400,
+        message: "Provider rejected request",
+        latencyMs: 20,
+        attemptNumber: 1,
+        startedElapsedMs: 1,
+        completedElapsedMs: 21,
+        providerTimeoutMs: 30_000,
+        retryable: false,
+        recoveryAction: "immediate_failover",
+        failoverReason: "provider_request_rejected",
+      },
+      {
+        providerId: "aion",
+        success: true,
+        status: 200,
+        latencyMs: 18,
+        attemptNumber: 2,
+        startedElapsedMs: 22,
+        completedElapsedMs: 40,
+        providerTimeoutMs: 30_000,
+      },
+    ],
+  });
+
+  const failover = timeline.find((event) => event.type === "provider_failover");
+  assert.ok(failover);
+  assert.match(failover.detail ?? "", /only this provider is skipped/i);
+  assert.equal(timeline.some((event) => event.type === "retry_stopped"), false);
+  assert.equal(timeline.at(-1)?.type, "response_returned");
+});
+
 test("canonicalizes legacy model-coupled provider IDs before composing timeline text", () => {
   const timeline = buildRequestTimeline({
     latencyMs: 676,

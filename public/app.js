@@ -1362,6 +1362,8 @@ const providerFailoverReasonLabels = {
   provider_authentication_failed: "Provider credential rejected",
   provider_access_denied: "Provider access denied",
   provider_model_or_endpoint_unavailable: "Model or endpoint unavailable on provider",
+  provider_capability_unsupported: "Capability unsupported by provider",
+  provider_request_rejected: "Request rejected by provider",
 };
 
 function providerFailoverReasonLabel(reason) {

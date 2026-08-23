@@ -3224,9 +3224,11 @@ Analysis          records the quota skip and reset time</code></pre>
                         <article>
                           <strong>Recovery decisions</strong>
                           <p>
-                            Provider-specific <code>401</code>,
-                            <code>403</code>, and <code>404</code> failures move
-                            immediately to the next provider. Configured
+                            Every upstream HTTP rejection is isolated to that
+                            provider and moves immediately to the next one.
+                            Known <code>401</code>, <code>403</code>,
+                            <code>404</code>, missing-model, and capability
+                            failures receive a specific reason. Configured
                             transient statuses, network failures, and malformed
                             responses use retry pacing.
                           </p>
@@ -3290,11 +3292,11 @@ Analysis records each timeout, delay, and decision.</code></pre>
                       </div>
                       <p class="feature-note">
                         Immediate provider failover and transient retries both
-                        obey the attempt limit and total deadline. Invalid
-                        client requests such as an unconfigured
-                        <code>400</code> still stop instead of being sent to
-                        every provider. Analysis shows the exact recovery
-                        action.
+                        obey the attempt limit and total deadline. An upstream
+                        <code>400</code> skips only the provider that returned
+                        it; malformed requests rejected by the gateway before
+                        routing still fail immediately. Analysis shows the
+                        exact recovery action.
                       </p>
                       <a class="feature-back-link" href="#feature-overview"
                         >Back to top</a
@@ -4011,9 +4013,9 @@ Content-Type: application/json</code></pre>
                               placeholder="408, 409, 425, 429, 500, 502, 503, 504"
                             />
                             <small
-                              >Transient statuses that use retry backoff.
-                              Provider-specific 401, 403, and 404 responses fail
-                              over immediately.</small
+                              >Transient statuses that use retry backoff. Other
+                              upstream HTTP failures skip only the responding
+                              provider and fail over immediately.</small
                             >
                           </label>
                           <label
