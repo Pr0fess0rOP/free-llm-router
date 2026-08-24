@@ -41,13 +41,13 @@
   },
   "homepage": "https://github.com/YOUR_USERNAME/free-llm-router#readme",
   "dependencies": {
-    "@clerk/backend": "^3.8.3",
-    "@upstash/redis": "^1.38.0",
+    "@clerk/backend": "^3.16.10",
+    "@upstash/redis": "^1.38.2",
     "dotenv": "^16.6.1"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "tsx": "^4.20.3",
+    "tsx": "^4.23.12",
     "typescript": "^5.8.3"
   },
   "engines": {
