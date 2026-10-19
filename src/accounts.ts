@@ -19,6 +19,7 @@ import type {
   ProviderModelCatalog,
   ProviderModelStatus,
   ReliabilitySettings,
+  RoutingFeatureSettings,
   RoutingPolicy,
   RoutingStrategy,
 } from "./types.js";
@@ -39,6 +40,10 @@ import {
   normalizeProviderIds,
   normalizeProviderRecord,
 } from "./provider-identities.js";
+import {
+  DEFAULT_ROUTING_FEATURE_SETTINGS,
+  normalizeRoutingFeatureSettings,
+} from "./routing-features.js";
 
 interface StoredAccount {
   id: string;
@@ -56,6 +61,7 @@ interface StoredAccount {
   capabilityRoutingSettings?: CapabilityRoutingSettings;
   reliabilitySettings?: ReliabilitySettings;
   deduplicationSettings?: DeduplicationSettings;
+  routingFeatureSettings?: RoutingFeatureSettings;
 }
 
 interface AccountStore {
@@ -75,6 +81,7 @@ export interface AccountSummary {
   capabilityRoutingSettings: CapabilityRoutingSettings;
   reliabilitySettings: ReliabilitySettings;
   deduplicationSettings: DeduplicationSettings;
+  routingFeatureSettings: RoutingFeatureSettings;
 }
 
 const ACCOUNT_INDEX_KEY = "freellm:accounts";
@@ -201,6 +208,7 @@ function normalizeStoredAccount(account: StoredAccount): StoredAccount {
     ),
     reliabilitySettings: normalizeReliabilitySettings(account.reliabilitySettings),
     deduplicationSettings: normalizeDeduplicationSettings(account.deduplicationSettings),
+    routingFeatureSettings: normalizeRoutingFeatureSettings(account.routingFeatureSettings),
   };
 }
 
@@ -287,6 +295,7 @@ function summarize(account: StoredAccount): AccountSummary {
     capabilityRoutingSettings: normalizeCapabilityRoutingSettings(account.capabilityRoutingSettings),
     reliabilitySettings: normalizeReliabilitySettings(account.reliabilitySettings),
     deduplicationSettings: normalizeDeduplicationSettings(account.deduplicationSettings),
+    routingFeatureSettings: normalizeRoutingFeatureSettings(account.routingFeatureSettings),
   };
 }
 
@@ -336,6 +345,7 @@ export async function createAccount(
     providerModels: {},
     capabilityRoutingSettings: { ...DEFAULT_CAPABILITY_ROUTING_SETTINGS },
     deduplicationSettings: { ...DEFAULT_DEDUPLICATION_SETTINGS },
+    routingFeatureSettings: { ...DEFAULT_ROUTING_FEATURE_SETTINGS },
     reliabilitySettings: {
       ...DEFAULT_RELIABILITY_SETTINGS,
       retryStatusCodes: [...DEFAULT_RELIABILITY_SETTINGS.retryStatusCodes],
@@ -455,10 +465,11 @@ export async function updateAccountSettings(
     routingPolicy?: RoutingPolicy;
     modelAliases?: ModelAlias[];
     providerQuotas?: Record<string, ProviderQuotaConfig>;
-  providerModels?: Record<string, ProviderModelCatalog>;
+    providerModels?: Record<string, ProviderModelCatalog>;
     capabilityRoutingSettings?: CapabilityRoutingSettings;
     reliabilitySettings?: ReliabilitySettings;
     deduplicationSettings?: DeduplicationSettings;
+    routingFeatureSettings?: RoutingFeatureSettings;
   },
 ): Promise<AccountSummary | undefined> {
   const account = await readStoredAccount(hashRouterKey(routerKey));
@@ -497,6 +508,12 @@ export async function updateAccountSettings(
   if (updates.deduplicationSettings !== undefined) {
     account.deduplicationSettings = normalizeDeduplicationSettings(
       updates.deduplicationSettings,
+    );
+  }
+
+  if (updates.routingFeatureSettings !== undefined) {
+    account.routingFeatureSettings = normalizeRoutingFeatureSettings(
+      updates.routingFeatureSettings,
     );
   }
 

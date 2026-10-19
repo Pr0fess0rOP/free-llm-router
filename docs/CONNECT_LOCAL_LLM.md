@@ -50,7 +50,7 @@ not pair again or replace the credential already stored in `~/.freellm/`.
 
 ## Routing modes
 
-Configure the node under **Settings → Router & Policies → Local LLM Properties**. The per-node routing gate can exclude the node from normal API routing without disconnecting it; direct Local LLM Playground tests remain available while the gate is closed.
+Configure the node under **Router & Policies → Local LLM Properties**. The per-node routing gate can exclude the node from normal API routing without disconnecting it; direct Local LLM Playground tests remain available while the gate is closed.
 
 - **Normal order:** local models participate with cloud providers.
 - **Prefer local:** compatible, healthy local models are placed before cloud providers.

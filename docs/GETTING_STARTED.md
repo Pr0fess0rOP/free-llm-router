@@ -97,7 +97,7 @@ If Ollama is running on this computer or another computer you control:
 4. Select which installed models the router may use and give the node a recognizable name.
 5. Leave the command running while the node should remain online.
 
-The CLI stores the pairing under the current user's `~/.freellm/` directory. Later, `npx --yes @free-llm-router/cli@latest start` reconnects the same node without another pairing code. To use the shorter `free-llm start` form, first run `npm install --global @free-llm-router/cli@latest`. Providers shows connection status; configuration lives under **Settings → Router & Policies → Local LLM Properties**.
+The CLI stores the pairing under the current user's `~/.freellm/` directory. Later, `npx --yes @free-llm-router/cli@latest start` reconnects the same node without another pairing code. To use the shorter `free-llm start` form, first run `npm install --global @free-llm-router/cli@latest`. Providers shows connection status; configuration lives under **Router & Policies → Local LLM Properties**.
 
 See [Connect a private Ollama node](CONNECT_LOCAL_LLM.md) for routing modes, limits, model capabilities, testing, revocation, deletion, and CLI lifecycle commands.
 
@@ -128,13 +128,14 @@ Take some time to explore these key dashboard sections:
 
 - **Overview**: See your router's status, provider health, and quick stats
 - **Providers**: Switch between Cloud providers and Local LLMs, manage API keys, and inspect connection status
+- **Router & Policies**: Turn optional request-processing features on or off from one checklist, then open detailed controls only when needed
 - **Playground**: Test routed requests, exact hosted models, or exact local Ollama models
 - **Analysis**: Monitor requests, see which providers are being used, and view performance metrics
-- **Settings**: Configure routing policies, model aliases, capability registry, and Local LLM properties
+- **Settings**: Manage account, session, logs, and stored data
 
 ## Next Steps
 
-- **Configure Routing Policies**: In Settings → Router & Policies, choose how requests are routed (priority, fastest, reliability, etc.)
+- **Configure the Request Flow**: In Router & Policies → Flow Features, toggle optional gates and recovery behavior. Use Configure to open routing strategy, provider order, retry timing, or deduplication details.
 - **Set Up Model Aliases**: Create virtual model names with specific capabilities (e.g., a "vision-router" that only uses providers with image understanding)
 - **Configure Local Routing**: Gate each node, choose normal/prefer-local/local-only participation, and set local concurrency, queue, token, and timeout limits
 - **Enable Quota Protection**: Set daily/monthly limits for each provider to avoid unexpected charges
