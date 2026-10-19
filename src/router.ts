@@ -12,6 +12,7 @@ import type {
   ProviderRuntime,
   ReliabilitySettings,
   RetryStopReason,
+  RoutingFeatureSettings,
   RoutingPolicy,
 } from "./types.js";
 import {
@@ -20,6 +21,7 @@ import {
 } from "./provider-capabilities.js";
 import { providerQuotaStatus } from "./provider-quotas.js";
 import { normalizeReliabilitySettings } from "./reliability-settings.js";
+import { normalizeRoutingFeatureSettings } from "./routing-features.js";
 
 const MAX_RATE_LIMIT_COOLDOWN_MS = 24 * 60 * 60_000;
 const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 30_000;
@@ -227,6 +229,7 @@ export interface ProviderRouterOptions {
   requestId?: string;
   requestStartedAt?: number;
   capabilityUnknownMode?: CapabilityUnknownMode;
+  features?: RoutingFeatureSettings;
 }
 
 async function readErrorMessage(response: Response): Promise<string> {
@@ -311,6 +314,7 @@ export class ProviderRouter {
   private readonly policy: RoutingPolicy;
   private readonly stats: Record<string, ProviderRoutingStats>;
   private readonly reliability: ReliabilitySettings;
+  private readonly features: RoutingFeatureSettings;
 
   constructor(
     private readonly providers: ProviderRuntime[],
@@ -320,28 +324,57 @@ export class ProviderRouter {
     this.policy = options.policy ?? { strategy: "priority", providerOrder: [] };
     this.stats = options.stats ?? {};
     this.reliability = normalizeReliabilitySettings(options.reliability);
+    this.features = normalizeRoutingFeatureSettings(options.features);
 
     for (const provider of this.providers) {
       const stats = this.stats[provider.id];
-      provider.cooldownUntil = Math.max(
-        provider.cooldownUntil ?? 0,
-        stats?.cooldownUntil ?? 0,
-      );
+      provider.cooldownUntil = this.features.rateLimitCooldowns
+        ? Math.max(provider.cooldownUntil ?? 0, stats?.cooldownUntil ?? 0)
+        : 0;
       provider.failures = stats?.rateLimitCount ?? provider.failures ?? 0;
-      provider.circuitState = stats?.circuitState ?? provider.circuitState ?? "closed";
-      provider.circuitOpenUntil = Math.max(
-        provider.circuitOpenUntil ?? 0,
-        stats?.circuitOpenUntil ?? 0,
-      );
-      provider.circuitFailureCount =
-        stats?.circuitFailureCount ?? provider.circuitFailureCount ?? 0;
-      provider.circuitOpenCount =
-        stats?.circuitOpenCount ?? provider.circuitOpenCount ?? 0;
-      provider.halfOpenProbeActive =
-        stats?.halfOpenProbeActive ?? provider.halfOpenProbeActive ?? false;
+      provider.circuitState = this.features.circuitBreaker
+        ? stats?.circuitState ?? provider.circuitState ?? "closed"
+        : "closed";
+      provider.circuitOpenUntil = this.features.circuitBreaker
+        ? Math.max(provider.circuitOpenUntil ?? 0, stats?.circuitOpenUntil ?? 0)
+        : 0;
+      provider.circuitFailureCount = this.features.circuitBreaker
+        ? stats?.circuitFailureCount ?? provider.circuitFailureCount ?? 0
+        : 0;
+      provider.circuitOpenCount = this.features.circuitBreaker
+        ? stats?.circuitOpenCount ?? provider.circuitOpenCount ?? 0
+        : 0;
+      provider.halfOpenProbeActive = this.features.circuitBreaker
+        ? stats?.halfOpenProbeActive ?? provider.halfOpenProbeActive ?? false
+        : false;
       const quotaUsage = stats?.quotaUsage ?? provider.quotaUsage;
       if (quotaUsage) provider.quotaUsage = quotaUsage;
     }
+  }
+
+  private capabilityMatch(
+    provider: ProviderRuntime,
+    requirements: CapabilityRequirements,
+  ): CapabilityMatch {
+    if (!this.features.capabilityMatching) {
+      return {
+        level: "full",
+        supported: [],
+        unknown: [...requirements.required],
+        unsupported: [],
+      };
+    }
+    return matchProviderCapabilities(
+      provider.capabilities,
+      requirements,
+      this.options.capabilityUnknownMode ?? "flexible",
+    );
+  }
+
+  private quotaStatus(provider: ProviderRuntime) {
+    return this.features.quotaProtection
+      ? providerQuotaStatus(provider.quotaConfig, provider.quotaUsage)
+      : undefined;
   }
 
   listProviders(): Array<{
@@ -356,7 +389,7 @@ export class ProviderRouter {
   }> {
     const now = Date.now();
     return this.providers.map((provider) => {
-      const quota = providerQuotaStatus(provider.quotaConfig, provider.quotaUsage, now);
+      const quota = this.quotaStatus(provider);
       return {
       id: provider.id,
       model: provider.model,
@@ -521,11 +554,7 @@ export class ProviderRouter {
               response,
               providerId: provider.id,
               requirements,
-              capabilityMatch: matchProviderCapabilities(
-                provider.capabilities,
-                requirements,
-                this.options.capabilityUnknownMode ?? "flexible",
-              ),
+              capabilityMatch: this.capabilityMatch(provider, requirements),
               providerEvaluations: evaluations,
               attempts: providerAttempts,
             };
@@ -619,7 +648,7 @@ export class ProviderRouter {
           ...(recovery.stopReason ? { retryStopReason: recovery.stopReason } : {}),
         });
 
-        if (response.status === 429) {
+        if (response.status === 429 && this.features.rateLimitCooldowns) {
           const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
           const priorCount =
             this.stats[provider.id]?.rateLimitCount ?? provider.failures ?? 0;
@@ -839,6 +868,9 @@ export class ProviderRouter {
     candidateCount: number;
     requestStartedAt: number;
   }): { retry: boolean; delayMs?: number; stopReason?: RetryStopReason } {
+    if (!this.features.automaticFailover) {
+      return { retry: false, stopReason: "automatic_failover_disabled" };
+    }
     if (params.attemptNumber >= this.reliability.maxProviderAttempts) {
       return { retry: false, stopReason: "maximum_attempts_reached" };
     }
@@ -860,6 +892,9 @@ export class ProviderRouter {
   }): { retry: boolean; delayMs?: number; stopReason?: RetryStopReason } {
     if (!params.retryable) {
       return { retry: false, stopReason: "error_not_retryable" };
+    }
+    if (!this.features.automaticFailover) {
+      return { retry: false, stopReason: "automatic_failover_disabled" };
     }
     if (params.attemptNumber >= this.reliability.maxProviderAttempts) {
       return { retry: false, stopReason: "maximum_attempts_reached" };
@@ -910,6 +945,29 @@ export class ProviderRouter {
       | "observedUnsupportedCapabilities"
     >,
   ): Promise<void> {
+    if (!this.features.circuitBreaker) {
+      provider.circuitState = "closed";
+      provider.circuitOpenUntil = 0;
+      provider.circuitFailureCount = 0;
+      provider.circuitOpenCount = 0;
+      provider.halfOpenProbeActive = false;
+      await this.emitAttempt(attempts, {
+        providerId: provider.id,
+        providerModel: provider.model,
+        success: false,
+        ...(status !== undefined ? { status } : {}),
+        message,
+        latencyMs,
+        failureType,
+        circuitAction: "none",
+        circuitState: "closed",
+        circuitFailureCount: 0,
+        circuitOpenCount: 0,
+        halfOpenProbeActive: false,
+        ...retryMetadata,
+      });
+      return;
+    }
     const failureCount = isHalfOpen
       ? Math.max(CIRCUIT_FAILURE_THRESHOLD, provider.circuitFailureCount + 1)
       : provider.circuitFailureCount + 1;
@@ -966,11 +1024,7 @@ export class ProviderRouter {
     const matches = new Map(
       this.providers.map((provider) => [
         provider.id,
-        matchProviderCapabilities(
-          provider.capabilities,
-          requirements,
-          this.options.capabilityUnknownMode ?? "flexible",
-        ),
+        this.capabilityMatch(provider, requirements),
       ]),
     );
     const compatibleProviders = this.providers.filter(
@@ -997,14 +1051,18 @@ export class ProviderRouter {
     const quotaStatuses = new Map(
       compatibleProviders.map((provider) => [
         provider.id,
-        providerQuotaStatus(provider.quotaConfig, provider.quotaUsage, now),
+        this.features.quotaProtection
+          ? providerQuotaStatus(provider.quotaConfig, provider.quotaUsage, now)
+          : undefined,
       ]),
     );
-    const quotaAvailable = compatibleProviders.filter(
-      (provider) => quotaStatuses.get(provider.id)?.exhausted !== true,
-    );
+    const quotaAvailable = this.features.quotaProtection
+      ? compatibleProviders.filter(
+          (provider) => quotaStatuses.get(provider.id)?.exhausted !== true,
+        )
+      : compatibleProviders;
 
-    if (quotaAvailable.length === 0) {
+    if (this.features.quotaProtection && quotaAvailable.length === 0) {
       throw new AllProvidersQuotaExhaustedError(
         compatibleProviders.map((provider) => {
           const quota = quotaStatuses.get(provider.id);
@@ -1018,17 +1076,19 @@ export class ProviderRouter {
       );
     }
 
-    const cooldownFree = quotaAvailable.filter(
-      (provider) => provider.cooldownUntil <= now,
-    );
-    const closedProviders = cooldownFree.filter(
-      (provider) => provider.circuitState === "closed",
-    );
-    const recoverableProviders = cooldownFree.filter(
-      (provider) =>
-        (provider.circuitState === "open" && provider.circuitOpenUntil <= now) ||
-        provider.circuitState === "half-open",
-    );
+    const cooldownFree = this.features.rateLimitCooldowns
+      ? quotaAvailable.filter((provider) => provider.cooldownUntil <= now)
+      : quotaAvailable;
+    const closedProviders = this.features.circuitBreaker
+      ? cooldownFree.filter((provider) => provider.circuitState === "closed")
+      : cooldownFree;
+    const recoverableProviders = this.features.circuitBreaker
+      ? cooldownFree.filter(
+          (provider) =>
+            (provider.circuitState === "open" && provider.circuitOpenUntil <= now) ||
+            provider.circuitState === "half-open",
+        )
+      : [];
 
     let halfOpenProvider: ProviderRuntime | undefined;
     const orderedRecoverable = this.orderByMatch(recoverableProviders, matches);
@@ -1080,7 +1140,7 @@ export class ProviderRouter {
           }
         : {};
 
-      if (quota?.exhausted) {
+      if (this.features.quotaProtection && quota?.exhausted) {
         return {
           providerId: provider.id,
           providerModel: provider.model,
@@ -1091,7 +1151,7 @@ export class ProviderRouter {
         };
       }
 
-      if (provider.cooldownUntil > now) {
+      if (this.features.rateLimitCooldowns && provider.cooldownUntil > now) {
         return {
           providerId: provider.id,
           providerModel: provider.model,
@@ -1124,7 +1184,7 @@ export class ProviderRouter {
         };
       }
 
-      if (provider.circuitState !== "closed") {
+      if (this.features.circuitBreaker && provider.circuitState !== "closed") {
         const lastFailureType = this.stats[provider.id]?.lastFailureType;
         return {
           providerId: provider.id,
@@ -1174,24 +1234,25 @@ export class ProviderRouter {
   }
 
   private orderQuotaAwarePool(pool: ProviderRuntime[]): ProviderRuntime[] {
+    if (!this.features.quotaProtection) {
+      const tiers = [...new Set(pool.map((provider) => provider.routingTier ?? 0))]
+        .sort((left, right) => left - right);
+      return tiers.flatMap((tier) =>
+        this.orderPool(pool.filter((provider) => (provider.routingTier ?? 0) === tier)),
+      );
+    }
     const healthy = pool.filter(
       (provider) =>
-        providerQuotaStatus(provider.quotaConfig, provider.quotaUsage)?.warning !== true,
+        this.quotaStatus(provider)?.warning !== true,
     );
     const warning = pool.filter(
       (provider) =>
-        providerQuotaStatus(provider.quotaConfig, provider.quotaUsage)?.warning === true,
+        this.quotaStatus(provider)?.warning === true,
     );
     const orderedWarning = this.orderPool(warning);
     orderedWarning.sort((left, right) => {
-      const leftRemaining = providerQuotaStatus(
-        left.quotaConfig,
-        left.quotaUsage,
-      )?.remainingRatio ?? 1;
-      const rightRemaining = providerQuotaStatus(
-        right.quotaConfig,
-        right.quotaUsage,
-      )?.remainingRatio ?? 1;
+      const leftRemaining = this.quotaStatus(left)?.remainingRatio ?? 1;
+      const rightRemaining = this.quotaStatus(right)?.remainingRatio ?? 1;
       return compareNumbers(rightRemaining, leftRemaining);
     });
     const orderByTier = (providers: ProviderRuntime[]): ProviderRuntime[] => {
@@ -1208,21 +1269,19 @@ export class ProviderRouter {
     requirements: CapabilityRequirements,
     attempts: ProviderAttemptMetric[] = [],
   ): void {
+    if (!this.features.rateLimitCooldowns && !this.features.circuitBreaker) return;
     const compatible = this.providers.filter(
       (provider) =>
-        matchProviderCapabilities(
-          provider.capabilities,
-          requirements,
-          this.options.capabilityUnknownMode ?? "flexible",
-        ).level !== "incompatible" &&
-        providerQuotaStatus(provider.quotaConfig, provider.quotaUsage)?.exhausted !== true,
+        this.capabilityMatch(provider, requirements).level !== "incompatible" &&
+        this.quotaStatus(provider)?.exhausted !== true,
     );
     const now = Date.now();
     if (
       compatible.length > 0 &&
       compatible.every(
         (provider) =>
-          provider.cooldownUntil > now || provider.circuitState !== "closed",
+          (this.features.rateLimitCooldowns && provider.cooldownUntil > now) ||
+          (this.features.circuitBreaker && provider.circuitState !== "closed"),
       )
     ) {
       this.throwUnavailableFromProviders(compatible, attempts);
@@ -1349,10 +1408,7 @@ export class ProviderRouter {
     const priorityScore = 1 / (1 + orderIndex);
     const failurePenalty = Math.min(stats?.consecutiveFailures ?? 0, 5) * 0.08;
     const explorationBonus = (stats?.attempts ?? 0) < 2 ? 0.08 : 0;
-    const quotaScore = providerQuotaStatus(
-      provider.quotaConfig,
-      provider.quotaUsage,
-    )?.remainingRatio ?? 1;
+    const quotaScore = this.quotaStatus(provider)?.remainingRatio ?? 1;
 
     return (
       reliability * 0.42 +

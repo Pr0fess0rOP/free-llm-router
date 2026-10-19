@@ -50,9 +50,9 @@
     },
     {
       "id": "zai",
-      "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+      "baseUrl": "https://api.z.ai/api/paas/v4",
       "apiKeyEnv": "ZAI_API_KEY",
-      "model": "glm-4.7-flash",
+      "model": "glm-5.3",
       "priority": 70,
       "cooldownMs": 30000
     },

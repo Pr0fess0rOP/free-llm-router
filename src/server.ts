@@ -70,6 +70,7 @@ import type {
   ProviderRuntime,
   ReliabilitySettings,
   RoutingPolicy,
+  RoutingFeatureSettings,
   TokenUsage,
   RoutingStrategy,
   DeduplicationMetadata,
@@ -115,6 +116,10 @@ import {
   parseDeduplicationSettings,
   type CapturedHttpResponse,
 } from "./deduplication.js";
+import {
+  normalizeRoutingFeatureSettings,
+  parseRoutingFeatureSettings,
+} from "./routing-features.js";
 import {
   anthropicError,
   anthropicToOpenAI,
@@ -1210,6 +1215,7 @@ async function createRoutedProviderRouter(params: {
   router: ProviderRouter;
   policy: RoutingPolicy;
   reliability: ReliabilitySettings;
+  features: RoutingFeatureSettings;
   alias?: ModelAlias;
   localOnly: boolean;
 }> {
@@ -1220,10 +1226,12 @@ async function createRoutedProviderRouter(params: {
   };
   const aliases = normalizeModelAliases(account?.modelAliases);
   const alias = resolveModelAlias(aliases, params.requestedModel);
-  const policy = effectiveAliasPolicy(accountPolicy, alias);
+  const features = normalizeRoutingFeatureSettings(account?.routingFeatureSettings);
+  const aliasOverrides = features.aliasPolicyOverrides ? alias : undefined;
+  const policy = effectiveAliasPolicy(accountPolicy, aliasOverrides);
   const reliability = effectiveReliabilitySettings(
     account?.reliabilitySettings,
-    alias,
+    aliasOverrides,
   );
   const providerModels = normalizeProviderModelCatalogMap(account?.providerModels, await loadProviderConfigs());
   const activeModels = Object.fromEntries(
@@ -1241,17 +1249,19 @@ async function createRoutedProviderRouter(params: {
     activeModels,
     activeModelOptions,
   );
-  const localNodes = account ? await listLocalNodes(account.id) : [];
+  const localNodes = account && features.localLlmRouting
+    ? await listLocalNodes(account.id)
+    : [];
   const localOnly = localNodes.some(
     (node) => node.status !== "revoked" && node.routingEnabled && node.routingMode === "local-only",
   );
-  const localProviders = account
+  const localProviders = account && features.localLlmRouting
     ? await eligibleLocalNodeProviders(account.id, params.requestId)
     : [];
   providers = localOnly ? localProviders : [...providers, ...localProviders];
 
-  if (alias?.eligibleProviderIds.length) {
-    const eligible = new Set(alias.eligibleProviderIds);
+  if (aliasOverrides?.eligibleProviderIds.length) {
+    const eligible = new Set(aliasOverrides.eligibleProviderIds);
     providers = providers.filter((provider) => eligible.has(provider.id));
   }
 
@@ -1282,8 +1292,8 @@ async function createRoutedProviderRouter(params: {
       : {}),
   }));
 
-  const roundRobinScope = alias?.id
-    ? `${params.routerKeyHash}:${alias.id}`
+  const roundRobinScope = aliasOverrides?.id
+    ? `${params.routerKeyHash}:${aliasOverrides.id}`
     : params.routerKeyHash;
   const roundRobinCursor = policy.strategy === "round-robin"
     ? await nextRoundRobinCursor(roundRobinScope, providers.length)
@@ -1293,6 +1303,7 @@ async function createRoutedProviderRouter(params: {
     providers,
     policy,
     reliability,
+    features,
     localOnly,
     ...(alias ? { alias } : {}),
     router: new ProviderRouter(providers, fetch, {
@@ -1300,6 +1311,7 @@ async function createRoutedProviderRouter(params: {
       stats,
       roundRobinCursor,
       reliability,
+      features,
       requestId: params.requestId,
       requestStartedAt: params.requestStartedAt,
       capabilityUnknownMode: account?.capabilityRoutingSettings?.unknownMode ?? "flexible",
@@ -1362,7 +1374,7 @@ async function createRoutedProviderRouter(params: {
               ...(!attempt.success && attempt.message ? { lastError: attempt.message } : {}),
             },
           );
-          if (Object.keys(capabilityUpdates).length) {
+          if (features.capabilityLearning && Object.keys(capabilityUpdates).length) {
             await updateProviderModelCapabilitiesByHash(
               params.routerKeyHash,
               attempt.providerId,
@@ -1372,8 +1384,12 @@ async function createRoutedProviderRouter(params: {
           }
         }
       },
-      claimHalfOpenProbe: (providerId) =>
-        claimProviderHalfOpenProbe(params.routerKeyHash, providerId),
+      ...(features.circuitBreaker
+        ? {
+            claimHalfOpenProbe: (providerId: string) =>
+              claimProviderHalfOpenProbe(params.routerKeyHash, providerId),
+          }
+        : {}),
     }),
   };
 }
@@ -2124,7 +2140,11 @@ async function recordDeduplicatedRequest(params: {
     normalizeModelAliases(params.account.modelAliases),
     requestedModel,
   );
-  const policy = effectiveAliasPolicy(params.account.routingPolicy, alias);
+  const features = normalizeRoutingFeatureSettings(params.account.routingFeatureSettings);
+  const policy = effectiveAliasPolicy(
+    params.account.routingPolicy,
+    features.aliasPolicyOverrides ? alias : undefined,
+  );
   const providerId = singleHeader(params.response.headers["x-free-llm-provider"])
     ?? "deduplicated";
   const providerModel = singleHeader(
@@ -2723,6 +2743,22 @@ async function handleRequestCore(
           );
         }
 
+        let routingFeatureSettings: RoutingFeatureSettings | undefined;
+        if (body.routingFeatureSettings !== undefined) {
+          try {
+            routingFeatureSettings = parseRoutingFeatureSettings(
+              body.routingFeatureSettings,
+            );
+          } catch (error) {
+            sendJson(response, 400, {
+              error: error instanceof Error
+                ? error.message
+                : "Invalid routing feature settings",
+            });
+            return;
+          }
+        }
+
         let modelAliases: ModelAlias[] | undefined;
         if (body.modelAliases !== undefined) {
           try {
@@ -2741,6 +2777,7 @@ async function handleRequestCore(
           ...(reliabilitySettings ? { reliabilitySettings } : {}),
           ...(deduplicationSettings ? { deduplicationSettings } : {}),
           ...(capabilityRoutingSettings ? { capabilityRoutingSettings } : {}),
+          ...(routingFeatureSettings ? { routingFeatureSettings } : {}),
           ...(modelAliases ? { modelAliases } : {}),
         });
         sendJson(response, account ? 200 : 401, account ?? { error: "Invalid router key" });
@@ -3010,14 +3047,20 @@ async function handleRequestCore(
         }
 
         const stats = await getRoutingStats(routerKeyHash);
+        const features = normalizeRoutingFeatureSettings(account?.routingFeatureSettings);
         const retryRouter = new ProviderRouter(providers, fetch, {
           policy: { strategy: "priority", providerOrder: [providerId] },
           stats,
           reliability: effectiveReliabilitySettings(account?.reliabilitySettings),
+          features,
           capabilityUnknownMode: account?.capabilityRoutingSettings?.unknownMode ?? "flexible",
           onAttempt: (attempt) => recordRoutingAttempt(routerKeyHash, attempt),
-          claimHalfOpenProbe: (candidateId) =>
-            claimProviderHalfOpenProbe(routerKeyHash, candidateId),
+          ...(features.circuitBreaker
+            ? {
+                claimHalfOpenProbe: (candidateId: string) =>
+                  claimProviderHalfOpenProbe(routerKeyHash, candidateId),
+              }
+            : {}),
         });
 
         try {
@@ -3158,7 +3201,7 @@ async function handleRequestCore(
       const requestedModel = typeof body.model === "string" && body.model.trim()
         ? body.model.trim()
         : "codex-free-router";
-      const { providers, router, policy, alias, localOnly } = await createRoutedProviderRouter({
+      const { providers, router, policy, features, alias, localOnly } = await createRoutedProviderRouter({
         routerKey: token,
         routerKeyHash,
         providerKeys,
@@ -3169,7 +3212,7 @@ async function handleRequestCore(
       if (providers.length === 0) {
         const message = localOnly
           ? "Local-only routing is enabled, but no owned local model is currently online and eligible"
-          : alias?.eligibleProviderIds.length
+          : features.aliasPolicyOverrides && alias?.eligibleProviderIds.length
           ? `No configured provider is eligible for model alias "${alias.id}"`
           : "Add at least one provider API key in the dashboard";
         sendJson(response, 400, responsesError(
@@ -3183,10 +3226,12 @@ async function handleRequestCore(
       const controller = new AbortController();
       request.once("aborted", () => controller.abort());
       const upstreamBody = responsesToOpenAI(body);
-      const capabilityRequirements = mergeAliasRequirements(
-        detectCapabilityRequirements(body),
-        alias,
-      );
+      const capabilityRequirements = features.capabilityMatching
+        ? mergeAliasRequirements(
+            detectCapabilityRequirements(body),
+            features.aliasPolicyOverrides ? alias : undefined,
+          )
+        : { required: [] };
       const startedAt = correlation.startedAt;
       const result = await routedChatCompletion({
         router,
@@ -3465,7 +3510,7 @@ async function handleRequestCore(
       const requestedModel = typeof body.model === "string" && body.model.trim()
         ? body.model.trim()
         : "claude-free-router";
-      const { providers, router, policy, alias, localOnly } = await createRoutedProviderRouter({
+      const { providers, router, policy, features, alias, localOnly } = await createRoutedProviderRouter({
         routerKey: token,
         routerKeyHash,
         providerKeys,
@@ -3476,7 +3521,7 @@ async function handleRequestCore(
       if (providers.length === 0) {
         const message = localOnly
           ? "Local-only routing is enabled, but no owned local model is currently online and eligible"
-          : alias?.eligibleProviderIds.length
+          : features.aliasPolicyOverrides && alias?.eligibleProviderIds.length
           ? `No configured provider is eligible for model alias "${alias.id}"`
           : "Add at least one provider API key in the dashboard";
         sendJson(response, 400, anthropicError(
@@ -3489,10 +3534,12 @@ async function handleRequestCore(
       const controller = new AbortController();
       request.once("aborted", () => controller.abort());
       const upstreamBody = anthropicToOpenAI(body);
-      const capabilityRequirements = mergeAliasRequirements(
-        detectCapabilityRequirements(body),
-        alias,
-      );
+      const capabilityRequirements = features.capabilityMatching
+        ? mergeAliasRequirements(
+            detectCapabilityRequirements(body),
+            features.aliasPolicyOverrides ? alias : undefined,
+          )
+        : { required: [] };
       const startedAt = correlation.startedAt;
       const result = await routedChatCompletion({
         router,
@@ -3751,7 +3798,7 @@ async function handleRequestCore(
       const requestedModel = typeof body.model === "string" && body.model.trim()
         ? body.model.trim()
         : "free-router";
-      const { providers, router, policy, alias, localOnly } = await createRoutedProviderRouter({
+      const { providers, router, policy, features, alias, localOnly } = await createRoutedProviderRouter({
         routerKey,
         routerKeyHash,
         providerKeys,
@@ -3762,7 +3809,7 @@ async function handleRequestCore(
       if (providers.length === 0) {
         const message = localOnly
           ? "Local-only routing is enabled, but no owned local model is currently online and eligible"
-          : alias?.eligibleProviderIds.length
+          : features.aliasPolicyOverrides && alias?.eligibleProviderIds.length
           ? `No configured provider is eligible for model alias "${alias.id}"`
           : "Add at least one provider API key in the dashboard";
         sendJson(response, 400, {
@@ -3776,10 +3823,12 @@ async function handleRequestCore(
 
       const controller = new AbortController();
       request.once("aborted", () => controller.abort());
-      const capabilityRequirements = mergeAliasRequirements(
-        detectCapabilityRequirements(body),
-        alias,
-      );
+      const capabilityRequirements = features.capabilityMatching
+        ? mergeAliasRequirements(
+            detectCapabilityRequirements(body),
+            features.aliasPolicyOverrides ? alias : undefined,
+          )
+        : { required: [] };
       const startedAt = correlation.startedAt;
       const result = await routedChatCompletion({
         router,

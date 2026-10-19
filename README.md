@@ -33,9 +33,10 @@ Imagine you have several different AI assistants (like different brands of smart
 - **Rate-Limit & Quota Protection:** Automatically honors `Retry-After` headers and tracks your free-tier limits to avoid unexpected charges.
 - **Request Deduplication:** Coalesces identical in-flight requests and briefly reuses successful responses, saving provider quota.
 - **Model Aliases & Capabilities:** Create virtual models (like `vision-router`) that only route to providers with specific capabilities.
+- **Flow Features Control Center:** See every optional routing stage in one four-phase checklist and independently enable or disable alias overrides, capability matching, quota protection, cooldowns, circuit breaking, failover, Local LLM participation, and capability learning. Network recovery, malformed-response recovery, and deduplication are controlled in the same place.
 - **Comprehensive Dashboard:** Manage cloud and local providers with matching card flows, test routed, exact cloud, or exact Local LLM prompts in the Playground, and inspect detailed request analytics and performance timings.
 - **Full Compatibility:** Works out of the box as an OpenAI-compatible endpoint, Codex CLI gateway, and Claude Code gateway.
-- **Private Local Ollama Nodes:** Pair Ollama through a protected loopback agent and ngrok tunnel, inspect connections in Providers, manage routing gates, limits, lifecycle, and model capabilities under **Settings → Router & Policies → Local LLM Properties**, and test exact local models in the Playground.
+- **Private Local Ollama Nodes:** Pair Ollama through a protected loopback agent and ngrok tunnel, inspect connections in Providers, manage routing gates, limits, lifecycle, and model capabilities under **Router & Policies → Local LLM Properties**, and test exact local models in the Playground.
 
 ---
 

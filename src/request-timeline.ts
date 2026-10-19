@@ -77,6 +77,7 @@ function capabilityEvidenceDetail(evaluation: ProviderCandidateEvaluation): stri
 
 function retryStopDetail(reason: ProviderAttemptMetric["retryStopReason"]): string {
   switch (reason) {
+    case "automatic_failover_disabled": return "Retrying stopped because automatic failover is disabled for this router.";
     case "maximum_attempts_reached": return "Retrying stopped because the maximum provider-attempt count was reached.";
     case "total_request_deadline_exceeded": return "Retrying stopped because the total request deadline was reached.";
     case "error_not_retryable": return "Retrying stopped because this failure is not configured as retryable.";

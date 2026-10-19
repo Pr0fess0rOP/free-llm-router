@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ProviderRouter } from "../src/router.js";
+import { DEFAULT_ROUTING_FEATURE_SETTINGS } from "../src/routing-features.js";
 import type { ProviderRuntime } from "../src/types.js";
 
 function provider(id: string, priority: number): ProviderRuntime {
@@ -29,6 +30,36 @@ function provider(id: string, priority: number): ProviderRuntime {
     halfOpenProbeActive: false,
   };
 }
+
+test("disabled capability matching leaves provider eligibility to the saved order", async () => {
+  const calls: string[] = [];
+  const first = provider("no-tools", 10);
+  first.capabilities.tools = "unsupported";
+  const router = new ProviderRouter(
+    [first, provider("tools", 20)],
+    async (input) => {
+      calls.push(String(input));
+      return new Response(JSON.stringify({ choices: [] }), {
+        headers: { "content-type": "application/json" },
+      });
+    },
+    {
+      features: {
+        ...DEFAULT_ROUTING_FEATURE_SETTINGS,
+        capabilityMatching: false,
+      },
+    },
+  );
+
+  const result = await router.chatCompletion({
+    messages: [{ role: "user", content: "Use a tool" }],
+    tools: [{ type: "function", function: { name: "lookup", parameters: {} } }],
+  });
+
+  assert.equal(result.providerId, "no-tools");
+  assert.equal(result.capabilityMatch.level, "full");
+  assert.deepEqual(calls, ["https://no-tools.example/v1/chat/completions"]);
+});
 
 test("fails over after a 429 response", async () => {
   const calls: string[] = [];
@@ -1218,4 +1249,139 @@ test("clear capability-specific client errors update evidence and fail over imme
   assert.equal(attempts[0]?.recoveryAction, "immediate_failover");
   assert.equal(attempts[0]?.failoverReason, "provider_capability_unsupported");
   assert.deepEqual(attempts[0]?.observedUnsupportedCapabilities, ["vision"]);
+});
+
+test("disabled quota protection permits a provider with exhausted configured quota", async () => {
+  const exhausted = provider("exhausted", 10);
+  exhausted.quotaConfig = { dailyRequestLimit: 1, warningThresholdPercent: 80 };
+  exhausted.quotaUsage = {
+    daily: {
+      period: "daily",
+      startedAt: new Date(Date.now() - 1_000).toISOString(),
+      resetAt: new Date(Date.now() + 60_000).toISOString(),
+      requests: 1,
+      successfulRequests: 1,
+      failedRequests: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+    },
+    monthly: {
+      period: "monthly",
+      startedAt: new Date(Date.now() - 1_000).toISOString(),
+      resetAt: new Date(Date.now() + 120_000).toISOString(),
+      requests: 1,
+      successfulRequests: 1,
+      failedRequests: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+    },
+  };
+  const calls: string[] = [];
+  const router = new ProviderRouter(
+    [exhausted, provider("available", 20)],
+    async (input) => {
+      calls.push(String(input));
+      return new Response(JSON.stringify({ choices: [] }), {
+        headers: { "content-type": "application/json" },
+      });
+    },
+    {
+      features: {
+        ...DEFAULT_ROUTING_FEATURE_SETTINGS,
+        quotaProtection: false,
+      },
+    },
+  );
+
+  const result = await router.chatCompletion({ messages: [] });
+  assert.equal(result.providerId, "exhausted");
+  assert.deepEqual(calls, ["https://exhausted.example/v1/chat/completions"]);
+  assert.equal(
+    result.providerEvaluations.find((item) => item.providerId === "exhausted")?.state,
+    "candidate",
+  );
+});
+
+test("disabled cooldowns neither skip a cooling provider nor start a new cooldown", async () => {
+  const cooling = provider("cooling", 10);
+  cooling.cooldownUntil = Date.now() + 60_000;
+  const router = new ProviderRouter(
+    [cooling, provider("second", 20)],
+    async () => new Response(JSON.stringify({ error: { message: "rate limited" } }), {
+      status: 429,
+      headers: { "content-type": "application/json", "retry-after": "60" },
+    }),
+    {
+      features: {
+        ...DEFAULT_ROUTING_FEATURE_SETTINGS,
+        rateLimitCooldowns: false,
+      },
+    },
+  );
+
+  await assert.rejects(() => router.chatCompletion({ messages: [] }));
+  assert.equal(cooling.cooldownUntil, 0);
+});
+
+test("disabled circuit breaker ignores an open circuit and never reopens it", async () => {
+  const open = provider("open", 10);
+  open.circuitState = "open";
+  open.circuitOpenUntil = Date.now() + 60_000;
+  open.circuitFailureCount = 2;
+  const attempts: import("../src/types.js").ProviderAttemptMetric[] = [];
+  const router = new ProviderRouter(
+    [open],
+    async () => new Response(JSON.stringify({ error: { message: "unavailable" } }), {
+      status: 503,
+      headers: { "content-type": "application/json" },
+    }),
+    {
+      features: {
+        ...DEFAULT_ROUTING_FEATURE_SETTINGS,
+        circuitBreaker: false,
+      },
+      onAttempt: (attempt) => {
+        attempts.push(attempt);
+      },
+    },
+  );
+
+  await assert.rejects(() => router.chatCompletion({ messages: [] }));
+  assert.equal(open.circuitState, "closed");
+  assert.equal(open.circuitFailureCount, 0);
+  assert.equal(attempts[0]?.circuitAction, "none");
+});
+
+test("disabled automatic failover stops after the first provider failure", async () => {
+  const { AllProvidersFailedError } = await import("../src/router.js");
+  const calls: string[] = [];
+  const router = new ProviderRouter(
+    [provider("first", 10), provider("second", 20)],
+    async (input) => {
+      calls.push(String(input));
+      return new Response(JSON.stringify({ error: { message: "unavailable" } }), {
+        status: 503,
+        headers: { "content-type": "application/json" },
+      });
+    },
+    {
+      features: {
+        ...DEFAULT_ROUTING_FEATURE_SETTINGS,
+        automaticFailover: false,
+      },
+    },
+  );
+
+  await assert.rejects(
+    () => router.chatCompletion({ messages: [] }),
+    (error: unknown) => {
+      assert.ok(error instanceof AllProvidersFailedError);
+      assert.equal(error.retryStopReason, "automatic_failover_disabled");
+      assert.equal(error.providerAttempts.length, 1);
+      return true;
+    },
+  );
+  assert.deepEqual(calls, ["https://first.example/v1/chat/completions"]);
 });

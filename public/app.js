@@ -1348,6 +1348,7 @@ function statusLabel(status) {
 }
 
 const retryStopReasonLabels = {
+  automatic_failover_disabled: "Automatic failover disabled",
   maximum_attempts_reached: "Maximum attempts reached",
   total_request_deadline_exceeded: "Total request deadline exceeded",
   error_not_retryable: "Error is not retryable",
@@ -1522,7 +1523,7 @@ npx --yes @free-llm-router/cli@latest connect ollama \
   --router-url ${gatewayUrl}
 
 # 2. Open the routing gate and choose Normal, Prefer local, or Local only under
-#    Settings → Router & Policies → Local LLM Properties.
+#    Router & Policies → Local LLM Properties.
 
 # 3. Call the same gateway. The selected local Ollama model remains private.
 curl ${baseUrl}/chat/completions \
@@ -3063,15 +3064,28 @@ async function switchTab(tabName) {
     panel.hidden = true;
   });
 
-  const panel = $(`#${tabName}-panel`);
+  const routingPrimaryView = tabName === "routing";
+  const settingsPanel = $("#settings-panel");
+  if (settingsPanel) {
+    settingsPanel.classList.toggle("routing-primary-view", routingPrimaryView);
+  }
+
+  const panel = $(`#${routingPrimaryView ? "settings" : tabName}-panel`);
 
   if (panel) {
     panel.hidden = false;
   }
 
+  if (routingPrimaryView) {
+    switchSettingsTab("router");
+  } else if (tabName === "settings" && state.activeSettingsTab === "router") {
+    switchSettingsTab("account");
+  }
+
   if (
     tabName === "overview" ||
     tabName === "providers" ||
+    tabName === "routing" ||
     tabName === "settings"
   ) {
     try {
@@ -4048,8 +4062,8 @@ function reliabilitySettingsFromDom() {
     backoffMultiplier: Math.max(1, number("#reliability-backoff-multiplier", current.backoffMultiplier)),
     useJitter: $("#reliability-use-jitter")?.checked === true,
     retryStatusCodes,
-    retryNetworkErrors: $("#reliability-network-errors")?.checked === true,
-    retryMalformedResponses: $("#reliability-malformed")?.checked === true,
+    retryNetworkErrors: $("#feature-network-recovery")?.checked === true,
+    retryMalformedResponses: $("#feature-malformed-recovery")?.checked === true,
     streamingConnectionTimeoutMs: seconds("#reliability-stream-timeout", current.streamingConnectionTimeoutMs),
     halfOpenProbeTimeoutMs: seconds("#reliability-probe-timeout", current.halfOpenProbeTimeoutMs),
     providerTimeoutOverrides,
@@ -4078,7 +4092,7 @@ function deduplicationSettingsFromDom() {
   const current = deduplicationSettings();
   const seconds = Number($("#dedup-window")?.value);
   return {
-    enabled: $("#dedup-enabled")?.checked === true,
+    enabled: $("#feature-request-deduplication")?.checked === true,
     windowMs: Number.isFinite(seconds) && seconds > 0
       ? Math.min(300, Math.max(1, Math.round(seconds))) * 1000
       : current.windowMs,
@@ -4088,6 +4102,106 @@ function deduplicationSettingsFromDom() {
     bypassMultimodalRequests: $("#dedup-bypass-multimodal")?.checked === true,
     bypassNonDeterministicRequests: $("#dedup-bypass-nondeterministic")?.checked === true,
   };
+}
+
+const defaultRoutingFeatureSettings = {
+  aliasPolicyOverrides: true,
+  capabilityMatching: true,
+  quotaProtection: true,
+  rateLimitCooldowns: true,
+  circuitBreaker: true,
+  automaticFailover: true,
+  localLlmRouting: true,
+  capabilityLearning: true,
+};
+
+const routingFeatureControlIds = {
+  aliasPolicyOverrides: "feature-alias-policy-overrides",
+  capabilityMatching: "feature-capability-matching",
+  quotaProtection: "feature-quota-protection",
+  rateLimitCooldowns: "feature-rate-limit-cooldowns",
+  circuitBreaker: "flow-feature-circuit-breaker",
+  automaticFailover: "feature-automatic-failover",
+  localLlmRouting: "feature-local-llm-routing",
+  capabilityLearning: "feature-capability-learning",
+};
+
+function routingFeatureSettings(source = state.account?.routingFeatureSettings) {
+  const candidate = source && typeof source === "object" ? source : {};
+  return Object.fromEntries(
+    Object.entries(defaultRoutingFeatureSettings).map(([key, fallback]) => [
+      key,
+      candidate[key] === undefined ? fallback : candidate[key] === true,
+    ]),
+  );
+}
+
+function updateFlowFeatureCards() {
+  const inputs = $$(".flow-feature-card input[type=checkbox]");
+  inputs.forEach((input) => {
+    input.closest(".flow-feature-card")?.classList.toggle("feature-disabled", !input.checked);
+  });
+  const enabled = inputs.filter((input) => input.checked).length;
+  const count = $("#flow-feature-count");
+  if (count) count.textContent = `${enabled} of ${inputs.length} enabled`;
+}
+
+function renderRoutingFeatureSettings() {
+  const settings = routingFeatureSettings();
+  for (const [key, id] of Object.entries(routingFeatureControlIds)) {
+    const input = $(`#${id}`);
+    if (input) input.checked = settings[key];
+  }
+
+  const network = $("#feature-network-recovery");
+  const malformed = $("#feature-malformed-recovery");
+  const deduplication = $("#feature-request-deduplication");
+  if (network) network.checked = state.account?.reliabilitySettings?.retryNetworkErrors !== false;
+  if (malformed) malformed.checked = state.account?.reliabilitySettings?.retryMalformedResponses !== false;
+  if (deduplication) deduplication.checked = state.account?.deduplicationSettings?.enabled !== false;
+  updateFlowFeatureCards();
+}
+
+function routingFeatureSettingsFromDom() {
+  return Object.fromEntries(
+    Object.entries(routingFeatureControlIds).map(([key, id]) => [
+      key,
+      $(`#${id}`)?.checked === true,
+    ]),
+  );
+}
+
+const flowDetailCopy = {
+  selection: {
+    title: "Selection and provider order",
+    description: "Choose the ranking strategy, router identity, and provider order used by the mandatory selection stage.",
+  },
+  recovery: {
+    title: "Failure recovery details",
+    description: "Tune deadlines, provider timeouts, retry statuses, backoff, jitter, and provider overrides.",
+  },
+  deduplication: {
+    title: "Request deduplication details",
+    description: "Control the reuse window, fingerprinting, idempotency keys, and conservative bypass rules.",
+  },
+};
+
+function closeFlowDetail() {
+  $("#flow-detail-window").hidden = true;
+  $$('[data-flow-detail-panel]').forEach((panel) => { panel.hidden = true; });
+}
+
+function openFlowDetail(name) {
+  const copy = flowDetailCopy[name];
+  if (!copy) return;
+  const window = $("#flow-detail-window");
+  $("#flow-detail-title").textContent = copy.title;
+  $("#flow-detail-description").textContent = copy.description;
+  $$('[data-flow-detail-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.flowDetailPanel !== name;
+  });
+  window.hidden = false;
+  requestAnimationFrame(() => window.scrollIntoView({ behavior: "smooth", block: "start" }));
 }
 
 function aliasReliabilitySummary(alias) {
@@ -4179,6 +4293,7 @@ function renderSettings() {
   renderLocalNodeProperties();
   renderReliabilitySettings();
   renderDeduplicationSettings();
+  renderRoutingFeatureSettings();
   renderModelAliases();
   renderCapabilityRegistry();
   const capabilityMode = $("#capability-unknown-mode");
@@ -4522,6 +4637,50 @@ $$('[data-settings-tab]').forEach((button) =>
 $$('[data-router-settings-tab]').forEach((button) =>
   button.addEventListener("click", () => switchRouterSettingsTab(button.dataset.routerSettingsTab)),
 );
+
+$$('[data-open-router-section]').forEach((button) =>
+  button.addEventListener("click", () => {
+    closeFlowDetail();
+    switchRouterSettingsTab(button.dataset.openRouterSection);
+  }),
+);
+
+$$('[data-open-primary-section]').forEach((button) =>
+  button.addEventListener("click", () => switchTab(button.dataset.openPrimarySection)),
+);
+
+$$('[data-open-flow-detail]').forEach((button) =>
+  button.addEventListener("click", () => openFlowDetail(button.dataset.openFlowDetail)),
+);
+
+$("#close-flow-detail")?.addEventListener("click", closeFlowDetail);
+
+const linkedFeatureControls = new Map([
+  ["feature-network-recovery", "reliability-network-errors"],
+  ["feature-malformed-recovery", "reliability-malformed"],
+  ["feature-request-deduplication", "dedup-enabled"],
+]);
+
+$$('.flow-feature-card input[type="checkbox"]').forEach((input) => {
+  input.addEventListener("change", () => {
+    const linkedId = linkedFeatureControls.get(input.id);
+    const linked = linkedId ? $(`#${linkedId}`) : undefined;
+    if (linked) linked.checked = input.checked;
+    updateFlowFeatureCards();
+    const hint = $("#routing-save-hint");
+    if (hint) hint.textContent = "Unsaved request-flow feature changes.";
+  });
+});
+
+for (const [featureId, detailId] of linkedFeatureControls) {
+  $(`#${detailId}`)?.addEventListener("change", (event) => {
+    const feature = $(`#${featureId}`);
+    if (feature) feature.checked = event.currentTarget.checked;
+    updateFlowFeatureCards();
+    const hint = $("#routing-save-hint");
+    if (hint) hint.textContent = "Unsaved request-flow feature changes.";
+  });
+}
 
 $$('[data-analysis-tab]').forEach((button) =>
   button.addEventListener("click", () => switchAnalysisTab(button.dataset.analysisTab)),
@@ -4885,12 +5044,17 @@ $("#model-alias-list").addEventListener("click", (event) => {
 
 $("#reset-reliability-settings")?.addEventListener("click", () => {
   renderReliabilitySettings(defaultReliabilitySettings);
+  $("#feature-network-recovery").checked = defaultReliabilitySettings.retryNetworkErrors;
+  $("#feature-malformed-recovery").checked = defaultReliabilitySettings.retryMalformedResponses;
+  updateFlowFeatureCards();
   $("#routing-save-hint").textContent = "Default reliability controls loaded. Save router settings to apply them.";
   notify("Reliability defaults loaded.");
 });
 
 $("#reset-deduplication-settings")?.addEventListener("click", () => {
   renderDeduplicationSettings(defaultDeduplicationSettings);
+  $("#feature-request-deduplication").checked = defaultDeduplicationSettings.enabled;
+  updateFlowFeatureCards();
   $("#routing-save-hint").textContent = "Default deduplication controls loaded. Save router settings to apply them.";
   notify("Deduplication defaults loaded.");
 });
@@ -4921,6 +5085,7 @@ $("#router-settings-form").addEventListener("submit", async (event) => {
         },
         reliabilitySettings: reliabilitySettingsFromDom(),
         deduplicationSettings: deduplicationSettingsFromDom(),
+        routingFeatureSettings: routingFeatureSettingsFromDom(),
         capabilityRoutingSettings: {
           unknownMode: $("#capability-unknown-mode")?.value === "strict" ? "strict" : "flexible",
         },
@@ -4950,7 +5115,7 @@ $("#router-settings-form").addEventListener("submit", async (event) => {
     state.modelAliasesDirty = false;
     $("#routing-save-hint").textContent = "Routing, reliability, deduplication, and model alias settings are active.";
     render();
-    switchSettingsTab("router");
+    await switchTab("routing");
     notify("Router settings saved.");
   } catch (error) {
     // Never replace the visible draft with stale server data after a failed save.
@@ -5159,8 +5324,7 @@ $("#local-node-list")?.addEventListener("click", async (event) => {
   const card = action.closest("[data-local-node-id]");
   const nodeId = card.dataset.localNodeId;
   if (action.hasAttribute("data-local-open-settings")) {
-    await switchTab("settings");
-    switchSettingsTab("router");
+    await switchTab("routing");
     switchRouterSettingsTab("local");
     renderLocalNodeProperties();
     requestAnimationFrame(() => {

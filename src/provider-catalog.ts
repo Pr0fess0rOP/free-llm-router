@@ -50,10 +50,10 @@ export const PROVIDER_CATALOG: Record<string, ProviderMetadata> = {
     category: "Model maker",
   },
   zai: {
-    name: "Z AI",
-    website: "https://open.bigmodel.cn/usercenter/apikeys",
-    description: "Permanent free GLM text and vision models.",
-    freeTier: "1 concurrent request",
+    name: "Z.ai",
+    website: "https://z.ai/manage-apikey/apikey-list",
+    description: "Global access to GLM text, reasoning, vision, and coding models.",
+    freeTier: "Trial quota and paid usage vary by model",
     category: "Model maker",
   },
   "github": {

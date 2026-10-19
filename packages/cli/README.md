@@ -54,7 +54,7 @@ free-llm help
 
 `disconnect` stops the node while preserving its pairing. `revoke` invalidates the device credential and removes the local pairing.
 
-Providers shows whether the node is connected. Configure its routing gate, normal/prefer-local/local-only mode, limits, models, capabilities, tests, revocation, and permanent deletion under **Settings → Router & Policies → Local LLM Properties**. Dashboard deletion removes router-side node data but never deletes Ollama models.
+Providers shows whether the node is connected. Configure its routing gate, normal/prefer-local/local-only mode, limits, models, capabilities, tests, revocation, and permanent deletion under **Router & Policies → Local LLM Properties**. Dashboard deletion removes router-side node data but never deletes Ollama models.
 
 ## Maintainer: build and inspect
 
