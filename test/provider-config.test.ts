@@ -40,6 +40,18 @@ test("default provider IDs contain only provider identities", async () => {
   );
 });
 
+test("Z.ai uses the global API rather than the BigModel China endpoint", async () => {
+  const providerFile = JSON.parse(
+    await readFile(new URL("providers.json", root), "utf8"),
+  ) as { providers: Array<{ id: string; baseUrl: string; model: string }> };
+  const zai = providerFile.providers.find((provider) => provider.id === "zai");
+
+  assert.ok(zai, "Z.ai provider should exist");
+  assert.equal(zai.baseUrl, "https://api.z.ai/api/paas/v4");
+  assert.equal(zai.model, "glm-5.3");
+  assert.doesNotMatch(zai.baseUrl, /open\.bigmodel\.cn/);
+});
+
 
 test("expanded provider catalog includes the 13 requested providers and official endpoints", async () => {
   const providerFile = JSON.parse(

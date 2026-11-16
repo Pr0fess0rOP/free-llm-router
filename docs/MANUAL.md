@@ -116,7 +116,7 @@ Typical flow:
 - Honors upstream `Retry-After` headers and falls back to exponential cooldowns when the header is absent.
 - Default fallback sequence is 30 seconds, 1 minute, 2 minutes, 5 minutes, 10 minutes, then 15 minutes.
 - Returns `429 providers_cooling_down` with `Retry-After` when every compatible provider is cooling down.
-- Displays live countdowns in Provider Health, provider cards, and **Settings → Router & Policies**.
+- Displays live countdowns in Provider Health, provider cards, and **Router & Policies**.
 - Includes a manual **Clear cooldown** action for administrators.
 - Analytics provider evaluations identify providers skipped because of a rate-limit cooldown.
 
@@ -374,7 +374,7 @@ POST /api/providers/:providerId/models/detect
 
 - Every new router starts with only the three required compatibility aliases: `free-router`, `codex-free-router`, and `claude-free-router`. Intent-specific aliases are created only when you add them. Legacy auto-seeded aliases from earlier releases are removed when account data is normalized; customized aliases are preserved.
 - Aliases can override the router-wide strategy, require capabilities, restrict eligible providers, and define their own provider priority.
-- Custom aliases are created and managed under **Settings → Router & Policies**.
+- Custom aliases are created and managed under **Router & Policies**.
 - The same alias can be used through Chat Completions, Responses/Codex, or Messages/Claude endpoints.
 - `GET /v1/models` returns enabled aliases; authenticated requests also include account-specific custom aliases.
 - Successful responses include `x-free-llm-model-alias`, `x-free-llm-requested-model`, and `x-free-llm-provider-model`.
@@ -422,7 +422,7 @@ A lower-priority runtime observation cannot overwrite a user override or a newer
 
 #### Capability detection and manual control
 
-Under **Settings → Router & Policies → Capability Registry**, every saved model has its own matrix. Users can:
+Under **Router & Policies → Capability Registry**, every saved model has its own matrix. Users can:
 
 - Select **Inherited**, **Supported**, **Unsupported**, or **Unknown** for each capability.
 - Enter model-specific context-window and maximum-output-token limits when they differ from the provider default.
@@ -464,7 +464,7 @@ Capability-aware routing always evaluates the **active model**. Inactive saved m
 
 - **Providers → Local LLMs** creates a short-lived, single-use pairing code and shows the public npm CLI command to run beside Ollama.
 - `@free-llm-router/cli` discovers installed models, stores the pairing under the current user's `~/.freellm/` directory, starts the protected loopback agent, manages ngrok, registers its HTTPS endpoint, and sends authenticated heartbeats.
-- Providers is the connection/status surface. Node configuration lives under **Settings → Router & Policies → Local LLM Properties**.
+- Providers is the connection/status surface. Node configuration lives under **Router & Policies → Local LLM Properties**.
 - Each node has an independent routing gate, `normal`, `prefer-local`, or `local-only` participation, concurrency/queue/input/token/timeout limits, model allowlist, and capability matrix.
 - A closed routing gate excludes the node from normal API routing without disconnecting it. Owner-authorized direct Playground tests remain available for diagnostics.
 - The Playground's **Local LLM** mode calls one exact enabled Ollama model through the signed agent path without cloud ranking or fallback.
@@ -884,7 +884,7 @@ Current provider IDs in this adaptation include:
 | `cerebras` | Cerebras | `CEREBRAS_API_KEY` | `gpt-oss-120b` |
 | `mistral` | Mistral | `MISTRAL_API_KEY` | `mistral-small-2603` |
 | `aion` | Aion Labs | `AION_API_KEY` | `aion-2.5` |
-| `zai` | Z.ai / BigModel | `ZAI_API_KEY` | `glm-4.7-flash` |
+| `zai` | Z.ai Global | `ZAI_API_KEY` | `glm-5.3` |
 | `github` | GitHub | `GITHUB_MODELS_TOKEN` | `openai/gpt-4.1-mini` |
 | `hugging-face` | Hugging Face | `HUGGINGFACE_API_KEY` | `meta-llama/Meta-Llama-3.1-8B-Instruct` |
 | `kilo-code` | Kilo Code | `KILO_API_KEY` | `kilo-auto/free` |
@@ -1250,12 +1250,19 @@ The Docs workspace is divided into two tabs:
 - **Setup & Code** — cURL, JavaScript, Python, OpenAI SDK, Local LLM pairing/gateway, Codex custom-provider, and Claude Code setup snippets.
 - **Project Features** — an indexed, example-driven guide to the complete request lifecycle, API compatibility, cloud providers, private Local LLM nodes, all six routing policies, provider priority, retry/failover behavior, persistent cooldowns, circuit breakers, model aliases, capability-aware routing, the full chronological request timeline, request IDs and routing headers, Analysis logs, all three Playground modes, recovery controls, provider quotas, configurable retry/timeout controls, security, and storage.
 
+### Router & Policies
+
+Router & Policies is a primary workspace. Its default **Flow Features** tab lists every optional request-processing feature in one four-phase checklist: Interpret, Eligible Pool, Recover, and Optimize. Turning a checkbox off removes that behavior from routing. Configure buttons open detailed strategy, provider order, reliability, deduplication, alias, capability, provider-limit, or Local LLM controls only when needed.
+
+API-format detection, authentication, request validation, model-alias resolution, provider selection, request deadlines, and response adaptation are always applied and are shown separately as mandatory stages.
+
+The remaining tabs are **Model Aliases**, **Capability Registry**, and **Local LLM Properties**. Local LLM Properties contains each node's routing gate and participation mode, limits, models, capabilities, testing, revoke, and deletion controls. Model aliases may override provider access, requirements, ordering, and the three primary reliability limits when Alias-specific policies is enabled.
+
 ### Settings
 
-The Settings workspace is divided into three tabs:
+Settings contains two focused tabs:
 
 - **Account** — identity, login method, sign-in metadata, and session controls.
-- **Router & Policies** — contains nested **Routing Policies**, **Model Aliases**, **Capability Registry**, and **Local LLM Properties** tabs so each workspace remains compact. Routing Policies contains router identity, strategy, cloud provider order, provider/total/stream/probe timeouts, retry status codes, maximum attempts, backoff, jitter, and per-provider timeout overrides. Local LLM Properties contains each node's routing gate and participation mode, limits, models, capabilities, testing, revoke, and deletion controls. Model aliases may override the three primary reliability limits.
 - **Logs & Data** — storage/security information and analytics-log deletion.
 
 ---
@@ -1395,7 +1402,7 @@ Response shape:
 
 ### `PATCH /api/router/settings`
 
-Updates the router project name, routing policy, reliability controls, request-deduplication controls, and model aliases.
+Updates the router project name, optional Flow Features gates, routing policy, reliability controls, request-deduplication controls, capability-routing mode, and model aliases.
 
 Requires signed-in router access.
 
@@ -1405,6 +1412,16 @@ Requires signed-in router access.
   "routingPolicy": {
     "strategy": "smart",
     "providerOrder": ["groq", "mistral"]
+  },
+  "routingFeatureSettings": {
+    "aliasPolicyOverrides": true,
+    "capabilityMatching": true,
+    "quotaProtection": true,
+    "rateLimitCooldowns": true,
+    "circuitBreaker": true,
+    "automaticFailover": true,
+    "localLlmRouting": true,
+    "capabilityLearning": true
   },
   "reliabilitySettings": {
     "providerTimeoutMs": 30000,

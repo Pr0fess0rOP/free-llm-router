@@ -32,6 +32,8 @@ test("persists provider credentials encrypted at rest", async () => {
     ]);
     assert.equal(account.deduplicationSettings.enabled, true);
     assert.equal(account.deduplicationSettings.windowMs, 30_000);
+    assert.equal(account.routingFeatureSettings.capabilityMatching, true);
+    assert.equal(account.routingFeatureSettings.automaticFailover, true);
     await setProviderKey(routerKey, "example", "provider-secret-value");
     await setProviderQuota(routerKey, "example", {
       dailyRequestLimit: 100,
@@ -108,6 +110,16 @@ test("persists router name and routing policy settings", async () => {
         providerOrder: ["groq", "mistral"],
       },
       capabilityRoutingSettings: { unknownMode: "strict" },
+      routingFeatureSettings: {
+        aliasPolicyOverrides: true,
+        capabilityMatching: false,
+        quotaProtection: false,
+        rateLimitCooldowns: true,
+        circuitBreaker: true,
+        automaticFailover: false,
+        localLlmRouting: true,
+        capabilityLearning: false,
+      },
       deduplicationSettings: {
         enabled: true,
         windowMs: 45_000,
@@ -162,6 +174,12 @@ test("persists router name and routing policy settings", async () => {
     });
     assert.equal(updated?.capabilityRoutingSettings.unknownMode, "strict");
     assert.equal((await findAccount(created.routerKey))?.capabilityRoutingSettings.unknownMode, "strict");
+    assert.equal(updated?.routingFeatureSettings.capabilityMatching, false);
+    assert.equal(updated?.routingFeatureSettings.automaticFailover, false);
+    assert.equal(
+      (await findAccount(created.routerKey))?.routingFeatureSettings.capabilityLearning,
+      false,
+    );
     assert.equal(updated?.deduplicationSettings.windowMs, 45_000);
     assert.equal(updated?.deduplicationSettings.requireIdempotencyKey, true);
     assert.equal(updated?.deduplicationSettings.automaticFingerprinting, false);

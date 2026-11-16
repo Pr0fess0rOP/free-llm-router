@@ -82,7 +82,7 @@ test("CLI and documentation expose the complete local Ollama lifecycle", async (
   assert.equal(cliPackage.bin?.["free-llm"], "dist/packages/cli/src/cli.js");
   assert.match(guide, /Cloud fallback is possible only before output begins/);
   assert.match(guide, /Playground → Local LLM/);
-  assert.match(guide, /Settings → Router & Policies → Local LLM Properties/);
+  assert.match(guide, /Router & Policies → Local LLM Properties/);
   assert.match(security, /Raw Ollama is never exposed|Do not point ngrok directly/);
   assert.match(troubleshooting, /local-only/i);
   const version = (JSON.parse(packageJson) as { version: string }).version;

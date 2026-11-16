@@ -92,6 +92,52 @@ test("dashboard HTML keeps element IDs unique", async () => {
   assert.deepEqual(duplicates, []);
 });
 
+test("Router & Policies is a primary workspace outside Settings navigation", async () => {
+  const html = await readFile(new URL("public/dashboard.html", root), "utf8");
+  const app = await readFile(new URL("public/app.js", root), "utf8");
+  const styles = await readFile(new URL("public/styles.css", root), "utf8");
+
+  assert.match(html, /class="nav-item" type="button" data-tab="routing"/);
+  assert.match(html, /<h2>Router &amp; Policies<\/h2>/);
+  assert.doesNotMatch(html, /data-settings-tab="router"/);
+  assert.deepEqual(attributeValues(html, "data-settings-tab"), ["account", "logs"]);
+  assert.match(app, /const routingPrimaryView = tabName === "routing"/);
+  assert.match(app, /switchSettingsTab\("router"\)/);
+  assert.match(styles, /#settings-panel\.routing-primary-view/);
+});
+
+test("Flow Features presents optional processing gates separately from mandatory stages", async () => {
+  const html = await readFile(new URL("public/dashboard.html", root), "utf8");
+  const app = await readFile(new URL("public/app.js", root), "utf8");
+
+  assert.match(html, /data-router-settings-tab="routing"[\s\S]*Flow Features/);
+  assert.match(html, /Always applied/);
+  assert.match(html, /API format detection/);
+  assert.match(html, /Authentication &amp; validation/);
+  assert.match(html, /Model alias resolution/);
+
+  for (const id of [
+    "feature-alias-policy-overrides",
+    "feature-capability-matching",
+    "feature-quota-protection",
+    "feature-rate-limit-cooldowns",
+    "flow-feature-circuit-breaker",
+    "feature-local-llm-routing",
+    "feature-automatic-failover",
+    "feature-network-recovery",
+    "feature-malformed-recovery",
+    "feature-request-deduplication",
+    "feature-capability-learning",
+  ]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+
+  assert.match(html, /data-flow-detail-panel="selection"\s+hidden/);
+  assert.match(html, /data-flow-detail-panel="recovery"\s+hidden/);
+  assert.match(html, /data-flow-detail-panel="deduplication"\s+hidden/);
+  assert.match(app, /routingFeatureSettings: routingFeatureSettingsFromDom\(\)/);
+});
+
 test("provider cards expose quota controls and Analysis token usage", async () => {
   const html = await readFile(new URL("public/dashboard.html", root), "utf8");
   const app = await readFile(new URL("public/app.js", root), "utf8");

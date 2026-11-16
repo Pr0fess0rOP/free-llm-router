@@ -3336,6 +3336,15 @@ button:active {
   margin-bottom: 0;
 }
 
+.routing-page-heading {
+  margin-bottom: 20px;
+}
+
+#settings-panel.routing-primary-view > .settings-page-heading,
+#settings-panel.routing-primary-view > .settings-tabs {
+  display: none;
+}
+
 .settings-tabs {
   display: inline-flex;
   align-items: center;
@@ -3399,6 +3408,188 @@ button:active {
 
 .router-settings-layout {
   display: block;
+}
+
+.flow-control-center {
+  padding: 20px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 14px 36px rgba(35, 52, 44, 0.06);
+}
+
+.flow-control-heading,
+.flow-phase-heading,
+.flow-detail-window {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.flow-control-heading h3,
+.flow-detail-window h3 {
+  margin: 5px 0 4px;
+}
+
+.flow-control-heading p,
+.flow-detail-window p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.mandatory-flow-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px;
+  margin-top: 18px;
+  border: 1px solid #cfe0d4;
+  border-radius: 15px;
+  background: #f5faf6;
+}
+
+.mandatory-flow-strip > div {
+  min-width: 180px;
+  margin-right: auto;
+}
+
+.mandatory-flow-strip > div strong,
+.mandatory-flow-strip > div span {
+  display: block;
+}
+
+.mandatory-flow-strip > span {
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 730;
+}
+
+.mandatory-flow-strip > button {
+  padding: 7px 10px;
+  border: 1px solid #bcd7c5;
+  border-radius: 9px;
+  background: #ffffff;
+  color: var(--green-dark);
+  font-size: 0.72rem;
+  font-weight: 780;
+}
+
+.flow-phase-list {
+  display: grid;
+  gap: 20px;
+  margin-top: 22px;
+}
+
+.flow-phase + .flow-phase {
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.flow-phase-heading {
+  justify-content: flex-start;
+  margin-bottom: 11px;
+}
+
+.flow-phase-heading > span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 9px;
+  background: var(--green);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.flow-phase-heading strong,
+.flow-phase-heading small,
+.flow-feature-card strong,
+.flow-feature-card small {
+  display: block;
+}
+
+.flow-phase-heading small {
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.flow-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.flow-feature-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #bcd7c5;
+  border-radius: 14px;
+  background: #f7fbf8;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.flow-feature-card.feature-disabled {
+  border-color: var(--line);
+  background: #fafbfa;
+}
+
+.flow-feature-card label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.flow-feature-card input {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  accent-color: var(--green);
+}
+
+.flow-feature-card small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.73rem;
+  line-height: 1.42;
+}
+
+.flow-feature-card button {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #ffffff;
+  color: var(--green-dark);
+  font-size: 0.72rem;
+  font-weight: 780;
+}
+
+.flow-detail-window {
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  border: 1px solid #cfe0d4;
+  border-radius: 16px;
+  background: #f5faf6;
+}
+
+.flow-detail-window[hidden],
+[data-flow-detail-panel][hidden] {
+  display: none !important;
 }
 
 .router-settings-grid {
@@ -3660,6 +3851,14 @@ button:active {
 }
 
 @media (max-width: 920px) {
+
+  .flow-feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mandatory-flow-strip > div {
+    width: 100%;
+  }
 
   .router-settings-grid,
   .account-settings-grid {

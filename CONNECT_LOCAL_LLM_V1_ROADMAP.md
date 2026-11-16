@@ -57,7 +57,7 @@ npx --yes @free-llm-router/cli@latest connect ollama --code FLR-XXXX-XXXX --rout
 6. The dashboard shows the node as **Online**.
 7. The user can:
    - Open the exact node/model in the Local LLM Playground.
-   - Manage the routing gate, limits, models, and capabilities under **Settings → Router & Policies → Local LLM Properties**.
+   - Manage the routing gate, limits, models, and capabilities under **Router & Policies → Local LLM Properties**.
    - Choose normal, prefer-local, or local-only routing participation.
    - Test one model or all enabled local models.
    - Revoke access or permanently delete the node without changing Ollama models.
@@ -272,7 +272,7 @@ Total generation timeout:  10 minutes
 
 ### 5.1 Dashboard
 
-The implemented dashboard uses a **Local LLMs** tab under Providers for pairing and connection status, plus **Settings → Router & Policies → Local LLM Properties** for configuration.
+The implemented dashboard uses a **Local LLMs** tab under Providers for pairing and connection status, plus **Router & Policies → Local LLM Properties** for configuration.
 
 Responsibilities:
 

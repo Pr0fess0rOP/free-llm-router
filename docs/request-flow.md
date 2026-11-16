@@ -134,7 +134,17 @@ At the server level, the application:
 3. Loads the provider configuration belonging to that router.
 4. Resolves the requested model or alias.
 5. Builds the routing policy and reliability settings.
-6. Passes the request to the router.
+6. Loads the router's optional Flow Features gates.
+7. Passes the request to the router.
+
+The dashboard groups optional processing into four phases under **Router & Policies → Flow Features**:
+
+1. **Interpret** — alias-specific policy overrides and capability matching.
+2. **Eligible pool** — quota protection, rate-limit cooldowns, circuit breakers, and Local LLM participation.
+3. **Recover** — automatic failover plus network-error and malformed-response recovery.
+4. **Optimize** — request deduplication and runtime capability learning.
+
+Turning a feature off removes that behavior from request processing. API-format detection, authentication, request validation, alias resolution, provider selection, total deadlines, and response adaptation are mandatory stages and cannot be disabled.
 
 Each router key has an isolated configuration. One user's provider keys and settings should not be mixed with another user's configuration.
 

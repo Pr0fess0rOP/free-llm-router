@@ -13,6 +13,17 @@ export interface CapabilityRoutingSettings {
   unknownMode: CapabilityUnknownMode;
 }
 
+export interface RoutingFeatureSettings {
+  aliasPolicyOverrides: boolean;
+  capabilityMatching: boolean;
+  quotaProtection: boolean;
+  rateLimitCooldowns: boolean;
+  circuitBreaker: boolean;
+  automaticFailover: boolean;
+  localLlmRouting: boolean;
+  capabilityLearning: boolean;
+}
+
 export type ApiClientApplication =
   | "codex-cli"
   | "claude-code"
@@ -188,6 +199,7 @@ export type ProviderFailoverReason =
   | "provider_request_rejected";
 
 export type RetryStopReason =
+  | "automatic_failover_disabled"
   | "maximum_attempts_reached"
   | "total_request_deadline_exceeded"
   | "error_not_retryable"

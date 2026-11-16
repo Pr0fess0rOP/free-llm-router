@@ -30,7 +30,7 @@ This is intentional after the first output token. Switching providers mid-stream
 
 ## Stop, reconnect, or revoke
 
-`free-llm disconnect` stops the current agent without revoking it. `free-llm start` reconnects with the stored credential. `free-llm revoke` invalidates the credential and removes local configuration. The owner can also revoke or permanently delete the node under **Settings → Router & Policies → Local LLM Properties**.
+`free-llm disconnect` stops the current agent without revoking it. `free-llm start` reconnects with the stored credential. `free-llm revoke` invalidates the credential and removes local configuration. The owner can also revoke or permanently delete the node under **Router & Policies → Local LLM Properties**.
 
 If the node was permanently deleted from the dashboard first, `free-llm revoke` recognizes the already-invalid credential and still removes the stale local pairing configuration.
 

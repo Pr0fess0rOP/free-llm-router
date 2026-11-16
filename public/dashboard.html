@@ -101,6 +101,10 @@
               <span>Overview</span>
               <small>Status</small>
             </button>
+            <button class="nav-item" type="button" data-tab="routing">
+              <span>Router &amp; Policies</span>
+              <small>Routing rules</small>
+            </button>
             <button class="nav-item" type="button" data-tab="providers">
               <span>Providers</span>
               <small>API keys</small>
@@ -351,7 +355,7 @@
                     <div>
                       <p class="eyebrow">Private compute</p>
                       <h3 id="local-node-heading">Connect Local LLM</h3>
-                      <p>Connect and inspect Ollama computers here. Configure routing gates, limits, models, and lifecycle under Settings → Router &amp; Policies → Local LLM Properties.</p>
+                      <p>Connect and inspect Ollama computers here. Configure routing gates, limits, models, and lifecycle under Router &amp; Policies → Local LLM Properties.</p>
                     </div>
                     <button id="connect-local-node" class="primary" type="button">Connect Ollama</button>
                   </div>
@@ -1802,6 +1806,15 @@
                         </article>
                       </div>
                       <div class="feature-example-callout">
+                        <strong>Flow Features control</strong>
+                        <p>
+                          Router &amp; Policies → Flow Features keeps every optional
+                          filter, protection, recovery, and learning stage in one
+                          checklist. Unticking a feature removes that behavior from
+                          request processing; Configure opens its detailed controls.
+                        </p>
+                      </div>
+                      <div class="feature-example-callout">
                         <strong>Example</strong>
                         <p>
                           A request for <code>free-router</code> first tries
@@ -2123,8 +2136,7 @@ New requests use only qwen/qwen3-coder-next.</code></pre>
                           <p>
                             Go to
                             <strong
-                              >Settings → Router &amp; Policies → Routing
-                              Policies</strong
+                              >Router &amp; Policies → Flow Features</strong
                             >.
                           </p>
                         </div>
@@ -3457,8 +3469,8 @@ x-free-llm-deduplication-source: in-flight | completed</code></pre>
                           <p>
                             Routing gate, Normal/Prefer local/Local only mode,
                             name, limits, models, capabilities, tests, revoke,
-                            and permanent deletion stay together under Settings
-                            → Router &amp; Policies → Local LLM Properties.
+                            and permanent deletion stay together under Router
+                            &amp; Policies → Local LLM Properties.
                           </p>
                         </article>
                         <article>
@@ -3578,10 +3590,9 @@ Content-Type: application/json</code></pre>
               <div class="section-heading settings-page-heading">
                 <div>
                   <p class="eyebrow">Settings</p>
-                  <h2>Manage your router</h2>
+                  <h2>Account &amp; data settings</h2>
                   <p>
-                    Update your account, routing behavior, and stored request
-                    data.
+                    Update your account and manage stored request data.
                   </p>
                 </div>
               </div>
@@ -3599,15 +3610,6 @@ Content-Type: application/json</code></pre>
                   data-settings-tab="account"
                 >
                   Account
-                </button>
-                <button
-                  class="settings-tab"
-                  type="button"
-                  role="tab"
-                  aria-selected="false"
-                  data-settings-tab="router"
-                >
-                  Router &amp; Policies
                 </button>
                 <button
                   class="settings-tab"
@@ -3682,6 +3684,16 @@ Content-Type: application/json</code></pre>
                 data-settings-panel="router"
                 hidden
               >
+                <div class="section-heading routing-page-heading">
+                  <div>
+                    <p class="eyebrow">Routing</p>
+                    <h2>Router &amp; Policies</h2>
+                    <p>
+                      Configure provider selection, model aliases, capability
+                      rules, and local LLM routing from one workspace.
+                    </p>
+                  </div>
+                </div>
                 <form id="router-settings-form" class="router-settings-layout">
                   <div
                     class="router-settings-tabs"
@@ -3695,7 +3707,7 @@ Content-Type: application/json</code></pre>
                       aria-selected="true"
                       data-router-settings-tab="routing"
                     >
-                      Routing Policies
+                      Flow Features
                     </button>
                     <button
                       class="router-settings-tab"
@@ -3730,8 +3742,112 @@ Content-Type: application/json</code></pre>
                     class="router-settings-subpanel"
                     data-router-settings-panel="routing"
                   >
+                    <section class="flow-control-center" aria-labelledby="flow-control-title">
+                      <div class="flow-control-heading">
+                        <div>
+                          <span class="summary-label">Request flow</span>
+                          <h3 id="flow-control-title">Choose which optional features participate</h3>
+                          <p>
+                            Turn a feature off to remove it from normal request
+                            processing. Use Configure only when you need its
+                            detailed controls.
+                          </p>
+                        </div>
+                        <span id="flow-feature-count" class="routing-policy-badge">11 enabled</span>
+                      </div>
+
+                      <div class="mandatory-flow-strip">
+                        <div>
+                          <span class="summary-label">Always applied</span>
+                          <strong>Mandatory request stages</strong>
+                        </div>
+                        <span>API format detection</span>
+                        <span>Authentication &amp; validation</span>
+                        <span>Model alias resolution</span>
+                        <span>Provider selection</span>
+                        <span>Request deadline</span>
+                        <span>Response adaptation</span>
+                        <button type="button" data-open-flow-detail="selection">Configure selection</button>
+                      </div>
+
+                      <div class="flow-phase-list">
+                        <section class="flow-phase">
+                          <div class="flow-phase-heading"><span>01</span><div><strong>Interpret the request</strong><small>Optional rules applied after the alias is resolved.</small></div></div>
+                          <div class="flow-feature-grid">
+                            <article class="flow-feature-card">
+                              <label><input id="feature-alias-policy-overrides" type="checkbox" /><span><strong>Alias-specific policies</strong><small>Allow an alias to override provider access, ordering, requirements, and reliability limits.</small></span></label>
+                              <button type="button" data-open-router-section="aliases">Configure</button>
+                            </article>
+                            <article class="flow-feature-card">
+                              <label><input id="feature-capability-matching" type="checkbox" /><span><strong>Capability matching</strong><small>Filter and rank models using tools, vision, JSON, reasoning, streaming, and context requirements.</small></span></label>
+                              <button type="button" data-open-router-section="capabilities">Configure</button>
+                            </article>
+                          </div>
+                        </section>
+
+                        <section class="flow-phase">
+                          <div class="flow-phase-heading"><span>02</span><div><strong>Build the eligible pool</strong><small>Safety gates that can exclude a provider before ranking.</small></div></div>
+                          <div class="flow-feature-grid">
+                            <article class="flow-feature-card">
+                              <label><input id="feature-quota-protection" type="checkbox" /><span><strong>Quota protection</strong><small>Skip exhausted providers and demote providers approaching configured limits.</small></span></label>
+                              <button type="button" data-open-primary-section="providers">Provider limits</button>
+                            </article>
+                            <article class="flow-feature-card">
+                              <label><input id="feature-rate-limit-cooldowns" type="checkbox" /><span><strong>Rate-limit cooldowns</strong><small>Temporarily skip providers after HTTP 429 and honor Retry-After.</small></span></label>
+                              <button type="button" data-open-flow-detail="recovery">Configure</button>
+                            </article>
+                            <article class="flow-feature-card">
+                              <label><input id="flow-feature-circuit-breaker" type="checkbox" /><span><strong>Circuit breaker</strong><small>Open unhealthy provider circuits and cautiously probe recovery.</small></span></label>
+                              <button type="button" data-open-flow-detail="recovery">Configure</button>
+                            </article>
+                            <article class="flow-feature-card">
+                              <label><input id="feature-local-llm-routing" type="checkbox" /><span><strong>Local LLM routing</strong><small>Allow eligible private Ollama nodes to join normal routed requests.</small></span></label>
+                              <button type="button" data-open-router-section="local">Configure</button>
+                            </article>
+                          </div>
+                        </section>
+
+                        <section class="flow-phase">
+                          <div class="flow-phase-heading"><span>03</span><div><strong>Recover from provider failure</strong><small>Choose whether the router may continue after the first provider fails.</small></div></div>
+                          <div class="flow-feature-grid">
+                            <article class="flow-feature-card">
+                              <label><input id="feature-automatic-failover" type="checkbox" /><span><strong>Automatic failover</strong><small>Try the next eligible provider within the attempt and deadline limits.</small></span></label>
+                              <button type="button" data-open-flow-detail="recovery">Configure</button>
+                            </article>
+                            <article class="flow-feature-card">
+                              <label><input id="feature-network-recovery" type="checkbox" /><span><strong>Network-error recovery</strong><small>Fail over after timeouts, DNS, socket, and connection failures.</small></span></label>
+                              <button type="button" data-open-flow-detail="recovery">Configure</button>
+                            </article>
+                            <article class="flow-feature-card">
+                              <label><input id="feature-malformed-recovery" type="checkbox" /><span><strong>Malformed-response recovery</strong><small>Fail over when an upstream success is empty or invalid JSON.</small></span></label>
+                              <button type="button" data-open-flow-detail="recovery">Configure</button>
+                            </article>
+                          </div>
+                        </section>
+
+                        <section class="flow-phase">
+                          <div class="flow-phase-heading"><span>04</span><div><strong>Optimize and learn</strong><small>Optional work that reduces repeated calls and improves future decisions.</small></div></div>
+                          <div class="flow-feature-grid">
+                            <article class="flow-feature-card">
+                              <label><input id="feature-request-deduplication" type="checkbox" /><span><strong>Request deduplication</strong><small>Coalesce identical safe requests and briefly reuse successful responses.</small></span></label>
+                              <button type="button" data-open-flow-detail="deduplication">Configure</button>
+                            </article>
+                            <article class="flow-feature-card">
+                              <label><input id="feature-capability-learning" type="checkbox" /><span><strong>Runtime capability learning</strong><small>Update model capability evidence from real provider responses.</small></span></label>
+                              <button type="button" data-open-router-section="capabilities">Configure</button>
+                            </article>
+                          </div>
+                        </section>
+                      </div>
+                    </section>
+
+                    <section id="flow-detail-window" class="flow-detail-window" hidden>
+                      <div><span class="summary-label">Detailed configuration</span><h3 id="flow-detail-title">Selection and provider order</h3><p id="flow-detail-description">Fine tune the selected feature without crowding the main flow checklist.</p></div>
+                      <button id="close-flow-detail" class="ghost compact-button" type="button">Close details</button>
+                    </section>
+
                     <div class="router-settings-grid">
-                      <section class="settings-card router-project-card">
+                      <section class="settings-card router-project-card" data-flow-detail-panel="selection" hidden>
                         <div class="settings-card-heading">
                           <div>
                             <span class="summary-label">Router project</span>
@@ -3778,7 +3894,7 @@ Content-Type: application/json</code></pre>
                         </button>
                       </section>
 
-                      <section class="settings-card routing-policy-card">
+                      <section class="settings-card routing-policy-card" data-flow-detail-panel="selection" hidden>
                         <div class="settings-card-heading">
                           <div>
                             <span class="summary-label">Routing policy</span>
@@ -3880,7 +3996,7 @@ Content-Type: application/json</code></pre>
                         </div>
                       </section>
 
-                      <section class="settings-card provider-order-card">
+                      <section class="settings-card provider-order-card" data-flow-detail-panel="selection" hidden>
                         <div class="settings-card-heading">
                           <div>
                             <span class="summary-label">Provider order</span>
@@ -3899,6 +4015,8 @@ Content-Type: application/json</code></pre>
 
                       <section
                         class="settings-card reliability-controls-card router-settings-full-card"
+                        data-flow-detail-panel="recovery"
+                        hidden
                       >
                         <div
                           class="settings-card-heading reliability-controls-heading"
@@ -4121,6 +4239,8 @@ Content-Type: application/json</code></pre>
 
                       <section
                         class="settings-card deduplication-controls-card router-settings-full-card"
+                        data-flow-detail-panel="deduplication"
+                        hidden
                       >
                         <div
                           class="settings-card-heading reliability-controls-heading"

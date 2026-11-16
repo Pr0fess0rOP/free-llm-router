@@ -107,7 +107,7 @@ Configuration is stored under the current user's `~/.freellm/` directory.
 
 Local-node configuration now has a dedicated workspace under:
 
-**Settings → Router & Policies → Local LLM Properties**
+**Router & Policies → Local LLM Properties**
 
 Each node can be configured independently, including:
 

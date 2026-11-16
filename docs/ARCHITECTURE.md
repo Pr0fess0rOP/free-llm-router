@@ -690,7 +690,7 @@ Default configured priority order:
 | 4 | `cerebras-gpt-oss` | `gpt-oss-120b` |
 | 5 | `mistral` | `mistral-small-2603` |
 | 6 | `aion` | `aion-2.5` |
-| 7 | `zai` | `glm-4.7-flash` |
+| 7 | `zai` | `glm-5.3` |
 | 8 | `github-models` | `openai/gpt-4.1-mini` |
 | 9 | `hugging-face` | `meta-llama/Meta-Llama-3.1-8B-Instruct` |
 | 10 | `kilo-code` | `kilo-auto/free` |
