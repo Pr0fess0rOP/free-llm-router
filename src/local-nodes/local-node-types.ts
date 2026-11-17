@@ -32,6 +32,28 @@ export interface LocalNodeModelCapabilities {
   structuredOutputs: CapabilitySupport;
 }
 
+export interface LocalNodeModelInventoryItem {
+  id: string;
+  installed: boolean;
+  loaded?: boolean;
+  capabilities?: unknown;
+}
+
+export function normalizeLocalModelCapabilities(value: unknown): LocalNodeModelCapabilities {
+  const reported = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const capability = (name: keyof LocalNodeModelCapabilities) => {
+    const status = reported[name];
+    return status === "supported" || status === "unsupported" ? status : "unknown";
+  };
+  return {
+    streaming: capability("streaming"),
+    tools: capability("tools"),
+    vision: capability("vision"),
+    reasoning: capability("reasoning"),
+    structuredOutputs: capability("structuredOutputs"),
+  };
+}
+
 export interface LocalNodeModel {
   nodeId: string;
   modelId: string;
@@ -108,9 +130,5 @@ export interface LocalNodeHeartbeat {
   ollamaVersion?: string;
   activeRequests: number;
   maxConcurrentRequests: number;
-  models?: Array<{
-    id: string;
-    installed: boolean;
-    loaded?: boolean;
-  }>;
+  models?: LocalNodeModelInventoryItem[];
 }

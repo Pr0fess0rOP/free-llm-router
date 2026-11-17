@@ -16,7 +16,7 @@ import { normalizeProviderId } from "./provider-identities.js";
 const MODEL_ID_MAX_LENGTH = 240;
 
 const CAPABILITY_SOURCES = new Set<CapabilityObservationSource>([
-  "user", "probe", "runtime", "catalog", "provider",
+  "user", "probe", "runtime",
 ]);
 
 function capabilitySupport(value: unknown): CapabilitySupport | undefined {

@@ -2427,19 +2427,18 @@ network_call_made: false</code></pre>
                       </div>
                       <div class="feature-explanation-grid">
                         <article>
-                          <strong>Layered registry</strong>
+                          <strong>Per-model checks</strong>
                           <p>
-                            Provider defaults describe the API transport. Each
-                            saved model can override those values with its own
-                            supported, unsupported, or unknown capability state.
+                            New cloud models are checked through the provider
+                            API when you save them. Inconclusive checks appear
+                            as unknown.
                           </p>
                         </article>
                         <article>
                           <strong>Explainable sources</strong>
                           <p>
                             Every model value identifies whether it came from a
-                            user override, capability probe, runtime request,
-                            built-in model catalog, or provider default.
+                            manual override, capability probe, or runtime request.
                           </p>
                         </article>
                         <article>
@@ -2468,7 +2467,7 @@ network_call_made: false</code></pre>
                         </div>
                         <pre><code>OpenRouter / qwen3-coder-next  supported (probe)  → eligible
 Groq / custom-llama           unsupported (user) → skipped
-Mistral / brand-new-model      unknown (provider) → flexible fallback
+Mistral / brand-new-model      unknown           → flexible fallback
                                                   → strict-mode skip</code></pre>
                       </div>
                       <div class="docs-example-block">
@@ -2482,13 +2481,11 @@ Capability probe
   ↓
 Runtime observation
   ↓
-Built-in model catalog
-  ↓
-Provider default</code></pre>
+Unknown</code></pre>
                       </div>
                       <p class="feature-note">
-                        Use <strong>Detect capabilities</strong> or edit a model
-                        manually under Settings. Analysis records the active
+                        Rerun <strong>Detect capabilities</strong> or edit a model
+                        under Router &amp; Policies. Analysis records the active
                         provider model, effective capability values and sources,
                         and why each candidate was eligible or skipped. A clear
                         capability rejection updates only that model and
@@ -4743,8 +4740,8 @@ Content-Type: application/json</code></pre>
             </button>
           </div>
           <p class="provider-model-note">
-            Only the active model is used. Saved inactive models are never tried
-            automatically.
+            Adding a model runs capability checks with your provider key.
+            Only the active model is used for routing.
           </p>
         </form>
       </section>

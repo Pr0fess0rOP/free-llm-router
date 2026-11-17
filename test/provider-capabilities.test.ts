@@ -42,7 +42,7 @@ test("detects Anthropic thinking as a reasoning requirement", () => {
   assert.deepEqual(requirements.required, ["reasoning"]);
 });
 
-test("registry values can be overridden from provider configuration", () => {
+test("provider capabilities stay unknown while configured limits are preserved", () => {
   const capabilities = resolveProviderCapabilities({
     id: "groq",
     capabilities: {
@@ -52,8 +52,8 @@ test("registry values can be overridden from provider configuration", () => {
     },
   });
 
-  assert.equal(capabilities.tools, "supported");
-  assert.equal(capabilities.vision, "supported");
+  assert.equal(capabilities.tools, "unknown");
+  assert.equal(capabilities.vision, "unknown");
   assert.equal(capabilities.contextWindow, 8_192);
   assert.equal(capabilities.notes, "Custom proxy adds image preprocessing");
 });
@@ -89,7 +89,8 @@ test("model capability overrides take precedence over provider defaults", async 
   assert.equal(effective.sources.vision, "user");
   assert.equal(effective.capabilities.tools, "unknown");
   assert.equal(effective.sources.tools, "probe");
-  assert.equal(effective.sources.streaming, "provider");
+  assert.equal(effective.capabilities.streaming, "unknown");
+  assert.equal(effective.sources.streaming, undefined);
 });
 
 test("strict capability mode rejects unknown required capabilities", () => {

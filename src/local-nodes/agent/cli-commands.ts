@@ -12,7 +12,7 @@ import {
   replaceLocalAgentCredential,
   saveLocalAgentConfig,
 } from "./local-node-config.js";
-import { discoverOllamaModels, ollamaVersion } from "./ollama-client.js";
+import { discoverOllamaModels, inspectOllamaModelInventory, ollamaVersion } from "./ollama-client.js";
 import { localNodeDeviceRequest } from "./node-api.js";
 import { runLocalNode } from "./run.js";
 import { currentNgrokEndpoint } from "./tunnel.js";
@@ -183,9 +183,10 @@ async function connectLocalNode(
       name,
       runtime: "ollama",
       cliVersion,
-      models: discovered.map((model) => ({
+      models: (await inspectOllamaModelInventory(ollamaBaseUrl, discovered)).map((model) => ({
         id: model.id,
         enabled: allowedModels.includes(model.id),
+        capabilities: model.capabilities,
       })),
     }),
     redirect: "error",
@@ -290,7 +291,7 @@ async function localModels(sync: boolean): Promise<void> {
   });
   if (!sync) return;
   const node = await localNodeDeviceRequest<LocalNode>(config, "/models/sync", {
-    models: discovered.map((model) => ({ id: model.id, installed: true })),
+    models: await inspectOllamaModelInventory(config.ollamaBaseUrl, discovered, config.models.map(({ modelId }) => modelId)),
   });
   config.models = node.models;
   config.allowedModels = node.models.filter((model) => model.enabled && model.installed).map((model) => model.modelId);

@@ -7,6 +7,7 @@ import {
 } from "./local-node-store.js";
 import {
   DEFAULT_LOCAL_NODE_LIMITS,
+  normalizeLocalModelCapabilities,
   type LocalNode,
   type LocalNodePairingCodeResult,
   type LocalNodeRuntime,
@@ -67,7 +68,7 @@ export async function pairLocalNode(params: {
   name: string;
   runtime: LocalNodeRuntime;
   cliVersion?: string;
-  models?: Array<{ id: string; enabled: boolean }>;
+  models?: Array<{ id: string; enabled: boolean; capabilities?: unknown }>;
   now?: number;
 }): Promise<PairedLocalNodeResult> {
   if (params.runtime !== "ollama") {
@@ -95,7 +96,7 @@ export async function pairLocalNode(params: {
     if (!modelId || /[\s\x00-\x1f]/.test(modelId) || modelId.length > 240) {
       throw new LocalNodePairingError("Invalid Ollama model ID", "invalid_model_id");
     }
-    return { id: modelId, enabled: model.enabled };
+    return { ...model, id: modelId };
   });
 
   const normalizedCode = params.code.trim().toUpperCase();
@@ -126,13 +127,7 @@ export async function pairLocalNode(params: {
       displayName: modelId,
       enabled: model.enabled,
       installed: true,
-      capabilities: {
-        streaming: "supported" as const,
-        tools: "unknown" as const,
-        vision: "unknown" as const,
-        reasoning: "unknown" as const,
-        structuredOutputs: "unknown" as const,
-      },
+      capabilities: normalizeLocalModelCapabilities(model.capabilities),
       health: "unknown" as const,
     };
   });

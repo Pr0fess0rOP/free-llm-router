@@ -27,7 +27,7 @@ const MAX_RATE_LIMIT_COOLDOWN_MS = 24 * 60 * 60_000;
 const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 30_000;
 const CIRCUIT_FAILURE_THRESHOLD = 3;
 
-function inferUnsupportedCapabilities(
+export function inferUnsupportedCapabilities(
   status: number,
   message: string,
   required: ProviderCapabilityName[],

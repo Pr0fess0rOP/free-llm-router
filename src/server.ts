@@ -44,6 +44,7 @@ import {
   AllProvidersUnavailableError,
   NoCompatibleProvidersError,
   ProviderRouter,
+  inferUnsupportedCapabilities,
 } from "./router.js";
 import {
   claimProviderHalfOpenProbe,
@@ -78,11 +79,13 @@ import type {
   RoutingHeaders,
   RequestPerformanceTiming,
   ProviderModelCatalog,
+  ProviderConfig,
 } from "./types.js";
 import {
   detectCapabilityRequirements,
   matchProviderCapabilities,
   normalizeCapabilityRoutingSettings,
+  PROVIDER_CAPABILITY_NAMES,
   resolveEffectiveModelCapabilities,
   resolveProviderCapabilities,
 } from "./provider-capabilities.js";
@@ -174,6 +177,7 @@ import {
 import { authenticateLocalNode } from "./local-nodes/local-node-auth.js";
 import { localNodeVerificationKey } from "./local-nodes/local-node-request-auth.js";
 import { allowLocalNodePairingAttempt } from "./local-nodes/local-node-store.js";
+import type { LocalNodeModelInventoryItem } from "./local-nodes/local-node-types.js";
 
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
 
@@ -927,7 +931,7 @@ export async function directProviderPlaygroundRequest(params: {
   }
 }
 
-const CAPABILITY_PROBE_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=";
+const CAPABILITY_PROBE_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAKElEQVR4nO3NsQ0AAAzCMP5/un0CNkuZ41wybXsHAAAAAAAAAAAAxR4yw/wuPL6QkAAAAABJRU5ErkJggg==";
 
 function capabilityProbeRequest(
   capability: ProviderCapabilityName,
@@ -997,7 +1001,7 @@ function capabilityProbeRequest(
           messages: [{
             role: "user",
             content: [
-              { type: "text", text: "Reply with OK." },
+              { type: "text", text: "What color is the image? Reply with only the color name." },
               { type: "image_url", image_url: { url: CAPABILITY_PROBE_IMAGE } },
             ],
           }],
@@ -1006,7 +1010,7 @@ function capabilityProbeRequest(
     case "reasoning":
       return {
         path: "/chat/completions",
-        body: { ...base, reasoning_effort: "low" },
+        body: { ...base, max_tokens: 64, reasoning_effort: "low" },
       };
     case "embeddings":
       return {
@@ -1031,20 +1035,37 @@ async function inspectSuccessfulCapabilityProbe(
     }
     const reader = response.body.getReader();
     try {
-      const chunk = await reader.read();
-      const text = chunk.value ? new TextDecoder().decode(chunk.value) : "";
-      return !chunk.done && text.trim()
-        ? { value: "supported", message: "Streaming probe returned an event-stream chunk" }
-        : { value: "unknown", message: "Streaming request was accepted, but no stream chunk was observed" };
+      const decoder = new TextDecoder();
+      let pending = "";
+      let bytesRead = 0;
+      while (bytesRead < 32 * 1024) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        bytesRead += value.byteLength;
+        const lines = (pending + decoder.decode(value, { stream: true })).split(/\r?\n/);
+        pending = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue;
+          try {
+            const payload = JSON.parse(line.slice(5).trim());
+            if (Array.isArray(payload?.choices) && payload.choices.some((choice: { delta?: unknown }) => choice?.delta)) {
+              return { value: "supported", message: "Streaming probe returned a chat completion chunk" };
+            }
+          } catch {
+            // Ignore non-JSON events such as the end-of-stream marker.
+          }
+        }
+      }
+      return { value: "unknown", message: "The stream did not contain a chat completion chunk" };
     } finally {
       await reader.cancel().catch(() => undefined);
     }
   }
 
-  if (["tools", "jsonMode", "structuredOutputs", "embeddings"].includes(capability)) {
+  {
     let payload: any;
     try {
-      payload = await response.clone().json();
+      payload = await response.json();
     } catch {
       return {
         value: "unknown",
@@ -1053,15 +1074,30 @@ async function inspectSuccessfulCapabilityProbe(
     }
 
     if (capability === "embeddings") {
-      return Array.isArray(payload?.data) && payload.data.length > 0
+      return Array.isArray(payload?.data?.[0]?.embedding) && payload.data[0].embedding.length > 0
         ? { value: "supported", message: "Embeddings probe returned embedding data" }
         : { value: "unknown", message: "Embeddings request was accepted, but no embedding data was returned" };
     }
 
+    if (capability === "reasoning") {
+      const message = payload?.choices?.[0]?.message;
+      const reasoning = message?.reasoning_content ?? message?.reasoning;
+      const observed = (typeof reasoning === "string" && reasoning.trim())
+        || (Array.isArray(message?.reasoning_details) && message.reasoning_details.length > 0)
+        || payload?.usage?.completion_tokens_details?.reasoning_tokens > 0;
+      return observed
+        ? { value: "supported", message: "Reasoning probe returned reasoning evidence" }
+        : { value: "unknown", message: "The provider returned no reasoning evidence" };
+    }
     const content = payload?.choices?.[0]?.message?.content;
+    if (capability === "vision") {
+      return typeof content === "string" && /^\s*(?:the image is )?red[.!]?\s*$/i.test(content)
+        ? { value: "supported", message: "The model correctly identified the probe image color" }
+        : { value: "unknown", message: "The model did not identify the probe image color" };
+    }
     if (capability === "tools") {
       const toolCalls = payload?.choices?.[0]?.message?.tool_calls;
-      return Array.isArray(toolCalls) && toolCalls.length > 0
+      return Array.isArray(toolCalls) && toolCalls.some((call) => call?.function?.name === "capability_probe")
         ? { value: "supported", message: "Tool probe returned a valid tool call" }
         : { value: "unknown", message: "Tool request was accepted, but the model did not return a tool call" };
     }
@@ -1095,46 +1131,18 @@ async function inspectSuccessfulCapabilityProbe(
     };
   }
 
-  if (response.body) await response.body.cancel().catch(() => undefined);
-  return { value: "supported", message: `${capability} probe succeeded` };
 }
 
-export async function detectProviderModelCapabilities(params: {
-  routerKey: string;
-  providerId: string;
-  modelId: string;
-}): Promise<{
-  catalog: ProviderModelCatalog;
-  results: Partial<Record<ProviderCapabilityName, ModelCapabilityState>>;
-}> {
-  params.providerId = normalizeProviderId(params.providerId);
-  const configs = await loadProviderConfigs();
-  const provider = configs.find((candidate) => candidate.id === params.providerId);
-  if (!provider) throw new Error("Unknown provider");
-  const providerKeys = await getProviderKeys(params.routerKey);
-  const apiKey = providerKeys?.[params.providerId];
-  if (!apiKey) throw new Error("Provider key is not configured");
-  const account = await findAccount(params.routerKey);
-  if (!account) throw new Error("Invalid router key");
-  const catalogs = normalizeProviderModelCatalogMap(account.providerModels, configs);
-  const catalog = catalogs[params.providerId];
-  if (!catalog?.models.some((model) => model.id === params.modelId)) {
-    throw new Error("Save the model before detecting capabilities");
-  }
-
+async function probeProviderModelCapabilities(
+  provider: ProviderConfig,
+  apiKey: string,
+  modelId: string,
+  deadline = AbortSignal.timeout(20_000),
+): Promise<Partial<Record<ProviderCapabilityName, ModelCapabilityState>>> {
   const results: Partial<Record<ProviderCapabilityName, ModelCapabilityState>> = {};
-  for (const capability of [
-    "streaming",
-    "tools",
-    "jsonMode",
-    "structuredOutputs",
-    "vision",
-    "reasoning",
-    "embeddings",
-  ] as ProviderCapabilityName[]) {
-    const request = capabilityProbeRequest(capability, params.modelId);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(new Error("Capability probe timed out")), 12_000);
+  for (const capability of PROVIDER_CAPABILITY_NAMES) {
+    const request = capabilityProbeRequest(capability, modelId);
+    const signal = AbortSignal.any([deadline, AbortSignal.timeout(5_000)]);
     let status: number | undefined;
     let message = "Capability probe did not complete";
     try {
@@ -1149,7 +1157,7 @@ export async function detectProviderModelCapabilities(params: {
           ...provider.headers,
         },
         body: JSON.stringify(request.body),
-        signal: controller.signal,
+        signal,
       });
       status = upstream.status;
       if (upstream.ok) {
@@ -1171,12 +1179,12 @@ export async function detectProviderModelCapabilities(params: {
       }
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
-    } finally {
-      clearTimeout(timeout);
     }
 
     if (!results[capability]) {
-      const value = status !== undefined && [400, 404, 405, 415, 422].includes(status)
+      const value = status !== undefined
+        && /unsupported|not supported|does not support/i.test(message)
+        && inferUnsupportedCapabilities(status, message, [capability]).includes(capability)
         ? "unsupported"
         : "unknown";
       const observedAt = new Date().toISOString();
@@ -1192,7 +1200,72 @@ export async function detectProviderModelCapabilities(params: {
       };
     }
   }
+  return results;
+}
 
+export async function saveProviderModelCatalogWithDetection(
+  routerKey: string,
+  provider: ProviderConfig,
+  catalog: ProviderModelCatalog,
+) {
+  const account = await findAccount(routerKey);
+  if (!account) return undefined;
+  const existingIds = new Set(
+    (account.providerModels[provider.id]?.models ?? [{ id: provider.model }]).map(({ id }) => id),
+  );
+  const added = catalog.models.filter(({ id }) => !existingIds.has(id));
+  if (added.length) {
+    const apiKey = (await getProviderKeys(routerKey))?.[provider.id];
+    if (!apiKey) throw new Error("Save a provider API key before adding a model.");
+    const deadline = AbortSignal.timeout(20_000);
+    for (const model of added) {
+      model.capabilities = await probeProviderModelCapabilities(provider, apiKey, model.id, deadline);
+    }
+  }
+  return setProviderModelCatalog(routerKey, provider.id, catalog);
+}
+
+export async function saveProviderKeyWithDetection(
+  routerKey: string,
+  provider: ProviderConfig,
+  apiKey: string,
+) {
+  const account = await findAccount(routerKey);
+  if (!account) return undefined;
+  let initialCatalog: ProviderModelCatalog | undefined;
+  if (!account.configuredProviderIds.includes(provider.id) && !account.providerModels[provider.id]) {
+    const capabilities = await probeProviderModelCapabilities(provider, apiKey, provider.model);
+    initialCatalog = {
+      activeModelId: provider.model,
+      models: [{ id: provider.model, status: "unknown", capabilities }],
+    };
+  }
+  return setProviderKey(routerKey, provider.id, apiKey, initialCatalog);
+}
+
+export async function detectProviderModelCapabilities(params: {
+  routerKey: string;
+  providerId: string;
+  modelId: string;
+}): Promise<{
+  catalog: ProviderModelCatalog;
+  results: Partial<Record<ProviderCapabilityName, ModelCapabilityState>>;
+}> {
+  params.providerId = normalizeProviderId(params.providerId);
+  const configs = await loadProviderConfigs();
+  const provider = configs.find((candidate) => candidate.id === params.providerId);
+  if (!provider) throw new Error("Unknown provider");
+  const providerKeys = await getProviderKeys(params.routerKey);
+  const apiKey = providerKeys?.[params.providerId];
+  if (!apiKey) throw new Error("Provider key is not configured");
+  const account = await findAccount(params.routerKey);
+  if (!account) throw new Error("Invalid router key");
+  const catalogs = normalizeProviderModelCatalogMap(account.providerModels, configs);
+  if (!catalogs[params.providerId]?.models.some((model) => model.id === params.modelId)) {
+    throw new Error("Save the model before detecting capabilities");
+  }
+
+  const results = await probeProviderModelCapabilities(provider, apiKey, params.modelId);
   await updateProviderModelCapabilitiesByHash(
     hashRouterKey(params.routerKey),
     params.providerId,
@@ -2365,7 +2438,7 @@ async function handleRequestCore(
           ...(Array.isArray(body.models)
             ? {
                 models: body.models.filter(
-                  (model): model is { id: string; enabled: boolean } =>
+                  (model): model is { id: string; enabled: boolean; capabilities?: unknown } =>
                     Boolean(model) &&
                     typeof model === "object" &&
                     typeof (model as { id?: unknown }).id === "string" &&
@@ -2426,7 +2499,7 @@ async function handleRequestCore(
           const models = rawModels === undefined
             ? undefined
             : Array.isArray(rawModels)
-              ? rawModels.filter((item): item is { id: string; installed: boolean; loaded?: boolean } =>
+              ? rawModels.filter((item): item is LocalNodeModelInventoryItem =>
                   Boolean(item) &&
                   typeof item === "object" &&
                   typeof (item as { id?: unknown }).id === "string" &&
@@ -2463,7 +2536,7 @@ async function handleRequestCore(
             sendJson(response, 400, { error: "Model inventory is required" });
             return;
           }
-          const models = body.models.filter((item): item is { id: string; installed: boolean; loaded?: boolean } =>
+          const models = body.models.filter((item): item is LocalNodeModelInventoryItem =>
             Boolean(item) &&
             typeof item === "object" &&
             typeof (item as { id?: unknown }).id === "string" &&
@@ -2882,13 +2955,14 @@ async function handleRequestCore(
       if (providerModelsMatch?.[1] && request.method === "PUT" && !providerModelsMatch[2]) {
         const providerId = normalizeProviderId(decodeURIComponent(providerModelsMatch[1]));
         const configs = await loadProviderConfigs();
-        if (!configs.some((provider) => provider.id === providerId)) {
+        const provider = configs.find((candidate) => candidate.id === providerId);
+        if (!provider) {
           sendJson(response, 404, { error: "Unknown provider" });
           return;
         }
         try {
           const catalog = parseProviderModelCatalog(await readJsonBody(request));
-          const account = await setProviderModelCatalog(routerKey, providerId, catalog);
+          const account = await saveProviderModelCatalogWithDetection(routerKey, provider, catalog);
           sendJson(response, account ? 200 : 401, account
             ? { account, providerId, catalog }
             : { error: "Invalid router key" });
@@ -3124,7 +3198,8 @@ async function handleRequestCore(
       if (matchedProviderId && request.method === "PUT") {
         const providerId = normalizeProviderId(decodeURIComponent(matchedProviderId));
         const configs = await loadProviderConfigs();
-        if (!configs.some((provider) => provider.id === providerId)) {
+        const provider = configs.find((candidate) => candidate.id === providerId);
+        if (!provider) {
           sendJson(response, 404, { error: "Unknown provider" });
           return;
         }
@@ -3133,7 +3208,7 @@ async function handleRequestCore(
           sendJson(response, 400, { error: "Enter a valid API key" });
           return;
         }
-        const account = await setProviderKey(routerKey, providerId, body.apiKey.trim());
+        const account = await saveProviderKeyWithDetection(routerKey, provider, body.apiKey.trim());
         sendJson(response, account ? 200 : 401, account ?? { error: "Invalid router key" });
         return;
       }

@@ -663,22 +663,6 @@ function providerCapabilityCounts(provider) {
   }, { supported: 0, unknown: 0, unsupported: 0 });
 }
 
-function providerCapacityFactsMarkup(provider) {
-  const capabilities = provider?.capabilities ?? {};
-  const facts = [
-    capabilities.contextWindow
-      ? `<span><small>Context</small><strong>${escapeHtml(formatTokenCapacity(capabilities.contextWindow))}</strong></span>`
-      : "",
-    capabilities.maxOutputTokens
-      ? `<span><small>Max output</small><strong>${escapeHtml(formatTokenCapacity(capabilities.maxOutputTokens))}</strong></span>`
-      : "",
-    provider.freeTier
-      ? `<span><small>Access</small><strong>${escapeHtml(provider.freeTier)}</strong></span>`
-      : "",
-  ].filter(Boolean);
-  return facts.join("");
-}
-
 function providerCapabilitySummary(provider) {
   const capabilities = provider?.capabilities ?? {};
   const supported = providerCapabilityOrder
@@ -1702,7 +1686,7 @@ function renderProviders(query = "") {
 
         <div class="provider-capability-block">
           <div class="provider-capability-heading">
-            <span>Verified capabilities</span>
+            <span>Capabilities</span>
             <small>${counts.supported} supported · ${counts.unknown} unverified</small>
           </div>
           <div class="provider-capability-list" aria-label="Provider capabilities">
@@ -1712,18 +1696,10 @@ function renderProviders(query = "") {
 
         ${providerQuotaMarkup(provider)}
 
-        <div class="provider-facts">
-          ${providerCapacityFactsMarkup(provider)}
-        </div>
-
         <div class="provider-card-footer">
-          <span class="provider-awareness-copy">
-            <span class="awareness-dot ${awareness.level}"></span>
-            <span>
-              <strong>${escapeHtml(awareness.label)}</strong>
-              <small>${awarenessDetailMarkup(awareness)}</small>
-            </span>
-          </span>
+          ${awareness.cooldownUntil || awareness.circuitOpenUntil
+            ? `<span class="provider-awareness-copy"><small>${awarenessDetailMarkup(awareness)}</small></span>`
+            : ""}
           <span class="provider-actions">
             ${awareness.level === "cooldown" ? `
               <button class="cooldown-clear-button" type="button" data-clear-cooldown="${escapeHtml(provider.id)}">
@@ -3311,9 +3287,8 @@ function capabilitySourceLabel(source) {
     user: "Manual override",
     probe: "Capability probe",
     runtime: "Runtime evidence",
-    catalog: "Built-in catalog",
-    provider: "Provider default",
-  })[source] ?? "Provider default";
+    provider: "Untested",
+  })[source] ?? "Untested";
 }
 
 function modelEffectiveCapabilities(provider, model) {
@@ -3484,7 +3459,7 @@ function renderCapabilityRegistry() {
           card.querySelectorAll("[data-model-capability]").forEach((select) => {
             const capability = select.dataset.modelCapability;
             if (select.value === "inherit") delete capabilities[capability];
-            else capabilities[capability] = {
+            else if (capabilities[capability]?.value !== select.value) capabilities[capability] = {
               value: select.value,
               source: "user",
               lastVerifiedAt: verifiedAt,
@@ -5511,11 +5486,19 @@ $("#provider-model-add-form")?.addEventListener("submit", async (event) => {
   if (!provider || !modelId) return;
   const catalog = providerModelCatalog(provider);
   if (catalog.models.some((model) => model.id === modelId)) { notify("That model is already saved."); return; }
+  const buttons = [...event.currentTarget.querySelectorAll("button[type=submit]")];
+  const activate = event.submitter?.dataset.modelAddAction === "activate";
   catalog.models.push({ id: modelId, status: "unknown" });
-  if (event.submitter?.dataset.modelAddAction === "activate") catalog.activeModelId = modelId;
+  if (activate) catalog.activeModelId = modelId;
+  buttons.forEach((button) => { button.disabled = true; });
+  notify("Checking model capabilities…");
   try {
-    await saveProviderModelCatalog(providerId, catalog, event.submitter?.dataset.modelAddAction === "activate" ? "Model added and activated." : "Model added.");
-  } catch (error) { notify(error.message); }
+    await saveProviderModelCatalog(providerId, catalog, activate ? "Model added and activated." : "Model added.");
+  } catch (error) {
+    notify(error.message);
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
+  }
 });
 
 $("#provider-model-list")?.addEventListener("click", async (event) => {
@@ -5541,7 +5524,7 @@ $("#provider-model-list")?.addEventListener("click", async (event) => {
       const nextId = prompt("Edit provider model ID", modelId)?.trim();
       if (!nextId || nextId === modelId) return;
       if (catalog.models.some((model) => model.id === nextId)) { notify("That model is already saved."); return; }
-      catalog.models = catalog.models.map((model) => model.id === modelId ? { ...model, id: nextId, status: "unknown" } : model);
+      catalog.models = catalog.models.map((model) => model.id === modelId ? { id: nextId, status: "unknown" } : model);
       if (catalog.activeModelId === modelId) catalog.activeModelId = nextId;
       await saveProviderModelCatalog(providerId, catalog, "Model ID updated.");
     } else if (action === "test") {
@@ -5562,6 +5545,8 @@ $("#provider-model-list")?.addEventListener("click", async (event) => {
 
 $("#key-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  const button = event.submitter;
+  if (button) button.disabled = true;
   try {
     const providerId = $("#modal-provider-id").value;
     await api(`/api/providers/${encodeURIComponent(providerId)}`, {
@@ -5573,6 +5558,8 @@ $("#key-form").addEventListener("submit", async (event) => {
     notify("Provider key saved.");
   } catch (error) {
     notify(error.message);
+  } finally {
+    if (button) button.disabled = false;
   }
 });
 
