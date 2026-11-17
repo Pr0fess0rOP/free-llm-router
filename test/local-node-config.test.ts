@@ -95,6 +95,7 @@ test("pairs Ollama alongside an existing LM Studio node and targets management c
   await mkdir(path.dirname(legacyFile), { recursive: true });
   await writeFile(legacyFile, studioConfig);
 
+  let routerReachable = false;
   const fetch = t.mock.method(globalThis, "fetch", async (url: string, options?: RequestInit) => {
     switch (new URL(url).pathname) {
       case "/api/tags": return Response.json({ models: [{ name: "llama-test" }] });
@@ -110,12 +111,18 @@ test("pairs Ollama alongside an existing LM Studio node and targets management c
           deviceCredential: "test-device-credential",
           verificationKey: { publicKey: "test-public-key", keyId: "test-key" },
         });
+      case "/api/local-nodes/ollama-node/revoke":
+        if (!routerReachable) throw new TypeError("fetch failed");
+        return Response.json({ revoked: true });
       default: throw new Error(`Unexpected request: ${url}`);
     }
   });
   const log = t.mock.method(console, "log", () => {});
   const run = (command: string, args: string[]) => runLocalNodeCliCommand(command, args, { cliVersion: "0.8.0" });
-  await run("connect", ["ollama", "--code", "test-code", "--models", "llama-test", "--no-start"]);
+  await run("connect", [
+    "ollama", "--code", "test-code", "--models", "llama-test",
+    "--router-url", "http://localhost:8787", "--no-start",
+  ]);
   const ollamaFile = runtimeAgentConfigPath("ollama");
   assert.equal((await loadLocalAgentConfig(ollamaFile))?.agentPort, 11501);
   assert.equal(await readFile(legacyFile, "utf8"), studioConfig);
@@ -130,6 +137,10 @@ test("pairs Ollama alongside an existing LM Studio node and targets management c
   assert.match(status, /Existing Studio/);
   assert.match(status, /New Ollama/);
   await run("disconnect", ["--runtime", "ollama"]);
+  await assert.rejects(run("revoke", ["--runtime", "ollama"]), /Could not reach the paired router at http:\/\/localhost:8787/);
   assert.equal((await loadLocalAgentConfig(ollamaFile))?.nodeId, "ollama-node");
+  routerReachable = true;
+  await run("revoke", ["--runtime", "ollama"]);
+  assert.equal(await loadLocalAgentConfig(ollamaFile), undefined);
   assert.equal(await readFile(legacyFile, "utf8"), studioConfig);
 });
