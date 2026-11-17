@@ -93,6 +93,9 @@ function providerLogoPath(providerId) {
 }
 
 function providerLogoMarkup(provider, size = "normal") {
+  if (provider?.local) {
+    return localNodeIconMarkup({ name: provider.nodeName ?? provider.name }, size);
+  }
   const initial = escapeHtml(provider?.name?.trim()?.charAt(0) || "?");
   const name = escapeHtml(provider?.name || "Provider");
   const id = escapeHtml(provider?.id || "");
@@ -193,7 +196,23 @@ function escapeHtml(value) {
 }
 
 function providerDisplayName(providerId) {
-  return providerById(providerId)?.name ?? providerId;
+  return providerPresentation(providerId).name;
+}
+
+function providerPresentation(providerId) {
+  const local = /^local-node:([^:]+):model:(.+)$/.exec(providerId);
+  if (local) {
+    const [, nodeId, model] = local;
+    const node = state.localNodes.find((candidate) => candidate.id === nodeId);
+    return {
+      id: providerId,
+      name: node ? `${localRuntimeLabel(node.runtime)} · ${node.name}` : "Local LLM",
+      nodeName: node?.name,
+      model,
+      local: true,
+    };
+  }
+  return providerById(providerId) ?? { id: providerId, name: providerId };
 }
 
 function localRoutingProviders() {
@@ -2304,8 +2323,10 @@ function renderProviderDashboard(requests) {
 
   $("#provider-dashboard-table").innerHTML = analyticsTableMarkup(
     ["Provider", "Served", "Attempts", "Attempt success", "Average", "P95", "Tokens", "Fallbacks", ""],
-    providers.map((item) => `<tr>
-      <td><strong>${escapeHtml(providerDisplayName(item.providerId))}</strong><small>${escapeHtml(providerById(item.providerId)?.model ?? item.providerId)}</small></td>
+    providers.map((item) => {
+      const provider = providerPresentation(item.providerId);
+      return `<tr>
+      <td><strong>${escapeHtml(provider.name)}</strong><small>${escapeHtml(provider.model ?? item.providerId)}</small></td>
       <td>${formatUsageNumber(item.completedRequests)}</td>
       <td>${formatUsageNumber(item.attempts)}</td>
       <td><span class="dashboard-rate-pill ${item.successRate >= 0.95 ? "strong" : item.successRate < 0.75 ? "weak" : ""}">${percentLabel(item.successRate)}</span></td>
@@ -2314,7 +2335,8 @@ function renderProviderDashboard(requests) {
       <td>${formatUsageNumber(item.tokens)}</td>
       <td>${formatUsageNumber(item.fallbackRecoveries)}</td>
       <td>${dashboardLogButton("provider", item.providerId)}</td>
-    </tr>`),
+    </tr>`;
+    }),
   );
 }
 
@@ -2493,7 +2515,7 @@ function filteredRequests(filters = state.analyticsFilters) {
     if (toolUsage === "tool-calls" && !(toolAnalytics.generatedToolCallCount > 0)) return false;
     if (toolUsage === "no-tools" && toolAnalytics.toolRequest) return false;
     if (query) {
-      const haystack = `${request.requestId ?? ""} ${request.clientRequestId ?? ""} ${request.deduplication?.originalRequestId ?? ""} ${request.providerId} ${request.providerModel ?? ""} ${request.requestedModel ?? ""} ${request.resolvedAlias ?? ""} ${apiFormatLabel(apiFormatFor(request))} ${endpointFor(request)} ${formatJson(request.request)} ${responsePreview(request.response)} ${formatJson(request.providerEvaluations ?? [])} ${formatJson(request.routingHeaders ?? {})} ${clientApplicationFor(request).name} ${formatJson(toolAnalyticsFor(request))} ${fallbackPathFor(request).join(" ")}`.toLowerCase();
+      const haystack = `${request.requestId ?? ""} ${request.clientRequestId ?? ""} ${request.deduplication?.originalRequestId ?? ""} ${providerDisplayName(request.providerId) ?? ""} ${request.providerId} ${request.providerModel ?? ""} ${request.requestedModel ?? ""} ${request.resolvedAlias ?? ""} ${apiFormatLabel(apiFormatFor(request))} ${endpointFor(request)} ${formatJson(request.request)} ${responsePreview(request.response)} ${formatJson(request.providerEvaluations ?? [])} ${formatJson(request.routingHeaders ?? {})} ${clientApplicationFor(request).name} ${formatJson(toolAnalyticsFor(request))} ${fallbackPathFor(request).join(" ")}`.toLowerCase();
       if (!haystack.includes(query)) return false;
     }
     return true;
@@ -2544,9 +2566,11 @@ function renderProviderFilter(prefix, filters) {
   if (!select) return;
   const current = select.value || filters.provider;
   const ids = [...new Set((state.analytics.requests ?? []).map((request) => request.providerId).filter(Boolean))];
-  select.innerHTML = `<option value="all">All providers</option>${ids.map((id) => `
-    <option value="${escapeHtml(id)}">${escapeHtml(providerDisplayName(id))}</option>
-  `).join("")}`;
+  select.innerHTML = `<option value="all">All providers</option>${ids.map((id) => {
+    const provider = providerPresentation(id);
+    const label = provider.local ? `${provider.name} · ${provider.model}` : provider.name;
+    return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+  }).join("")}`;
   select.value = ids.includes(current) ? current : "all";
   filters.provider = select.value;
 }
@@ -2639,11 +2663,8 @@ function renderAnalytics() {
   }
 
   requestLogList.innerHTML = logRequests.map((request) => {
-    const provider = providerById(request.providerId) ?? {
-      id: request.providerId,
-      name: providerDisplayName(request.providerId),
-      model: request.providerModel ?? request.providerId,
-    };
+    const provider = providerPresentation(request.providerId);
+    const model = request.providerModel ?? (provider.local ? provider.model : request.providerId);
     const apiFormat = apiFormatFor(request);
     const endpoint = endpointFor(request);
 
@@ -2651,13 +2672,13 @@ function renderAnalytics() {
       <button class="request-log-row" type="button" data-log-id="${escapeHtml(request.id)}">
         <span class="request-provider-info">
           ${providerLogoMarkup(provider, "small")}
-          <span>
-            <strong>${escapeHtml(providerDisplayName(request.providerId))}</strong>
-            <small>${escapeHtml(request.providerModel ?? request.providerId)}</small>
+          <span class="request-provider-label">
+            <strong title="${escapeHtml(provider.name)}">${escapeHtml(provider.name)}</strong>
+            <small title="${escapeHtml(model)}">${escapeHtml(model)}</small>
           </span>
         </span>
-        ${request.requestId ? `<span class="request-id-row-badge" title="${escapeHtml(request.requestId)}">${escapeHtml(request.requestId.length > 22 ? `${request.requestId.slice(0, 19)}…` : request.requestId)}</span>` : ""}
         <span class="request-log-meta">
+          ${request.requestId ? `<span class="request-id-row-badge" title="${escapeHtml(request.requestId)}">${escapeHtml(request.requestId.length > 22 ? `${request.requestId.slice(0, 19)}…` : request.requestId)}</span>` : ""}
           <span class="api-format-badge ${apiFormat}">${escapeHtml(apiFormatLabel(apiFormat))}</span>
           ${request.resolvedAlias ? `<span class="model-alias-log-badge">${escapeHtml(request.resolvedAlias)}</span>` : ""}
           ${request.deduplication?.deduplicated ? `<span class="deduplication-log-badge">Deduplicated</span>` : ""}
@@ -2706,11 +2727,8 @@ function openRequestDrawer(logId) {
 
   if (!request) return;
 
-  const provider = providerById(request.providerId) ?? {
-    id: request.providerId,
-    name: providerDisplayName(request.providerId),
-    model: request.providerModel ?? request.providerId,
-  };
+  const provider = providerPresentation(request.providerId);
+  const model = request.providerModel ?? (provider.local ? provider.model : request.providerId);
 
   const apiFormat = apiFormatFor(request);
   const apiLabel = apiFormatLabel(apiFormat);
@@ -2732,7 +2750,7 @@ function openRequestDrawer(logId) {
     <div class="drawer-meta-main">
       <span class="drawer-provider-brand">
         ${providerLogoMarkup(provider, "small")}
-        <strong>${escapeHtml(providerDisplayName(request.providerId))}</strong>
+        <strong>${escapeHtml(provider.name)}</strong>
       </span>
       <span class="status ${isSuccessful ? "connected" : "failed"}">
         ${statusLabel(request.status)} ${request.status}
@@ -2764,8 +2782,8 @@ function openRequestDrawer(logId) {
         </span>
       `).join("")}
       ${request.requestedModel ? `<span class="drawer-chip requested-model-chip" title="${escapeHtml(request.requestedModel)}">Requested: ${escapeHtml(request.requestedModel)}</span>` : ""}
-      <span class="drawer-chip model-chip" title="${escapeHtml(request.providerModel ?? request.providerId)}">
-        Provider model: ${escapeHtml(request.providerModel ?? request.providerId)}
+      <span class="drawer-chip model-chip" title="${escapeHtml(model)}">
+        Provider model: ${escapeHtml(model)}
       </span>
       ${request.usage ? `
         <span class="drawer-chip usage-chip">${formatUsageNumber(request.usage.totalTokens)} tokens</span>
@@ -2874,9 +2892,7 @@ function openRequestDrawer(logId) {
       </div>
       <div class="drawer-timeline-list">
         ${timeline.map((event) => {
-          const eventProvider = event.providerId
-            ? providerById(event.providerId) ?? { id: event.providerId, name: providerDisplayName(event.providerId) }
-            : null;
+          const eventProvider = event.providerId ? providerPresentation(event.providerId) : null;
           return `
             <article class="drawer-timeline-event ${escapeHtml(event.tone ?? "neutral")}">
               <div class="drawer-timeline-time">
@@ -2931,10 +2947,7 @@ function openRequestDrawer(logId) {
       </div>
       <div class="routing-decision-list">
         ${evaluations.map((evaluation) => {
-      const evaluationProvider = providerById(evaluation.providerId) ?? {
-        id: evaluation.providerId,
-        name: providerDisplayName(evaluation.providerId),
-      };
+      const evaluationProvider = providerPresentation(evaluation.providerId);
       const reason = providerEvaluationReason(
         evaluation,
         request.providerId,
@@ -2944,7 +2957,7 @@ function openRequestDrawer(logId) {
             <article class="routing-decision-row ${reason.tone}">
               ${providerLogoMarkup(evaluationProvider, "small")}
               <span class="routing-decision-copy">
-                <strong>${escapeHtml(providerDisplayName(evaluation.providerId))}</strong>
+                <strong>${escapeHtml(evaluationProvider.name)}</strong>
                 <small>${escapeHtml(reason.detail)}</small>
               </span>
               <span class="routing-decision-status ${reason.tone}">${escapeHtml(reason.label)}</span>
@@ -2966,10 +2979,7 @@ function openRequestDrawer(logId) {
       <div class="drawer-section-heading"><h3>Provider attempts</h3><span>${attempts.length} upstream call${attempts.length === 1 ? "" : "s"}</span></div>
       <div class="drawer-attempt-list">
         ${attempts.map((attempt, index) => {
-      const attemptProvider = providerById(attempt.providerId) ?? {
-        id: attempt.providerId,
-        name: providerDisplayName(attempt.providerId),
-      };
+      const attemptProvider = providerPresentation(attempt.providerId);
       const attemptNumber = attempt.attemptNumber ?? index + 1;
       const outcome = attempt.success
         ? `Succeeded${attempt.status ? ` · HTTP ${attempt.status}` : ""}`
@@ -2988,7 +2998,7 @@ function openRequestDrawer(logId) {
           <article class="drawer-attempt-row ${attempt.success ? "success" : "failed"}">
             <div class="drawer-attempt-provider">
               ${providerLogoMarkup(attemptProvider, "small")}
-              <span><small>Attempt ${attemptNumber}</small><strong>${escapeHtml(providerDisplayName(attempt.providerId))}</strong><em>${escapeHtml(attempt.providerModel ?? attemptProvider.model ?? "")}</em></span>
+              <span><small>Attempt ${attemptNumber}</small><strong>${escapeHtml(attemptProvider.name)}</strong><em>${escapeHtml(attempt.providerModel ?? attemptProvider.model ?? "")}</em></span>
             </div>
             <div class="drawer-attempt-copy">
               <strong>${escapeHtml(outcome)}</strong>

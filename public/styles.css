@@ -1603,10 +1603,11 @@ select:focus {
 }
 
 .request-log-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
+  gap: 12px 18px;
+  min-width: 0;
   width: 100%;
   margin-bottom: 10px;
   padding: 15px 16px;
@@ -1624,22 +1625,14 @@ select:focus {
   background: #fbfdfb;
 }
 
-.request-log-row>span:first-child {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.request-log-row small {
+.request-provider-label small {
   color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .request-log-meta {
   display: flex;
   flex-wrap: wrap;
+  min-width: 0;
   gap: 8px;
   justify-content: flex-end;
   align-items: center;
@@ -1738,11 +1731,17 @@ select:focus {
 }
 
 .drawer-meta span,
-.request-log-meta span:not(.status) {
+.request-log-meta span:not(.status, .request-id-row-badge) {
   padding: 5px 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #f8faf7;
+}
+
+.request-log-meta > span {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .drawer-section {
@@ -1834,8 +1833,7 @@ button:active {
   }
 
   .request-log-row {
-    align-items: start;
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .request-log-meta {
@@ -2342,12 +2340,14 @@ button:active {
   min-width: 0;
 }
 
-.request-provider-info>span {
+.request-provider-label {
   display: grid;
+  gap: 2px;
   min-width: 0;
 }
 
-.request-provider-info small {
+.request-provider-label strong,
+.request-provider-label small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -8536,7 +8536,6 @@ body.drawer-open {
    ========================================================= */
 
 .request-id-row-badge {
-  flex: 0 1 210px;
   min-width: 0;
   padding: 7px 10px;
   overflow: hidden;
@@ -8682,23 +8681,6 @@ body.drawer-open {
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
-}
-
-@media (max-width: 760px) {
-  .request-log-row {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .request-id-row-badge {
-    order: 3;
-    flex-basis: 100%;
-  }
-
-  .request-log-meta {
-    width: 100%;
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: 560px) {

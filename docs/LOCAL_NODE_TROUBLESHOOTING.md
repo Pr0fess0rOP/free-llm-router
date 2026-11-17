@@ -34,6 +34,8 @@ This is intentional after the first output token. Switching providers mid-stream
 
 If the node was permanently deleted from the dashboard first, `free-llm revoke` recognizes the already-invalid credential and still removes the stale local pairing configuration.
 
+If revoke reports `fetch failed` or says the paired router could not be reached, run `free-llm status` and check the **Router** address. For a router paired at `http://localhost:8787`, start it from the same router checkout with `npm run cli -- serve --port 8787`. Then retry `free-llm revoke --runtime ollama` or `free-llm revoke --runtime lmstudio`. Revocation contacts the router, so the local model server and its tunnel can stay stopped.
+
 ## Rotate the credential
 
 Run `free-llm credential rotate`. The old credential stops working immediately; the replacement is written to the OS-protected or restrictive fallback store.

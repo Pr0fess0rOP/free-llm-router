@@ -11,19 +11,29 @@ export async function localNodeDeviceRequest<T>(
   fetcher: typeof fetch = fetch,
 ): Promise<T> {
   const credential = await localAgentCredential(config);
-  const response = await fetcher(
-    `${config.routerBaseUrl}/api/local-nodes/${encodeURIComponent(config.nodeId)}${path}`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${credential}`,
+  const signal = AbortSignal.timeout(15_000);
+  let response: Response;
+  try {
+    response = await fetcher(
+      `${config.routerBaseUrl}/api/local-nodes/${encodeURIComponent(config.nodeId)}${path}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${credential}`,
+        },
+        body: JSON.stringify(body),
+        redirect: "error",
+        signal,
       },
-      body: JSON.stringify(body),
-      redirect: "error",
-      signal: AbortSignal.timeout(15_000),
-    },
-  );
+    );
+  } catch (error) {
+    const problem = signal.aborted ? "Timed out reaching" : "Could not reach";
+    throw new Error(
+      `${problem} the paired router at ${config.routerBaseUrl}. Make sure the router is running at that address and try again.`,
+      { cause: error },
+    );
+  }
   const payload = await response.json().catch(() => ({})) as T & { error?: unknown };
   if (!response.ok) {
     const message = typeof payload.error === "string"
