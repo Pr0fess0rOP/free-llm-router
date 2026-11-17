@@ -221,6 +221,7 @@ async function connectLocalNode(
       models: discovered.map((model) => ({
         ...model,
         enabled: allowedModels.includes(model.id),
+        capabilities: model.capabilities,
       })),
     }),
     redirect: "error",
