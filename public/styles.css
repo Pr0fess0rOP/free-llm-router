@@ -4354,6 +4354,10 @@ button:active {
   border-top: 1px solid rgba(15, 23, 42, 0.08);
 }
 
+.provider-card-footer > .provider-actions:only-child {
+  margin-inline-start: auto;
+}
+
 .provider-awareness-copy {
   display: flex;
   align-items: center;

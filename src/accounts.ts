@@ -435,12 +435,16 @@ export async function setProviderKey(
   routerKey: string,
   providerId: string,
   apiKey: string,
+  initialCatalog?: ProviderModelCatalog,
 ): Promise<AccountSummary | undefined> {
   providerId = normalizeProviderId(providerId);
   const account = await readStoredAccount(hashRouterKey(routerKey));
   if (!account) return undefined;
 
   account.providerKeys[providerId] = encryptCredential(apiKey);
+  if (initialCatalog && !account.providerModels?.[providerId]) {
+    account.providerModels = { ...account.providerModels, [providerId]: initialCatalog };
+  }
   await writeStoredAccount(account);
   return summarize(account);
 }

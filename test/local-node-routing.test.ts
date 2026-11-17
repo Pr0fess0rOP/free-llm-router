@@ -140,7 +140,7 @@ test("local routing supports prefer-local, cloud fallback, local-only, and accou
       code: pairing.code,
       name: "Routing node",
       runtime: "ollama",
-      models: [{ id: "qwen:latest", enabled: true }],
+      models: [{ id: "qwen:latest", enabled: true, capabilities: { streaming: "supported" } }],
     });
     const localId = localProviderId(paired.node.id, "qwen:latest");
     const verification = await localNodeVerificationKey();

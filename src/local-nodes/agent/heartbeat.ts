@@ -1,5 +1,5 @@
 import type { LocalNode } from "../local-node-types.js";
-import { discoverOllamaModels, ollamaVersion } from "./ollama-client.js";
+import { discoverOllamaModels, inspectOllamaModelInventory, ollamaVersion } from "./ollama-client.js";
 import {
   saveLocalAgentConfig,
   type LocalAgentConfig,
@@ -16,13 +16,14 @@ export async function sendLocalNodeHeartbeat(
     discoverOllamaModels(config.ollamaBaseUrl).catch(() => []),
   ]);
   const installed = new Set(discovered.map((model) => model.id));
+  const inventory = await inspectOllamaModelInventory(config.ollamaBaseUrl, discovered, config.models.map(({ modelId }) => modelId));
   const node = await localNodeDeviceRequest<LocalNode>(config, "/heartbeat", {
     agentVersion: config.cliVersion,
     ollamaVersion: version,
     activeRequests: agent.activeRequests(),
     maxConcurrentRequests: config.limits.maxConcurrentRequests,
     models: [
-      ...discovered.map((model) => ({ id: model.id, installed: true })),
+      ...inventory,
       ...config.models
         .filter((model) => !installed.has(model.modelId))
         .map((model) => ({ id: model.modelId, installed: false })),

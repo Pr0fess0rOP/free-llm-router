@@ -11,7 +11,33 @@ import {
   verifyLocalNodeRequestToken,
 } from "../src/local-nodes/local-node-request-auth.js";
 import { startLocalAgent } from "../src/local-nodes/agent/server.js";
+import { inspectOllamaModelInventory } from "../src/local-nodes/agent/ollama-client.js";
 import type { LocalAgentConfig } from "../src/local-nodes/agent/local-node-config.js";
+
+test("inspects capabilities for new Ollama models and omits unavailable evidence", async () => {
+  const calls: string[] = [];
+  const inventory = await inspectOllamaModelInventory(
+    "http://127.0.0.1:11434",
+    [{ id: "known" }, { id: "reasoner" }, { id: "unavailable" }],
+    ["known"],
+    async (url, init) => {
+      assert.equal(String(url), "http://127.0.0.1:11434/api/show");
+      const { model } = JSON.parse(String(init?.body));
+      calls.push(model);
+      return model === "reasoner"
+        ? Response.json({ capabilities: ["completion", "tools", "thinking"] })
+        : Response.json({}, { status: 404 });
+    },
+  );
+  assert.deepEqual(calls, ["reasoner", "unavailable"]);
+  assert.deepEqual(inventory, [
+    { id: "known", installed: true },
+    { id: "reasoner", installed: true, capabilities: {
+      streaming: "supported", tools: "supported", vision: "unsupported", reasoning: "supported",
+    } },
+    { id: "unavailable", installed: true },
+  ]);
+});
 
 function agentConfig(params: {
   publicKey: string;

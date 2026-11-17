@@ -7,12 +7,14 @@ import {
   updateStoredLocalNode,
 } from "./local-node-store.js";
 import { signLocalNodeRequest } from "./local-node-request-auth.js";
+import { normalizeLocalModelCapabilities } from "./local-node-types.js";
 import type {
   LocalNode,
   LocalNodeHeartbeat,
   LocalNodeLimits,
   LocalNodeModel,
   LocalNodeModelCapabilities,
+  LocalNodeModelInventoryItem,
   LocalNodeRoutingMode,
   StoredLocalNode,
 } from "./local-node-types.js";
@@ -27,14 +29,6 @@ const ROUTING_MODES = new Set<LocalNodeRoutingMode>([
   "prefer-local",
   "local-only",
 ]);
-
-const DEFAULT_MODEL_CAPABILITIES: LocalNodeModelCapabilities = {
-  streaming: "supported",
-  tools: "unknown",
-  vision: "unknown",
-  reasoning: "unknown",
-  structuredOutputs: "unknown",
-};
 
 export class LocalNodeValidationError extends Error {}
 
@@ -137,7 +131,7 @@ function normalizeLimits(
 
 function mergeModelInventory(
   current: LocalNodeModel[],
-  inventory: Array<{ id: string; installed: boolean; loaded?: boolean }>,
+  inventory: LocalNodeModelInventoryItem[],
   nodeId: string,
 ): LocalNodeModel[] {
   const incoming = new Map(
@@ -160,7 +154,7 @@ function mergeModelInventory(
       enabled: false,
       installed: item.installed,
       ...(item.loaded !== undefined ? { loaded: item.loaded } : {}),
-      capabilities: { ...DEFAULT_MODEL_CAPABILITIES },
+      capabilities: normalizeLocalModelCapabilities(item.capabilities),
       health: "unknown",
     });
   }
@@ -249,7 +243,7 @@ export async function recordLocalNodeHeartbeat(
 
 export async function syncLocalNodeModels(
   nodeId: string,
-  inventory: Array<{ id: string; installed: boolean; loaded?: boolean }>,
+  inventory: LocalNodeModelInventoryItem[],
 ): Promise<LocalNode | undefined> {
   if (inventory.length > 500) {
     throw new LocalNodeValidationError("Model inventory cannot exceed 500 models");

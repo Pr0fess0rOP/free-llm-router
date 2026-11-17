@@ -17,7 +17,12 @@ import {
   normalizeProviderModelCatalogMap,
   parseProviderModelCatalog,
 } from "../src/provider-models.js";
-import { detectProviderModelCapabilities, handleRequest } from "../src/server.js";
+import {
+  detectProviderModelCapabilities,
+  handleRequest,
+  saveProviderKeyWithDetection,
+  saveProviderModelCatalogWithDetection,
+} from "../src/server.js";
 
 async function listen(server: ReturnType<typeof createServer>): Promise<number> {
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -245,6 +250,7 @@ test("protects higher-confidence model capability sources from runtime downgrade
 });
 
 test("detects and persists per-model capabilities with controlled probes", async () => {
+  const probes: string[] = [];
   const directory = await mkdtemp(path.join(tmpdir(), "free-llm-capability-probes-"));
   const previous = {
     accounts: process.env.ACCOUNTS_PATH,
@@ -262,6 +268,7 @@ test("detects and persists per-model capabilities with controlled probes", async
     const body = chunks.length
       ? JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>
       : {};
+    if (typeof body.model === "string") probes.push(body.model);
     const messages = Array.isArray(body.messages) ? body.messages as Array<Record<string, unknown>> : [];
     const content = messages[0]?.content;
     const isVision = Array.isArray(content);
@@ -309,11 +316,10 @@ test("detects and persists per-model capabilities with controlled probes", async
 
   try {
     const { routerKey } = await createAccount("Capability probe router");
-    await setProviderKey(routerKey, "probe-provider", "probe-key");
-    await setProviderModelCatalog(routerKey, "probe-provider", {
-      activeModelId: "probe/model",
-      models: [{ id: "probe/model", status: "unknown" }],
-    });
+    const provider = { id: "probe-provider", baseUrl: `http://127.0.0.1:${port}`, model: "probe/model" };
+    const connected = await saveProviderKeyWithDetection(routerKey, provider, "probe-key");
+    assert.deepEqual(probes, Array(7).fill("probe/model"));
+    assert.equal(connected?.providerModels["probe-provider"]?.models[0]?.capabilities?.tools?.source, "probe");
 
     const detected = await detectProviderModelCapabilities({
       routerKey,
@@ -331,6 +337,20 @@ test("detects and persists per-model capabilities with controlled probes", async
     assert.equal(model?.capabilities?.tools?.value, "supported");
     assert.equal(model?.capabilities?.vision?.value, "unsupported");
     assert.equal(model?.capabilities?.embeddings?.evidence?.status, 404);
+    assert.equal(model?.capabilities?.reasoning?.value, "unknown");
+
+    probes.length = 0;
+    const withNewModel = {
+      activeModelId: "probe/new",
+      models: [model!, { id: "probe/new", status: "unknown" as const }],
+    };
+    const saved = await saveProviderModelCatalogWithDetection(routerKey, provider, withNewModel);
+    assert.deepEqual(probes, Array(7).fill("probe/new"));
+    assert.equal(saved?.providerModels["probe-provider"]?.activeModelId, "probe/new");
+    assert.equal(saved?.providerModels["probe-provider"]?.models[1]?.capabilities?.tools?.source, "probe");
+    probes.length = 0;
+    await saveProviderModelCatalogWithDetection(routerKey, provider, withNewModel);
+    assert.deepEqual(probes, []);
   } finally {
     await new Promise<void>((resolve) => upstream.close(() => resolve()));
     if (previous.accounts === undefined) delete process.env.ACCOUNTS_PATH;

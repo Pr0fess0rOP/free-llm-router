@@ -582,36 +582,11 @@ reasoning
 
 ## 6. Current provider capability registry
 
-Legend:
+Cloud providers start with unknown capability support. Saving a new model runs capability probes against that exact model and provider endpoint. The first provider key also triggers checks for its initial model.
 
-- ✅ Supported
-- ❌ Unsupported
-- ? Unknown
+A probe can establish support or identify a capability-specific rejection. Timeouts, rate limits, and ambiguous responses remain unknown. Existing model-level probe results, runtime evidence, and manual overrides are retained. Use **Detect** in the Capability Registry to recheck an existing model.
 
-Provider configuration can override these registry values.
-
-| Provider ID | Streaming | Tools | JSON mode | Structured output | Vision | Reasoning | Embeddings | Context window | Max output |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `openrouter-qwen` | ✅ | ✅ | ✅ | ? | ❌ | ❌ | ❌ | 262,144 | — |
-| `groq-llama` | ✅ | ✅ | ✅ | ? | ❌ | ? | ❌ | 131,072 | 32,768 |
-| `nvidia-nemotron` | ✅ | ✅ | ? | ? | ❌ | ✅ | ❌ | 1,048,576 | — |
-| `cerebras-gpt-oss` | ✅ | ✅ | ✅ | ? | ❌ | ✅ | ❌ | 131,072 | — |
-| `mistral` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | 262,144 | — |
-| `aion` | ✅ | ? | ? | ? | ❌ | ? | ❌ | — | — |
-| `zai` | ✅ | ✅ | ? | ? | ❌ | ✅ | ❌ | 131,072 | — |
-| `github-models` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | 1,047,576 | 32,768 |
-| `hugging-face` | ✅ | ? | ? | ? | ❌ | ❌ | ❌ | 131,072 | — |
-| `kilo-code` | ✅ | ? | ? | ? | ? | ? | ❌ | — | — |
-| `modelscope` | ✅ | ✅ | ? | ? | ❌ | ✅ | ❌ | 262,144 | — |
-| `sambanova` | ✅ | ? | ? | ? | ❌ | ? | ❌ | 131,072 | — |
-| `siliconflow` | ✅ | ✅ | ? | ? | ❌ | ✅ | ❌ | 40,960 | — |
-
-### Important matrix consequences
-
-- A vision request currently has verified full matches only on `mistral` and `github-models`; `kilo-code` is partial because vision is unknown.
-- A strict structured-output request has verified full matches on `mistral` and `github-models`; providers marked `?` remain partial.
-- A reasoning request can fully match NVIDIA, Cerebras, Mistral, Z AI, ModelScope, and SiliconFlow.
-- Embeddings are marked unsupported for every current registry entry.
+The local agent inspects each new Ollama model through its local model-details endpoint. Any capability Ollama cannot establish stays unknown.
 
 ---
 

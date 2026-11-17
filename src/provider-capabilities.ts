@@ -3,8 +3,6 @@ import type {
   CapabilityObservationSource,
   CapabilityRequirements,
   CapabilityRoutingSettings,
-  CapabilitySupport,
-  ModelCapabilityProfile,
   ProviderCapabilities,
   ProviderCapabilityName,
   ProviderConfig,
@@ -46,224 +44,6 @@ const UNKNOWN_CAPABILITIES: ProviderCapabilities = {
   embeddings: "unknown",
 };
 
-/**
- * Registry values are deliberately conservative. "unknown" means the router
- * may still try the provider, while "unsupported" is a hard incompatibility.
- * Provider config entries can override any value without changing code.
- */
-const PROVIDER_CAPABILITY_REGISTRY: Record<string, Partial<ProviderCapabilities>> = {
-  "openrouter": {
-    streaming: "supported",
-    tools: "supported",
-    jsonMode: "supported",
-    structuredOutputs: "unknown",
-    vision: "unsupported",
-    reasoning: "unsupported",
-    embeddings: "unsupported",
-    contextWindow: 262_144,
-    verifiedAt: "2026-07-17",
-    source: "provider-model-card",
-  },
-  "groq": {
-    streaming: "supported",
-    tools: "supported",
-    jsonMode: "supported",
-    structuredOutputs: "unknown",
-    vision: "unsupported",
-    reasoning: "unknown",
-    embeddings: "unsupported",
-    contextWindow: 131_072,
-    maxOutputTokens: 32_768,
-    verifiedAt: "2026-07-17",
-    source: "provider-model-card",
-  },
-  "nvidia": {
-    streaming: "supported",
-    tools: "supported",
-    jsonMode: "unknown",
-    structuredOutputs: "unknown",
-    vision: "unsupported",
-    reasoning: "supported",
-    embeddings: "unsupported",
-    contextWindow: 1_048_576,
-    verifiedAt: "2026-07-17",
-    source: "provider-model-card",
-  },
-  "cerebras": {
-    streaming: "supported",
-    tools: "supported",
-    jsonMode: "supported",
-    structuredOutputs: "unknown",
-    vision: "unsupported",
-    reasoning: "supported",
-    embeddings: "unsupported",
-    contextWindow: 131_072,
-    verifiedAt: "2026-07-17",
-    source: "provider-docs",
-  },
-  mistral: {
-    streaming: "supported",
-    tools: "supported",
-    jsonMode: "supported",
-    structuredOutputs: "supported",
-    vision: "supported",
-    reasoning: "supported",
-    embeddings: "unsupported",
-    contextWindow: 262_144,
-    verifiedAt: "2026-07-17",
-    source: "provider-model-card",
-  },
-  aion: {
-    streaming: "supported",
-    tools: "unknown",
-    jsonMode: "unknown",
-    structuredOutputs: "unknown",
-    vision: "unsupported",
-    reasoning: "unknown",
-    embeddings: "unsupported",
-  },
-  zai: {
-    streaming: "supported",
-    tools: "supported",
-    jsonMode: "unknown",
-    structuredOutputs: "unknown",
-    vision: "unsupported",
-    reasoning: "supported",
-    embeddings: "unsupported",
-    contextWindow: 131_072,
-  },
-  "github": {
-    streaming: "supported",
-    tools: "supported",
-    jsonMode: "supported",
-    structuredOutputs: "supported",
-    vision: "supported",
-    reasoning: "unsupported",
-    embeddings: "unsupported",
-    contextWindow: 1_047_576,
-    maxOutputTokens: 32_768,
-  },
-  "hugging-face": {
-    streaming: "supported",
-    tools: "unknown",
-    jsonMode: "unknown",
-    structuredOutputs: "unknown",
-    vision: "unsupported",
-    reasoning: "unsupported",
-    embeddings: "unsupported",
-    contextWindow: 131_072,
-  },
-  "kilo-code": {
-    streaming: "supported",
-    tools: "unknown",
-    jsonMode: "unknown",
-    structuredOutputs: "unknown",
-    vision: "unknown",
-    reasoning: "unknown",
-    embeddings: "unsupported",
-    source: "dynamic-model-route",
-  },
-  modelscope: {
-    streaming: "supported",
-    tools: "supported",
-    jsonMode: "unknown",
-    structuredOutputs: "unknown",
-    vision: "unsupported",
-    reasoning: "supported",
-    embeddings: "unsupported",
-    contextWindow: 262_144,
-  },
-  sambanova: {
-    streaming: "supported",
-    tools: "unknown",
-    jsonMode: "unknown",
-    structuredOutputs: "unknown",
-    vision: "unsupported",
-    reasoning: "unknown",
-    embeddings: "unsupported",
-    contextWindow: 131_072,
-  },
-  siliconflow: {
-    streaming: "supported",
-    tools: "supported",
-    jsonMode: "unknown",
-    structuredOutputs: "unknown",
-    vision: "unsupported",
-    reasoning: "supported",
-    embeddings: "unsupported",
-    contextWindow: 40_960,
-  },
-  together: {
-    streaming: "supported", tools: "supported", jsonMode: "unknown",
-    structuredOutputs: "unknown", vision: "unknown", reasoning: "unknown",
-    embeddings: "supported", verifiedAt: "2026-07-21", source: "provider-docs",
-  },
-  fireworks: {
-    streaming: "supported", tools: "supported", jsonMode: "supported",
-    structuredOutputs: "supported", vision: "unknown", reasoning: "supported",
-    embeddings: "supported", verifiedAt: "2026-07-21", source: "provider-docs",
-  },
-  deepinfra: {
-    streaming: "supported", tools: "unknown", jsonMode: "unknown",
-    structuredOutputs: "unknown", vision: "unknown", reasoning: "unknown",
-    embeddings: "supported", verifiedAt: "2026-07-21", source: "provider-docs",
-  },
-  gemini: {
-    streaming: "supported", tools: "supported", jsonMode: "supported",
-    structuredOutputs: "supported", vision: "supported", reasoning: "supported",
-    embeddings: "unknown", verifiedAt: "2026-07-21", source: "provider-docs",
-  },
-  xai: {
-    streaming: "supported", tools: "supported", jsonMode: "supported",
-    structuredOutputs: "supported", vision: "supported", reasoning: "supported",
-    embeddings: "unsupported", verifiedAt: "2026-07-21", source: "provider-docs",
-  },
-  novita: {
-    streaming: "supported", tools: "supported", jsonMode: "unknown",
-    structuredOutputs: "unknown", vision: "unknown", reasoning: "supported",
-    embeddings: "supported", verifiedAt: "2026-07-21", source: "provider-docs",
-  },
-  baseten: {
-    streaming: "supported", tools: "supported", jsonMode: "supported",
-    structuredOutputs: "supported", vision: "unknown", reasoning: "unknown",
-    embeddings: "unknown", verifiedAt: "2026-07-21", source: "provider-docs",
-  },
-  cohere: {
-    streaming: "supported", tools: "supported", jsonMode: "supported",
-    structuredOutputs: "supported", vision: "unknown", reasoning: "unknown",
-    embeddings: "supported", verifiedAt: "2026-07-21", source: "provider-docs",
-  },
-  anthropic: {
-    streaming: "supported", tools: "supported", jsonMode: "unknown",
-    structuredOutputs: "unknown", vision: "supported", reasoning: "supported",
-    embeddings: "unsupported", verifiedAt: "2026-07-21", source: "provider-docs",
-    notes: "OpenAI-compatible response_format is limited; use model probes or overrides.",
-  },
-  openai: {
-    streaming: "supported", tools: "supported", jsonMode: "supported",
-    structuredOutputs: "supported", vision: "supported", reasoning: "supported",
-    embeddings: "supported", verifiedAt: "2026-07-21", source: "provider-docs",
-  },
-  deepseek: {
-    streaming: "supported", tools: "supported", jsonMode: "supported",
-    structuredOutputs: "unknown", vision: "unsupported", reasoning: "supported",
-    embeddings: "unsupported", verifiedAt: "2026-07-21", source: "provider-docs",
-  },
-  perplexity: {
-    streaming: "supported", tools: "unknown", jsonMode: "unknown",
-    structuredOutputs: "unknown", vision: "unknown", reasoning: "supported",
-    embeddings: "unsupported", verifiedAt: "2026-07-21", source: "provider-docs",
-  },
-  friendli: {
-    streaming: "supported", tools: "supported", jsonMode: "supported",
-    structuredOutputs: "supported", vision: "unknown", reasoning: "supported",
-    embeddings: "unknown", verifiedAt: "2026-07-21", source: "provider-docs",
-  },
-
-};
-
-const MODEL_CAPABILITY_REGISTRY: Record<string, ModelCapabilityProfile> = {};
-
 export interface EffectiveModelCapabilities {
   capabilities: ProviderCapabilities;
   sources: Partial<Record<ProviderCapabilityName, CapabilityObservationSource>>;
@@ -274,36 +54,23 @@ export function resolveEffectiveModelCapabilities(
   model?: Pick<ProviderModelOption, "id" | "capabilities">,
 ): EffectiveModelCapabilities {
   const providerCapabilities = resolveProviderCapabilities(provider);
-  const known = model?.id
-    ? MODEL_CAPABILITY_REGISTRY[`${provider.id}:${model.id}`] ?? MODEL_CAPABILITY_REGISTRY[model.id]
-    : undefined;
   const output: ProviderCapabilities = { ...providerCapabilities };
   const sources: Partial<Record<ProviderCapabilityName, CapabilityObservationSource>> = {};
 
   for (const name of PROVIDER_CAPABILITY_NAMES) {
     const override = model?.capabilities?.[name];
-    const registered = known?.[name];
-    if (override && typeof override === "object" && "value" in override) {
+    if (override && override.source !== "catalog" && override.source !== "provider") {
       output[name] = override.value;
       sources[name] = override.source;
-    } else if (registered && typeof registered === "object" && "value" in registered) {
-      output[name] = registered.value;
-      sources[name] = "catalog";
-    } else {
-      sources[name] = "provider";
     }
   }
 
-  const contextWindow = model?.capabilities?.contextWindow ?? known?.contextWindow;
-  const maxOutputTokens = model?.capabilities?.maxOutputTokens ?? known?.maxOutputTokens;
+  const contextWindow = model?.capabilities?.contextWindow;
+  const maxOutputTokens = model?.capabilities?.maxOutputTokens;
   if (contextWindow) output.contextWindow = contextWindow;
   if (maxOutputTokens) output.maxOutputTokens = maxOutputTokens;
   if (model?.id) output.source = `model:${model.id}`;
   return { capabilities: output, sources };
-}
-
-function isCapabilitySupport(value: unknown): value is CapabilitySupport {
-  return value === "supported" || value === "unsupported" || value === "unknown";
 }
 
 function positiveInteger(value: unknown): number | undefined {
@@ -315,29 +82,12 @@ function positiveInteger(value: unknown): number | undefined {
 export function resolveProviderCapabilities(
   provider: Pick<ProviderConfig, "id" | "capabilities">,
 ): ProviderCapabilities {
-  const registered = PROVIDER_CAPABILITY_REGISTRY[provider.id] ?? {};
-  const overrides = provider.capabilities ?? {};
-  const merged = { ...UNKNOWN_CAPABILITIES, ...registered, ...overrides };
-
-  const output: ProviderCapabilities = {
-    streaming: isCapabilitySupport(merged.streaming) ? merged.streaming : "unknown",
-    tools: isCapabilitySupport(merged.tools) ? merged.tools : "unknown",
-    jsonMode: isCapabilitySupport(merged.jsonMode) ? merged.jsonMode : "unknown",
-    structuredOutputs: isCapabilitySupport(merged.structuredOutputs)
-      ? merged.structuredOutputs
-      : "unknown",
-    vision: isCapabilitySupport(merged.vision) ? merged.vision : "unknown",
-    reasoning: isCapabilitySupport(merged.reasoning) ? merged.reasoning : "unknown",
-    embeddings: isCapabilitySupport(merged.embeddings) ? merged.embeddings : "unknown",
-  };
-
-  const contextWindow = positiveInteger(merged.contextWindow);
-  const maxOutputTokens = positiveInteger(merged.maxOutputTokens);
+  const output = { ...UNKNOWN_CAPABILITIES };
+  const contextWindow = positiveInteger(provider.capabilities?.contextWindow);
+  const maxOutputTokens = positiveInteger(provider.capabilities?.maxOutputTokens);
   if (contextWindow) output.contextWindow = contextWindow;
   if (maxOutputTokens) output.maxOutputTokens = maxOutputTokens;
-  if (typeof merged.verifiedAt === "string") output.verifiedAt = merged.verifiedAt;
-  if (typeof merged.source === "string") output.source = merged.source;
-  if (typeof merged.notes === "string") output.notes = merged.notes;
+  if (typeof provider.capabilities?.notes === "string") output.notes = provider.capabilities.notes;
 
   return output;
 }

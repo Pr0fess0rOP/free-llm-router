@@ -1,3 +1,5 @@
+import type { LocalNodeModelCapabilities, LocalNodeModelInventoryItem } from "../local-node-types.js";
+
 export interface OllamaModelInfo {
   id: string;
   size?: number;
@@ -64,4 +66,47 @@ export async function discoverOllamaModels(
       ...(typeof model.modified_at === "string" ? { modifiedAt: model.modified_at } : {}),
     }];
   });
+}
+
+export async function inspectOllamaModelInventory(
+  baseUrl: string,
+  models: OllamaModelInfo[],
+  knownIds: readonly string[] = [],
+  fetcher: typeof fetch = fetch,
+): Promise<LocalNodeModelInventoryItem[]> {
+  const url = `${normalizeOllamaBaseUrl(baseUrl)}/api/show`;
+  const known = new Set(knownIds);
+  const signal = AbortSignal.timeout(5_000);
+  const inventory: LocalNodeModelInventoryItem[] = [];
+  for (const { id } of models) {
+    const item: LocalNodeModelInventoryItem = { id, installed: true };
+    inventory.push(item);
+    if (known.has(id) || signal.aborted) continue;
+    try {
+      const response = await fetcher(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: id }),
+        redirect: "error",
+        signal,
+      });
+      if (!response.ok) {
+        await response.body?.cancel();
+        continue;
+      }
+      const { capabilities } = await response.json() as { capabilities?: unknown };
+      if (!Array.isArray(capabilities) || !capabilities.length ||
+        !capabilities.every((value) => typeof value === "string")) continue;
+      const support = (name: string) => capabilities.includes(name) ? "supported" : "unsupported";
+      item.capabilities = {
+        streaming: support("completion"),
+        tools: support("tools"),
+        vision: support("vision"),
+        reasoning: support("thinking"),
+      } satisfies Partial<LocalNodeModelCapabilities>;
+    } catch {
+      // An inconclusive inspection leaves the model's capabilities unknown.
+    }
+  }
+  return inventory;
 }
