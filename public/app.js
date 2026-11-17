@@ -4406,6 +4406,10 @@ function renderPlaygroundCapabilityPreview() {
   const localModel = localMode ? $("#test-local-model")?.value : undefined;
   const aliasId = $("#test-model-alias")?.value ?? defaultModelForApi(apiFormat);
   const alias = modelAliasById(aliasId, state.account?.modelAliases ?? []);
+  const targetName = directMode
+    ? directProvider?.name ?? "Provider"
+    : localMode ? localNode?.name ?? "Local node" : alias?.name ?? aliasId;
+  const targetModel = directMode ? directModel : localModel;
   const requirements = [...new Set([
     ...playgroundRequiredCapabilities(apiFormat, scenario),
     ...(directMode || localMode ? [] : alias?.requiredCapabilities ?? []),
@@ -4413,14 +4417,13 @@ function renderPlaygroundCapabilityPreview() {
 
   preview.innerHTML = `
     <span class="playground-preview-label">${directMode ? "Direct target" : localMode ? "Local target" : "Router requirements"}</span>
+    <div class="playground-preview-target">
+      <strong class="playground-preview-name">${escapeHtml(targetName)}</strong>
+      ${directMode || localMode
+        ? `<code class="playground-preview-model">${escapeHtml(targetModel || "Select a model")}</code>`
+        : ""}
+    </div>
     <span class="playground-preview-chips">
-      <span class="model-alias-preview-chip">${escapeHtml(
-        directMode
-          ? `${directProvider?.name ?? "Provider"} · ${directModel ?? "Select a model"}`
-          : localMode
-            ? `${localNode ? `${localNodeInitials(localNode.name)} · ${localNode.name}` : "Local node"} · ${localModel ?? "Select a model"}`
-            : alias?.name ?? aliasId,
-      )}</span>
       ${requirements.length
       ? requirements.map((capability) => `<span class="capability-requirement-chip">${escapeHtml(capabilityLabel(capability))}</span>`).join("")
       : `<span class="capability-neutral-chip">No special capability required</span>`}

@@ -4811,9 +4811,8 @@ button:active {
 
 .playground-capability-preview {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px 12px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
   margin: 14px 0 18px;
   padding: 13px 14px;
   border: 1px solid #d7e4dd;
@@ -4829,15 +4828,32 @@ button:active {
   text-transform: uppercase;
 }
 
+.playground-preview-target {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.playground-preview-name {
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.playground-preview-model {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 .playground-preview-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
-  justify-content: flex-end;
 }
 
 .playground-capability-preview>small {
-  grid-column: 1 / -1;
   color: var(--muted);
   font-size: 0.7rem;
   line-height: 1.45;
@@ -5830,18 +5846,10 @@ body.drawer-open {
     grid-template-columns: 1fr !important;
   }
 
-  .provider-capability-heading,
-  .playground-capability-preview {
+  .provider-capability-heading {
     align-items: flex-start;
     grid-template-columns: 1fr;
-  }
-
-  .provider-capability-heading {
     flex-direction: column;
-  }
-
-  .playground-preview-chips {
-    justify-content: flex-start;
   }
 
   .capability-mobile-card>div {
@@ -6205,7 +6213,6 @@ body.drawer-open {
   font-size: 0.77rem;
 }
 
-.model-alias-preview-chip,
 .model-alias-log-badge,
 .model-alias-chip {
   color: #654aa5 !important;
@@ -6214,7 +6221,6 @@ body.drawer-open {
   font-weight: 800;
 }
 
-.model-alias-preview-chip,
 .model-alias-log-badge {
   display: inline-flex;
   align-items: center;
