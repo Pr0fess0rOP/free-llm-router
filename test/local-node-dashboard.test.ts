@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { isLocalNodeCliCommand } from "../src/local-nodes/agent/cli-commands.js";
 
 test("Providers dashboard exposes complete local-node pairing and management controls", async () => {
   const [html, app, css, vercel] = await Promise.all([
@@ -10,7 +11,7 @@ test("Providers dashboard exposes complete local-node pairing and management con
     readFile("vercel.json", "utf8"),
   ]);
   for (const id of [
-    "connect-local-node", "local-node-pairing", "local-node-pairing-code",
+    "connect-local-node", "local-node-runtime", "local-node-pairing", "local-node-pairing-code",
     "local-node-pairing-command", "local-node-list", "cloud-providers-tab",
     "local-providers-tab", "cloud-providers-workspace", "local-providers-workspace",
     "local-node-properties", "local-routing-gate-count",
@@ -28,7 +29,9 @@ test("Providers dashboard exposes complete local-node pairing and management con
   }
   assert.match(app, /npx --yes @free-llm-router\/cli@latest/);
   assert.match(app, /npm run cli --/);
-  assert.match(app, /connect ollama --code/);
+  assert.match(html, /<option value="ollama">Ollama<\/option>/);
+  assert.match(html, /<option value="lmstudio">LM Studio<\/option>/);
+  assert.match(app, /connect \$\{runtime\} --code/);
   assert.match(app, /location\.hostname/);
   assert.match(html, /data-snippet="local"/);
   assert.match(html, /id="feature-local-llm"/);
@@ -73,7 +76,7 @@ test("CLI and documentation expose the complete local Ollama lifecycle", async (
   for (const command of [
     "connect", "start", "status", "models", "logs", "disconnect", "revoke", "credential",
   ]) {
-    assert.match(cliCommands, new RegExp(`case ["']${command}["']`));
+    assert.equal(isLocalNodeCliCommand(command), true, `Missing local-node command: ${command}`);
   }
   assert.match(cli, /runLocalNodeCliCommand/);
   assert.match(cliEntry, /packageVersion/);

@@ -271,7 +271,7 @@
                   <p class="eyebrow">Connections</p>
                   <h2>Providers</h2>
                   <p>
-                    Manage hosted API providers and private Ollama nodes from
+                    Manage hosted API providers and private local nodes from
                     separate workspaces.
                   </p>
                 </div>
@@ -355,9 +355,16 @@
                     <div>
                       <p class="eyebrow">Private compute</p>
                       <h3 id="local-node-heading">Connect Local LLM</h3>
-                      <p>Connect and inspect Ollama computers here. Configure routing gates, limits, models, and lifecycle under Router &amp; Policies → Local LLM Properties.</p>
+                      <p>Connect a computer running Ollama or LM Studio. Manage its models and routing under Router &amp; Policies → Local LLM Properties.</p>
                     </div>
-                    <button id="connect-local-node" class="primary" type="button">Connect Ollama</button>
+                    <div class="local-node-connect-controls">
+                      <label for="local-node-runtime">Local runtime</label>
+                      <select id="local-node-runtime">
+                        <option value="ollama">Ollama</option>
+                        <option value="lmstudio">LM Studio</option>
+                      </select>
+                      <button id="connect-local-node" class="primary" type="button">Connect</button>
+                    </div>
                   </div>
                   <div id="local-node-pairing" class="local-node-pairing" hidden>
                     <div>
@@ -369,7 +376,7 @@
                       <code id="local-node-pairing-command"></code>
                       <button class="copy-button" data-copy="local-node-pairing-command" type="button">Copy command</button>
                     </div>
-                    <p>Run this command on the computer where Ollama is installed. The code works once and expires after ten minutes.</p>
+                    <p id="local-node-pairing-instructions">Run this command on the computer running your local model server. The code works once and expires after ten minutes.</p>
                   </div>
                   <div id="local-node-list" class="local-node-list" aria-live="polite"></div>
                 </section>
@@ -460,7 +467,7 @@
                     <span class="feature-kicker">Local LLM</span>
                     <h3>Test one model running on your computer</h3>
                     <p>
-                      Send a prompt directly to an enabled Ollama model with
+                      Send a prompt directly to an enabled local model with
                       explicit compatibility, capability, temperature, and
                       output-token controls. Cloud routing and fallback stay off.
                     </p>
@@ -521,7 +528,7 @@
                           for="test-local-model"
                           data-playground-local-only
                           hidden
-                          >Ollama model
+                          >Local model
                           <select id="test-local-model"></select>
                         </label>
                         <label for="test-capability"
@@ -3802,7 +3809,7 @@ Content-Type: application/json</code></pre>
                               <button type="button" data-open-flow-detail="recovery">Configure</button>
                             </article>
                             <article class="flow-feature-card">
-                              <label><input id="feature-local-llm-routing" type="checkbox" /><span><strong>Local LLM routing</strong><small>Allow eligible private Ollama nodes to join normal routed requests.</small></span></label>
+                              <label><input id="feature-local-llm-routing" type="checkbox" /><span><strong>Local LLM routing</strong><small>Allow eligible private local nodes to join normal routed requests.</small></span></label>
                               <button type="button" data-open-router-section="local">Configure</button>
                             </article>
                           </div>

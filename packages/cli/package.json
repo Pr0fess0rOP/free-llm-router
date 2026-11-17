@@ -1,7 +1,7 @@
 {
   "name": "@free-llm-router/cli",
-  "version": "0.7.0",
-  "description": "Connect private Ollama nodes to Free LLM Router.",
+  "version": "0.8.0",
+  "description": "Connect private Ollama and LM Studio nodes to Free LLM Router.",
   "type": "module",
   "private": false,
   "bin": {
@@ -21,6 +21,7 @@
   "keywords": [
     "llm",
     "ollama",
+    "lm-studio",
     "local-llm",
     "llm-router",
     "private-ai",

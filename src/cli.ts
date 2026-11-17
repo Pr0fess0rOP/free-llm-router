@@ -30,10 +30,11 @@ Usage:
   free-llm remove <provider>       Remove a saved provider key
   free-llm key                     Print the local router key
   free-llm connect ollama --code <code>  Pair Ollama and start the private node
+  free-llm connect lmstudio --code <code>  Pair LM Studio and start the private node
   free-llm start                   Start a paired local node (or router if none)
   free-llm serve                   Start the dashboard and routing server
-  free-llm status                  Show local node, Ollama, and tunnel status
-  free-llm models [sync]           List or synchronize installed Ollama models
+  free-llm status                  Show all paired runtimes and tunnel status
+  free-llm models [sync]           List or synchronize installed local models
   free-llm logs                    Show redacted local node logs
   free-llm disconnect              Stop the running local node without revoking it
   free-llm revoke                  Revoke and remove the paired local node
@@ -45,7 +46,9 @@ Options:
   --port <number>                  Port used by "serve" (default: 8787)
   --router-url <url>               Free LLM Router URL used by local-node commands
   --ollama-url <url>               Ollama URL (default: http://127.0.0.1:11434)
-  --agent-port <number>            Loopback agent port (default: 11500)
+  --lmstudio-url <url>             LM Studio URL (default: http://127.0.0.1:1234)
+  --agent-port <number>            Override the automatically selected loopback agent port
+  --runtime <ollama|lmstudio>       Choose a paired runtime for a local-node command
   --models <id,id>                 Non-interactive model allowlist
   --no-start                       Pair and save configuration without starting
 `.trim());

@@ -1,6 +1,10 @@
 import type { CapabilitySupport } from "../types.js";
 
-export type LocalNodeRuntime = "ollama";
+export type LocalNodeRuntime = "ollama" | "lmstudio";
+
+export function isLocalNodeRuntime(value: unknown): value is LocalNodeRuntime {
+  return value === "ollama" || value === "lmstudio";
+}
 export type LocalNodeStatus = "online" | "unstable" | "offline" | "revoked";
 export type LocalNodeRoutingMode = "normal" | "prefer-local" | "local-only";
 
@@ -36,6 +40,8 @@ export interface LocalNodeModelInventoryItem {
   id: string;
   installed: boolean;
   loaded?: boolean;
+  available?: boolean;
+  displayName?: string;
   capabilities?: unknown;
 }
 
@@ -61,6 +67,7 @@ export interface LocalNodeModel {
   enabled: boolean;
   installed: boolean;
   loaded?: boolean;
+  available?: boolean;
   capabilities: LocalNodeModelCapabilities;
   contextWindow?: number;
   maxOutputTokens?: number;
@@ -84,6 +91,7 @@ export interface LocalNode {
   cliVersion?: string;
   cliVersionWarning?: string;
   ollamaVersion?: string;
+  runtimeStatus?: "online" | "offline";
   credentialFailureCount?: number;
   lastCredentialFailureAt?: string;
   lastCredentialError?: string;
@@ -128,6 +136,7 @@ export interface PairedLocalNodeResult {
 export interface LocalNodeHeartbeat {
   agentVersion: string;
   ollamaVersion?: string;
+  runtimeStatus?: "online" | "offline";
   activeRequests: number;
   maxConcurrentRequests: number;
   models?: LocalNodeModelInventoryItem[];

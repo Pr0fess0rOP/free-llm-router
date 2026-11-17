@@ -21,7 +21,7 @@ import type {
 
 const ONLINE_MAX_AGE_MS = 45_000;
 const UNSTABLE_MAX_AGE_MS = 90_000;
-const LOCAL_NODE_PROTOCOL_VERSION = "0.7";
+const LOCAL_NODE_PROTOCOL_VERSION = "0.8";
 const LOCAL_NODE_NAMES = /^[\p{L}\p{N} ._()\-]{1,80}$/u;
 const LOCAL_MODEL_ID = /^[^\s\x00-\x1f]{1,240}$/;
 const ROUTING_MODES = new Set<LocalNodeRoutingMode>([
@@ -54,8 +54,10 @@ function publicNode(node: StoredLocalNode | undefined, now = Date.now()): LocalN
   if (!node) return undefined;
   const { credential: _credential, ...safeNode } = node;
   const versionMatch = safeNode.cliVersion?.match(/^(\d+)\.(\d+)/);
-  const cliVersionWarning = versionMatch && `${versionMatch[1]}.${versionMatch[2]}` !== LOCAL_NODE_PROTOCOL_VERSION
-    ? `CLI ${safeNode.cliVersion} may be incompatible; update to the ${LOCAL_NODE_PROTOCOL_VERSION}.x release`
+  const protocol = versionMatch && `${versionMatch[1]}.${versionMatch[2]}`;
+  const cliVersionWarning = protocol && protocol !== LOCAL_NODE_PROTOCOL_VERSION
+    && !(safeNode.runtime === "ollama" && protocol === "0.7")
+    ? `CLI ${safeNode.cliVersion} may be incompatible; use a CLI version supported by this runtime`
     : undefined;
   return {
     ...safeNode,
@@ -67,11 +69,11 @@ function publicNode(node: StoredLocalNode | undefined, now = Date.now()): LocalN
 }
 
 export function effectiveLocalNodeStatus(
-  node: Pick<LocalNode, "status" | "revokedAt" | "lastHeartbeatAt">,
+  node: Pick<LocalNode, "status" | "revokedAt" | "lastHeartbeatAt" | "runtimeStatus">,
   now = Date.now(),
 ): LocalNode["status"] {
   if (node.status === "revoked" || node.revokedAt) return "revoked";
-  if (!node.lastHeartbeatAt) return "offline";
+  if (!node.lastHeartbeatAt || node.runtimeStatus === "offline") return "offline";
   const age = now - Date.parse(node.lastHeartbeatAt);
   if (age <= ONLINE_MAX_AGE_MS) return "online";
   if (age <= UNSTABLE_MAX_AGE_MS) return "unstable";
@@ -81,7 +83,7 @@ export function effectiveLocalNodeStatus(
 function normalizedModelId(value: string): string {
   const modelId = value.trim();
   if (!LOCAL_MODEL_ID.test(modelId)) {
-    throw new LocalNodeValidationError("Invalid Ollama model ID");
+    throw new LocalNodeValidationError("Invalid local model ID");
   }
   return modelId;
 }
@@ -143,17 +145,19 @@ function mergeModelInventory(
     return {
       ...model,
       installed: update?.installed ?? false,
-      ...(update?.loaded !== undefined ? { loaded: update.loaded } : {}),
+      ...(typeof update?.loaded === "boolean" ? { loaded: update.loaded } : {}),
+      ...(typeof update?.available === "boolean" ? { available: update.available } : {}),
     };
   });
   for (const [modelId, item] of incoming) {
     result.push({
       nodeId,
       modelId,
-      displayName: modelId,
+      displayName: typeof item.displayName === "string" ? item.displayName.trim().slice(0, 240) || modelId : modelId,
       enabled: false,
       installed: item.installed,
-      ...(item.loaded !== undefined ? { loaded: item.loaded } : {}),
+      ...(typeof item.loaded === "boolean" ? { loaded: item.loaded } : {}),
+      ...(typeof item.available === "boolean" ? { available: item.available } : {}),
       capabilities: normalizeLocalModelCapabilities(item.capabilities),
       health: "unknown",
     });
@@ -234,6 +238,7 @@ export async function recordLocalNodeHeartbeat(
     if (heartbeat.ollamaVersion) {
       stored.ollamaVersion = heartbeat.ollamaVersion.trim().slice(0, 40);
     }
+    stored.runtimeStatus = heartbeat.runtimeStatus ?? "online";
     if (heartbeat.models) {
       stored.models = mergeModelInventory(stored.models, heartbeat.models, stored.id);
     }
@@ -347,8 +352,8 @@ export async function registerLocalNodeEndpoint(
       if (error instanceof LocalNodeValidationError) throw error;
       throw new LocalNodeValidationError("Node health endpoint returned invalid JSON");
     }
-    if (payload.nodeId !== nodeId || payload.runtime !== "ollama") {
-      throw new LocalNodeValidationError("Tunnel does not belong to the expected Ollama node");
+    if (payload.nodeId !== nodeId || payload.runtime !== stored.runtime) {
+      throw new LocalNodeValidationError("Tunnel does not belong to the expected local node");
     }
   } finally {
     clearTimeout(timeout);
@@ -418,12 +423,12 @@ export async function eligibleLocalNodeProviders(
     if (node.activeRequests >= node.limits.maxConcurrentRequests) return [];
     const endpoint = node.endpoint;
     return node.models
-      .filter((model) => model.enabled && model.installed)
+      .filter((model) => model.enabled && model.installed && model.available !== false)
       .map((model) => {
         const id = localProviderId(node.id, model.modelId);
         return {
           id,
-          providerType: "local-ollama" as const,
+          providerType: node.runtime === "lmstudio" ? "local-lmstudio" as const : "local-ollama" as const,
           localNodeId: node.id,
           baseUrl: `${endpoint.replace(/\/+$/, "")}/v1`,
           model: model.modelId,
@@ -476,6 +481,7 @@ export async function testLocalNodeModel(params: {
   if (!node || node.status === "revoked") throw new LocalNodeValidationError("Local node not found");
   if (!node.endpoint || node.status === "offline") throw new LocalNodeValidationError("Local node is offline");
   if (!model?.installed || !model.enabled) throw new LocalNodeValidationError("Local model is not enabled");
+  if (model.available === false) throw new LocalNodeValidationError("Load this model in LM Studio before testing it");
   const requestId = `test_${randomBytes(12).toString("hex")}`;
   const token = await signLocalNodeRequest({
     nodeId: node.id,

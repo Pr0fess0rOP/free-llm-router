@@ -4,6 +4,7 @@ import path from "node:path";
 import { verifyLocalNodeRequestToken } from "../local-node-request-auth.js";
 import type { LocalNodeModel } from "../local-node-types.js";
 import { localAgentConfigPath, type LocalAgentConfig } from "./local-node-config.js";
+import { runtimeConnection } from "./runtime.js";
 
 const replayedRequestIds = new Map<string, number>();
 const MAX_REPLAY_ENTRIES = 10_000;
@@ -149,7 +150,7 @@ function sanitizedBody(body: Record<string, unknown>, config: LocalAgentConfig):
 }
 
 async function logAgent(config: LocalAgentConfig, event: string, details: Record<string, unknown>): Promise<void> {
-  const target = path.resolve(path.dirname(localAgentConfigPath()), "local-node.log");
+  const target = path.resolve(path.dirname(config.configFile ?? localAgentConfigPath()), "local-node.log");
   await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
   await appendFile(target, `${JSON.stringify({
     timestamp: new Date().toISOString(),
@@ -234,6 +235,10 @@ async function proxyInference(params: {
     sendJson(response, 403, { error: { message: "Requested model is not allowed" } });
     return;
   }
+  if (model.available === false) {
+    sendJson(response, 503, { error: { message: "Model is unavailable. Load it in LM Studio or enable on-demand loading." } });
+    return;
+  }
   validateCapabilities(model, body);
   const queueAbort = new AbortController();
   const abortQueue = () => queueAbort.abort();
@@ -266,9 +271,10 @@ async function proxyInference(params: {
     config.limits.totalTimeoutMs,
   );
   let firstTokenTimeout: ReturnType<typeof setTimeout> | undefined;
+  const runtime = runtimeConnection(config);
   if (body.stream === true) {
     firstTokenTimeout = setTimeout(
-      () => controller.abort(new Error("Ollama did not produce a first token in time")),
+      () => controller.abort(new Error(`${runtime.label} did not produce a first token in time`)),
       config.limits.firstTokenTimeoutMs,
     );
   }
@@ -276,11 +282,12 @@ async function proxyInference(params: {
   let outcome: "success" | "upstream_error" | "agent_error" = "agent_error";
   let upstreamStatus: number | undefined;
   try {
-    const upstream = await fetch(`${config.ollamaBaseUrl}/v1/chat/completions`, {
+    const upstream = await fetch(`${runtime.origin}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         accept: body.stream === true ? "text/event-stream" : "application/json",
+        ...runtime.headers,
       },
       body: JSON.stringify(sanitizedBody(body, config)),
       redirect: "error",
@@ -305,15 +312,15 @@ async function proxyInference(params: {
       return;
     }
 
-    if (!upstream.body) throw new Error("Ollama returned an empty stream");
+    if (!upstream.body) throw new Error(`${runtime.label} returned an empty stream`);
     const reader = upstream.body.getReader();
     const first = await readWithTimeout(
       reader,
       config.limits.firstTokenTimeoutMs,
       controller,
-      "Ollama did not produce a first token in time",
+      `${runtime.label} did not produce a first token in time`,
     );
-    if (first.done || !first.value?.length) throw new Error("Ollama stream ended before the first token");
+    if (first.done || !first.value?.length) throw new Error(`${runtime.label} stream ended before the first token`);
     if (firstTokenTimeout) {
       clearTimeout(firstTokenTimeout);
       firstTokenTimeout = undefined;
@@ -329,7 +336,7 @@ async function proxyInference(params: {
         reader,
         config.limits.idleTimeoutMs,
         controller,
-        "Ollama stream became idle",
+        `${runtime.label} stream became idle`,
       );
       if (chunk.done) break;
       if (chunk.value?.length) response.write(Buffer.from(chunk.value));
@@ -366,6 +373,7 @@ async function proxyInference(params: {
 export async function startLocalAgent(
   config: LocalAgentConfig,
 ): Promise<LocalAgentHandle> {
+  const runtime = runtimeConnection(config);
   const shutdown = new AbortController();
   const limiter = new RequestLimiter(
     () => config.limits.maxConcurrentRequests,
@@ -378,7 +386,7 @@ export async function startLocalAgent(
       if (request.method === "GET" && url.pathname === "/health") {
         sendJson(response, 200, {
           nodeId: config.nodeId,
-          runtime: "ollama",
+          runtime: runtime.runtime,
           status: "online",
           agentVersion: config.cliVersion,
           activeRequests: limiter.activeCount(),

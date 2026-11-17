@@ -236,6 +236,21 @@ function localNodeStatusLabel(status) {
   return status === "online" ? "Online" : status === "unstable" ? "Unstable" : status === "revoked" ? "Revoked" : "Offline";
 }
 
+function localRuntimeLabel(runtime) {
+  return runtime === "lmstudio" ? "LM Studio" : "Ollama";
+}
+
+function localModelIsPlayable(model) {
+  return model.enabled && model.installed && model.available !== false;
+}
+
+function localModelAvailability(model) {
+  if (!model.installed) return "Not installed";
+  if (model.available === false) return "Load in LM Studio to use";
+  if (model.loaded === false) return "Available on demand";
+  return model.loaded === true ? "Loaded" : model.health;
+}
+
 function localNodeEndpointLabel(endpoint) {
   if (!endpoint) return "No tunnel";
   try { return new URL(endpoint).hostname; } catch { return "Invalid endpoint"; }
@@ -288,9 +303,9 @@ function localNodeModelRows(node) {
   }
   return node.models.map((model) => `<div class="local-node-model-row" data-local-model-id="${escapeHtml(model.modelId)}">
     ${localModelIconMarkup(model)}
-    <label><input type="checkbox" data-local-model-toggle ${model.enabled ? "checked" : ""} ${!model.installed || node.status === "revoked" ? "disabled" : ""}/><span><strong>${escapeHtml(model.displayName ?? model.modelId)}</strong><small>${escapeHtml(model.installed ? model.health : "not installed")}${model.lastLatencyMs ? ` · ${model.lastLatencyMs} ms` : ""}</small></span></label>
+    <label><input type="checkbox" data-local-model-toggle ${model.enabled ? "checked" : ""} ${!model.installed || node.status === "revoked" ? "disabled" : ""}/><span><strong title="${escapeHtml(model.modelId)}">${escapeHtml(model.displayName ?? model.modelId)}</strong><small>${escapeHtml(localModelAvailability(model))}${model.lastLatencyMs ? ` · ${model.lastLatencyMs} ms` : ""}</small></span></label>
     <details class="local-node-capabilities"><summary>Capabilities</summary><div>${["streaming", "tools", "vision", "reasoning", "structuredOutputs"].map((capability) => `<label>${escapeHtml(capabilityLabel(capability))}<select data-local-capability="${capability}" ${node.status === "revoked" ? "disabled" : ""}>${["supported", "unknown", "unsupported"].map((value) => `<option value="${value}" ${model.capabilities?.[capability] === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>`).join("")}</div></details>
-    <button class="ghost compact-button" type="button" data-local-model-test ${!model.enabled || !model.installed || node.status !== "online" ? "disabled" : ""}>Test</button>
+    <button class="ghost compact-button" type="button" data-local-model-test ${!localModelIsPlayable(model) || node.status !== "online" ? "disabled" : ""}>Test</button>
   </div>`).join("");
 }
 
@@ -323,7 +338,7 @@ function renderLocalNodes() {
   const nodes = state.localNodes ?? [];
   updateProviderWorkspaceCounts();
   if (!nodes.length) {
-    container.innerHTML = `<div class="local-node-empty"><strong>No local nodes connected</strong><span>Create a pairing code, then run the CLI beside Ollama.</span></div>`;
+    container.innerHTML = `<div class="local-node-empty"><strong>No local nodes connected</strong><span>Choose your runtime to create a pairing code.</span></div>`;
     return;
   }
   container.innerHTML = nodes.map((node) => {
@@ -336,14 +351,16 @@ function renderLocalNodes() {
           ${localNodeIconMarkup(node)}
           <div class="provider-title-block">
             <h3>${escapeHtml(node.name)}</h3>
-            <span>${escapeHtml(node.ollamaVersion ? `Ollama ${node.ollamaVersion}` : "Private Ollama node")}</span>
+            <span>${escapeHtml(localRuntimeLabel(node.runtime))}${node.runtime === "ollama" && node.ollamaVersion ? ` ${escapeHtml(node.ollamaVersion)}` : ""}</span>
             <small class="provider-model-count">${activeModels.length} enabled model${activeModels.length === 1 ? "" : "s"} · ${escapeHtml(node.cliVersion ?? "CLI version unknown")}</small>
           </div>
         </div>
         <span class="status ${statusTone}">${escapeHtml(localNodeStatusLabel(node.status))}</span>
       </div>
 
-      <p class="provider-description">Runs private models through the protected local agent at ${escapeHtml(localNodeEndpointLabel(node.endpoint))}. ${escapeHtml(node.lastHeartbeatAt ? `Last heartbeat ${formatTimestamp(node.lastHeartbeatAt)}.` : "Waiting for its first heartbeat.")}</p>
+      <p class="provider-description">Runs private models through the protected local agent at ${escapeHtml(localNodeEndpointLabel(node.endpoint))}. ${escapeHtml(node.runtimeStatus === "offline"
+        ? `${localRuntimeLabel(node.runtime)} is unreachable from the agent.`
+        : node.lastHeartbeatAt ? `Last heartbeat ${formatTimestamp(node.lastHeartbeatAt)}.` : "Waiting for its first heartbeat.")}</p>
       ${node.cliVersionWarning ? `<small class="local-node-warning">${escapeHtml(node.cliVersionWarning)}</small>` : ""}
 
       <div class="provider-capability-block">
@@ -370,7 +387,7 @@ function renderLocalNodes() {
           <span><strong>${escapeHtml(localNodeStatusLabel(node.status))}</strong><small>${escapeHtml(node.lastHeartbeatAt ? `Heartbeat ${formatTimestamp(node.lastHeartbeatAt)}` : "No heartbeat yet")}</small></span>
         </span>
         <span class="provider-actions local-node-card-actions">
-          <button class="secondary compact-button local-node-action test-action" type="button" data-local-open-playground ${node.status !== "online" || !activeModels.length ? "disabled" : ""}>Playground</button>
+          <button class="secondary compact-button local-node-action test-action" type="button" data-local-open-playground ${node.status !== "online" || !activeModels.some(localModelIsPlayable) ? "disabled" : ""}>Playground</button>
           <button class="model-configure-button" type="button" data-local-open-settings>Manage in Settings</button>
         </span>
       </div>
@@ -386,7 +403,7 @@ function renderLocalNodeProperties() {
   const count = $("#local-routing-gate-count");
   if (count) count.textContent = `${routedCount} routed`;
   if (!nodes.length) {
-    container.innerHTML = `<div class="inline-empty"><strong>No Local LLM properties yet</strong><span>Connect an Ollama node from Providers, then return here to configure it.</span></div>`;
+    container.innerHTML = `<div class="inline-empty"><strong>No Local LLM properties yet</strong><span>Connect a local runtime from Providers.</span></div>`;
     return;
   }
   container.innerHTML = nodes.map((node) => {
@@ -399,7 +416,7 @@ function renderLocalNodeProperties() {
           ${localNodeIconMarkup(node)}
           <div class="provider-title-block">
             <h3>${escapeHtml(node.name)}</h3>
-            <span>${escapeHtml(node.ollamaVersion ? `Ollama ${node.ollamaVersion}` : "Private Ollama node")}</span>
+            <span>${escapeHtml(localRuntimeLabel(node.runtime))}${node.runtime === "ollama" && node.ollamaVersion ? ` ${escapeHtml(node.ollamaVersion)}` : ""}</span>
             <small>${activeModels.length} enabled model${activeModels.length === 1 ? "" : "s"} · ${escapeHtml(localNodeEndpointLabel(node.endpoint))}</small>
           </div>
         </div>
@@ -442,8 +459,8 @@ function renderLocalNodeProperties() {
       <div class="local-node-property-footer">
         <span class="provider-awareness-copy"><span class="awareness-dot ${statusTone}"></span><span><strong>${escapeHtml(localNodeRoutingLabel(node))}</strong><small>${escapeHtml(node.lastHeartbeatAt ? `Heartbeat ${formatTimestamp(node.lastHeartbeatAt)}` : "No heartbeat yet")}</small></span></span>
         <span class="provider-actions local-node-card-actions">
-          <button class="secondary compact-button local-node-action test-action" type="button" data-local-open-playground ${node.status !== "online" || !activeModels.length ? "disabled" : ""}>Playground</button>
-          <button class="secondary compact-button local-node-action test-action" type="button" data-local-test-all ${node.status !== "online" || !activeModels.length ? "disabled" : ""}>Test all</button>
+          <button class="secondary compact-button local-node-action test-action" type="button" data-local-open-playground ${node.status !== "online" || !activeModels.some(localModelIsPlayable) ? "disabled" : ""}>Playground</button>
+          <button class="secondary compact-button local-node-action test-action" type="button" data-local-test-all ${node.status !== "online" || !activeModels.some(localModelIsPlayable) ? "disabled" : ""}>Test all</button>
           <button class="secondary compact-button local-node-action revoke-action" type="button" data-local-revoke ${node.status === "revoked" ? "disabled" : ""}>${node.status === "revoked" ? "Revoked" : "Revoke"}</button>
           <button class="secondary compact-button local-node-action delete-action" type="button" data-local-delete>Delete</button>
         </span>
@@ -3907,7 +3924,7 @@ function renderPlaygroundDirectProviderOptions(forceFirst = false) {
 
 function playableLocalNodes() {
   return (state.localNodes ?? []).filter((node) =>
-    node.status === "online" && (node.models ?? []).some((model) => model.enabled && model.installed),
+    node.status === "online" && (node.models ?? []).some(localModelIsPlayable),
   );
 }
 
@@ -3917,7 +3934,7 @@ function renderPlaygroundLocalModelOptions(forceFirst = false) {
   if (!nodeSelect || !modelSelect) return;
   const node = state.localNodes.find((candidate) => candidate.id === nodeSelect.value)
     ?? playableLocalNodes()[0];
-  const models = (node?.models ?? []).filter((model) => model.enabled && model.installed);
+  const models = (node?.models ?? []).filter(localModelIsPlayable);
   const previous = forceFirst ? models[0]?.modelId : modelSelect.value || models[0]?.modelId;
   modelSelect.innerHTML = models.map((model) => `
     <option value="${escapeHtml(model.modelId)}">${escapeHtml(model.displayName ?? model.modelId)} · ${escapeHtml(model.health)}</option>
@@ -4461,7 +4478,7 @@ function renderPlaygroundCapabilityPreview() {
     <small>${escapeHtml(directMode
       ? "The exact provider model is called once. Ranking, fallback, cooldown, and circuit selection are bypassed for this diagnostic request. Configured provider quotas still apply."
       : localMode
-        ? "The exact Ollama model is called through its protected node. Cloud providers, ranking, and fallback are bypassed."
+        ? "The exact local model is called through its protected node. Cloud providers, ranking, and fallback are bypassed."
         : alias ? `${aliasStrategyLabel(alias.routingStrategy)} · ${modelAliasProviderSummary(alias)}` : "The router-wide policy will be used.")}</small>
   `;
 }
@@ -5310,21 +5327,33 @@ $("#open-provider-modal").addEventListener("click", () => {
 
 $("#connect-local-node")?.addEventListener("click", async () => {
   const button = $("#connect-local-node");
+  const runtimeSelect = $("#local-node-runtime");
+  const runtime = runtimeSelect.value === "lmstudio" ? "lmstudio" : "ollama";
   button.disabled = true;
+  runtimeSelect.disabled = true;
   try {
     const pairing = await api("/api/local-nodes/pairing-code", { method: "POST", body: "{}" });
     $("#local-node-pairing-code").textContent = pairing.code;
     $("#local-node-pairing-expiry").textContent = `Expires ${formatTimestamp(pairing.expiresAt)}`;
     const localCheckout = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
     const cliCommand = localCheckout ? "npm run cli --" : "npx --yes @free-llm-router/cli@latest";
-    $("#local-node-pairing-command").textContent = `${cliCommand} connect ollama --code ${pairing.code} --router-url ${location.origin}`;
+    $("#local-node-pairing-command").textContent = `${cliCommand} connect ${runtime} --code ${pairing.code} --router-url ${location.origin}`;
+    $("#local-node-pairing-instructions").textContent = runtime === "lmstudio"
+      ? "Start the server in LM Studio’s Developer tab, then run this command on the same computer. The code works once and expires after ten minutes."
+      : "Run this command on the computer running Ollama. The code works once and expires after ten minutes.";
     $("#local-node-pairing").hidden = false;
     notify("One-time pairing code created.");
   } catch (error) {
     notify(error.message);
   } finally {
     button.disabled = false;
+    runtimeSelect.disabled = false;
   }
+});
+
+$("#local-node-runtime")?.addEventListener("change", () => {
+  $("#local-node-pairing").hidden = true;
+  $("#local-node-pairing-command").textContent = "";
 });
 
 $("#local-node-properties")?.addEventListener("change", async (event) => {

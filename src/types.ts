@@ -508,7 +508,7 @@ export interface ProviderRuntime extends ProviderConfig {
   halfOpenProbeActive: boolean;
   quotaConfig?: ProviderQuotaConfig;
   quotaUsage?: ProviderQuotaUsage;
-  providerType?: "cloud" | "local-ollama";
+  providerType?: "cloud" | "local-ollama" | "local-lmstudio";
   localNodeId?: string;
   requestHeaders?: (
     body: Record<string, unknown>,

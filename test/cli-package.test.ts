@@ -59,6 +59,8 @@ test("package source entry reports its package version and focused help", async 
   const help = await run("help");
   assert.match(help.stdout, /Local LLM CLI/);
   assert.match(help.stdout, /free-llm connect ollama/);
+  assert.match(help.stdout, /free-llm connect lmstudio/);
+  assert.match(help.stdout, /--lmstudio-url/);
   assert.doesNotMatch(help.stdout, /free-llm serve/);
   assert.doesNotMatch(help.stdout, /free-llm add/);
 });
