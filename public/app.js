@@ -63,6 +63,7 @@ const toast = $("#toast");
 const modal = $("#key-modal");
 const quotaModal = $("#quota-modal");
 const modelModal = $("#model-modal");
+const providerModelBrowser = $("#provider-model-browser");
 const drawer = $("#request-drawer");
 let pageScrollPosition = 0;
 
@@ -1877,6 +1878,60 @@ function openProviderModelModal(providerId) {
   $("#provider-model-id").value = "";
   modelModal.hidden = false;
   $("#provider-model-id").focus();
+}
+
+let modelBrowserRequest;
+let availableProviderModels = [];
+let savedProviderModelIds = new Set();
+
+function renderAvailableProviderModels() {
+  const query = $("#provider-model-search").value.trim().toLowerCase();
+  const models = availableProviderModels.filter(({ id, name }) =>
+    id.toLowerCase().includes(query) || name?.toLowerCase().includes(query),
+  );
+  $("#provider-model-browser-status").textContent = models.length
+    ? `${models.length} of ${availableProviderModels.length} models`
+    : query ? "No models match your search." : "The provider returned no models.";
+  $("#provider-model-browser-table").hidden = models.length === 0;
+  $("#provider-model-browser-rows").innerHTML = models.map(({ id, name, contextLength }) => `
+    <tr>
+      <td>${name ? `<strong>${escapeHtml(name)}</strong>` : ""}<code>${escapeHtml(id)}</code></td>
+      <td>${contextLength ? formatUsageNumber(contextLength) : "—"}</td>
+      <td>${savedProviderModelIds.has(id)
+        ? "Saved"
+        : `<button class="ghost compact-button" type="button" data-use-provider-model="${escapeHtml(id)}">Use ID</button>`}</td>
+    </tr>
+  `).join("");
+}
+
+async function openProviderModelBrowser() {
+  const provider = providerById($("#model-provider-id").value);
+  if (!provider) return;
+  modelBrowserRequest?.abort();
+  const request = new AbortController();
+  modelBrowserRequest = request;
+  availableProviderModels = [];
+  savedProviderModelIds = new Set(providerModelCatalog(provider).models.map(({ id }) => id));
+  $("#provider-model-search").value = "";
+  $("#provider-model-search").disabled = true;
+  $("#provider-model-browser-title").textContent = `Available models · ${provider.name}`;
+  $("#provider-model-browser-status").textContent = "Loading models from the provider…";
+  $("#provider-model-browser-table").hidden = true;
+  $("#provider-model-browser-rows").replaceChildren();
+  providerModelBrowser.showModal();
+
+  try {
+    const { models } = await api(`/api/providers/${encodeURIComponent(provider.id)}/models/available`, {
+      signal: request.signal,
+    });
+    if (request.signal.aborted || !providerModelBrowser.open) return;
+    availableProviderModels = models;
+    $("#provider-model-search").disabled = models.length === 0;
+    renderAvailableProviderModels();
+  } catch (error) {
+    if (request.signal.aborted || !providerModelBrowser.open) return;
+    $("#provider-model-browser-status").textContent = error.message;
+  }
 }
 
 async function saveProviderModelCatalog(providerId, catalog, message, { reopenModal = true } = {}) {
@@ -5434,6 +5489,20 @@ $("#provider-list").addEventListener("click", async (event) => {
 });
 
 
+$("#browse-provider-models").addEventListener("click", openProviderModelBrowser);
+$("#provider-model-search").addEventListener("input", renderAvailableProviderModels);
+$("#provider-model-browser-rows").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-use-provider-model]");
+  if (!button) return;
+  const field = $("#provider-model-id");
+  field.value = button.dataset.useProviderModel;
+  providerModelBrowser.close();
+  field.focus();
+});
+providerModelBrowser.addEventListener("close", () => {
+  if (!providerModelBrowser.open) modelBrowserRequest?.abort();
+});
+
 $("#provider-model-add-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const providerId = $("#model-provider-id").value;
@@ -5931,7 +6000,7 @@ $$('[data-close-drawer]').forEach((element) =>
   element.addEventListener("click", closeRequestDrawer),
 );
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") {
+  if (event.key === "Escape" && !providerModelBrowser.open) {
     $$(".modal").forEach((element) => { element.hidden = true; });
     if (!drawer.hidden) closeRequestDrawer();
   }

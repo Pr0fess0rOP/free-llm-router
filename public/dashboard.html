@@ -4716,7 +4716,12 @@ Content-Type: application/json</code></pre>
         </div>
         <div id="provider-model-list" class="provider-model-list"></div>
         <form id="provider-model-add-form" class="provider-model-add-form">
-          <label for="provider-model-id">Add a provider model ID</label>
+          <div class="provider-model-add-heading">
+            <label for="provider-model-id">Add a provider model ID</label>
+            <button id="browse-provider-models" class="ghost compact-button" type="button" aria-haspopup="dialog">
+              Browse provider models
+            </button>
+          </div>
           <div class="provider-model-add-row">
             <input
               id="provider-model-id"
@@ -4744,6 +4749,26 @@ Content-Type: application/json</code></pre>
         </form>
       </section>
     </div>
+
+    <dialog id="provider-model-browser" class="provider-model-browser" aria-labelledby="provider-model-browser-title">
+      <header class="provider-model-browser-heading">
+        <h2 id="provider-model-browser-title">Available models</h2>
+        <form method="dialog">
+          <button class="ghost compact-button" type="submit" autofocus>Close</button>
+        </form>
+      </header>
+      <div class="provider-model-browser-filter">
+        <label for="provider-model-search">Search models</label>
+        <input type="search" id="provider-model-search" placeholder="Model name or ID" autocomplete="off" />
+      </div>
+      <p id="provider-model-browser-status" role="status"></p>
+      <div class="provider-model-browser-results">
+        <table id="provider-model-browser-table" hidden>
+          <thead><tr><th scope="col">Model</th><th scope="col">Context</th><th scope="col">Action</th></tr></thead>
+          <tbody id="provider-model-browser-rows"></tbody>
+        </table>
+      </div>
+    </dialog>
 
     <div id="quota-modal" class="modal" hidden>
       <div class="modal-backdrop" data-close-modal></div>
