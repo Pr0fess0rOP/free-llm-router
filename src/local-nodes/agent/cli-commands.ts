@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
-import type { LocalNode } from "../local-node-types.js";
+import { isLocalNodeRuntime, type LocalNode, type LocalNodeModelInventoryItem, type LocalNodeRuntime } from "../local-node-types.js";
 import {
   createLocalAgentConfig,
   deleteLocalAgentConfig,
@@ -10,9 +10,11 @@ import {
   localAgentConfigPath,
   normalizeRouterBaseUrl,
   replaceLocalAgentCredential,
+  runtimeAgentConfigPath,
   saveLocalAgentConfig,
+  type LocalAgentConfig,
 } from "./local-node-config.js";
-import { discoverOllamaModels, inspectOllamaModelInventory, ollamaVersion } from "./ollama-client.js";
+import { discoverRuntimeModels, runtimeConnection } from "./runtime.js";
 import { localNodeDeviceRequest } from "./node-api.js";
 import { runLocalNode } from "./run.js";
 import { currentNgrokEndpoint } from "./tunnel.js";
@@ -43,9 +45,10 @@ Free LLM Router — Local LLM CLI ${version}
 
 Usage:
   free-llm connect ollama --code <code>  Pair Ollama and start the private node
+  free-llm connect lmstudio --code <code>  Pair LM Studio and start the private node
   free-llm start                   Start the paired local node
-  free-llm status                  Show local node, Ollama, and tunnel status
-  free-llm models [sync]           List or synchronize installed Ollama models
+  free-llm status                  Show all paired runtimes and tunnel status
+  free-llm models [sync]           List or synchronize installed local models
   free-llm logs                    Show redacted local node logs
   free-llm disconnect              Stop the node without revoking it
   free-llm revoke                  Revoke and remove the paired local node
@@ -55,10 +58,14 @@ Usage:
 Options:
   --router-url <url>               Deployed Free LLM Router URL
   --ollama-url <url>               Ollama URL (default: http://127.0.0.1:11434)
-  --agent-port <number>            Loopback agent port (default: 11500)
+  --lmstudio-url <url>             LM Studio URL (default: http://127.0.0.1:1234)
+  --agent-port <number>            Override the automatically selected loopback agent port
+  --runtime <ollama|lmstudio>       Choose a paired runtime for a local-node command
   --models <id,id>                 Non-interactive model allowlist
   --name <name>                    Non-interactive node name
   --no-start                       Pair without starting the agent
+
+LMSTUDIO_API_TOKEN                 Optional token for an authenticated LM Studio server
 
 Local data: ${path.dirname(localAgentConfigPath())}
 `.trim();
@@ -109,8 +116,24 @@ function positivePort(value: string | undefined, fallback: number): number {
   return parsed;
 }
 
+async function loadPairedNodes(): Promise<LocalAgentConfig[]> {
+  const configs = await Promise.all([
+    loadLocalAgentConfig(),
+    ...(process.env.FREE_LLM_LOCAL_NODE_CONFIG ? [] : [
+      loadLocalAgentConfig(runtimeAgentConfigPath("ollama")),
+      loadLocalAgentConfig(runtimeAgentConfigPath("lmstudio")),
+    ]),
+  ]);
+  return configs.filter((config): config is LocalAgentConfig => config !== undefined);
+}
+
+function pairedRuntime(config: LocalAgentConfig): LocalNodeRuntime {
+  return config.runtime ?? "ollama";
+}
+
 async function selectedModels(
-  models: Awaited<ReturnType<typeof discoverOllamaModels>>,
+  models: LocalNodeModelInventoryItem[],
+  label: string,
   args: string[],
 ): Promise<string[]> {
   const explicit = option(args, "--models");
@@ -126,8 +149,10 @@ async function selectedModels(
       .map((model) => model.id)
       .filter((id) => !/(?:^|[-_:])(embed|embedding)(?:[-_:]|$)/i.test(id));
   }
-  console.log("\nInstalled Ollama models:");
-  models.forEach((model, index) => console.log(`  ${index + 1}. ${model.id}`));
+  console.log(`\nInstalled ${label} models:`);
+  models.forEach((model, index) => console.log(
+    `  ${index + 1}. ${model.id}${model.available === false ? " (load in LM Studio to use)" : ""}`,
+  ));
   const answer = await prompt("Select models by number or ID, comma-separated [all]: ");
   if (!answer) return models.map((model) => model.id);
   const selected = answer.split(",").map((item) => item.trim()).filter(Boolean).map((item) => {
@@ -147,31 +172,41 @@ async function connectLocalNode(
   args: string[],
   cliVersion: string,
 ): Promise<void> {
-  if (runtime !== "ollama") throw new Error('Only "connect ollama" is supported in v1.');
-  if (await loadLocalAgentConfig()) {
-    throw new Error('A local node is already paired. Run "free-llm status" or "free-llm revoke" first.');
+  if (!isLocalNodeRuntime(runtime)) throw new Error('Use "connect ollama" or "connect lmstudio".');
+  const paired = await loadPairedNodes();
+  if (paired.some((config) => pairedRuntime(config) === runtime)) {
+    throw new Error(`This runtime is already paired. Run "free-llm status --runtime ${runtime}" to check it.`);
   }
+  if (process.env.FREE_LLM_LOCAL_NODE_CONFIG && paired.length) {
+    throw new Error("FREE_LLM_LOCAL_NODE_CONFIG points to an existing pairing. Clear it to use automatic runtime settings, or choose a different file.");
+  }
+  const customConfig = process.env.FREE_LLM_LOCAL_NODE_CONFIG;
+  const configFile = customConfig ? localAgentConfigPath() : runtimeAgentConfigPath(runtime);
+  const usedPorts = new Set(paired.map((config) => config.agentPort));
+  let defaultPort = runtime === "lmstudio" && !customConfig ? 11_501 : 11_500;
+  while (usedPorts.has(defaultPort)) defaultPort += 1;
+  const agentPort = positivePort(option(args, "--agent-port"), defaultPort);
+  if (usedPorts.has(agentPort)) throw new Error(`Agent port ${agentPort} is assigned to another pairing. Choose a different --agent-port.`);
   const routerBaseUrl = normalizeRouterBaseUrl(
     option(args, "--router-url") ??
     process.env.FREE_LLM_ROUTER_URL ??
     "http://127.0.0.1:8787",
   );
-  const ollamaBaseUrl = (
-    option(args, "--ollama-url") ??
-    process.env.OLLAMA_BASE_URL ??
-    "http://127.0.0.1:11434"
-  ).replace(/\/+$/, "");
+  const runtimeConfig = runtime === "lmstudio"
+    ? { runtime, runtimeBaseUrl: option(args, "--lmstudio-url") ?? process.env.LMSTUDIO_BASE_URL ?? "http://127.0.0.1:1234" }
+    : { runtime, ollamaBaseUrl: option(args, "--ollama-url") ?? process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434" };
+  const connection = runtimeConnection(runtimeConfig);
   console.log("Free LLM Router — Connect Local LLM\n");
-  const version = await ollamaVersion(ollamaBaseUrl);
-  console.log(`✓ Ollama ${version} detected at ${ollamaBaseUrl}`);
-  const discovered = await discoverOllamaModels(ollamaBaseUrl);
-  if (!discovered.length) throw new Error("No installed Ollama models were found");
+  const inventory = await discoverRuntimeModels(runtimeConfig);
+  const discovered = inventory.models;
+  console.log(`✓ ${connection.label}${inventory.ollamaVersion ? ` ${inventory.ollamaVersion}` : ""} detected at ${connection.origin}`);
+  if (!discovered.length) throw new Error(`No installed ${connection.label} chat models were found`);
   console.log(`✓ ${discovered.length} installed model${discovered.length === 1 ? "" : "s"} found`);
-  const allowedModels = await selectedModels(discovered, args);
-  if (!allowedModels.length) throw new Error("Select at least one Ollama model");
+  const allowedModels = await selectedModels(discovered, connection.label, args);
+  if (!allowedModels.length) throw new Error(`Select at least one ${connection.label} model`);
   const code = option(args, "--code") ?? await prompt("Pairing code: ");
   if (!code) throw new Error("Pairing code is required");
-  const defaultName = process.env.COMPUTERNAME ?? process.env.HOSTNAME ?? "Local Ollama";
+  const defaultName = process.env.COMPUTERNAME ?? process.env.HOSTNAME ?? connection.label;
   const name = option(args, "--name") ?? (stdin.isTTY
     ? (await prompt(`Node name [${defaultName}]: `)) || defaultName
     : defaultName);
@@ -181,10 +216,10 @@ async function connectLocalNode(
     body: JSON.stringify({
       code,
       name,
-      runtime: "ollama",
+      runtime,
       cliVersion,
-      models: (await inspectOllamaModelInventory(ollamaBaseUrl, discovered)).map((model) => ({
-        id: model.id,
+      models: discovered.map((model) => ({
+        ...model,
         enabled: allowedModels.includes(model.id),
         capabilities: model.capabilities,
       })),
@@ -208,6 +243,7 @@ async function connectLocalNode(
     throw new Error(`${errorMessage || `Pairing failed with HTTP ${response.status}`}${requestId}`);
   }
   const config = await createLocalAgentConfig({
+    configFile,
     nodeId: payload.node.id,
     ownerAccountId: payload.node.ownerAccountId,
     name: payload.node.name,
@@ -218,8 +254,8 @@ async function connectLocalNode(
     allowedModels,
     models: payload.node.models,
     limits: payload.node.limits,
-    agentPort: positivePort(option(args, "--agent-port"), 11_500),
-    ollamaBaseUrl,
+    agentPort,
+    ...runtimeConfig,
     cliVersion,
     ...(option(args, "--ngrok-path") ? { ngrokPath: option(args, "--ngrok-path")! } : {}),
   });
@@ -229,20 +265,13 @@ async function connectLocalNode(
   console.log(`Maximum concurrent requests: ${config.limits.maxConcurrentRequests}`);
   console.log(`Maximum output tokens: ${config.limits.maxOutputTokens}`);
   if (args.includes("--no-start")) {
-    console.log('Run "free-llm start" to start the agent and secure tunnel.');
+    console.log(`Run "free-llm start --runtime ${runtime}" to start the agent and secure tunnel.`);
     return;
   }
   await runLocalNode(config, { onStatus: (message) => console.log(`✓ ${message}`) });
 }
 
-async function startLocalNode(requirePaired: boolean, args: string[]): Promise<boolean> {
-  const config = await loadLocalAgentConfig();
-  if (!config || args.includes("--router")) {
-    if (requirePaired) {
-      throw new Error('No local node is paired. Run "free-llm connect ollama" first.');
-    }
-    return false;
-  }
+async function startLocalNode(config: LocalAgentConfig, cliVersion: string): Promise<void> {
   if (config.agentPid && config.agentPid !== process.pid) {
     try {
       process.kill(config.agentPid, 0);
@@ -253,13 +282,11 @@ async function startLocalNode(requirePaired: boolean, args: string[]): Promise<b
       await saveLocalAgentConfig(config);
     }
   }
+  config.cliVersion = cliVersion;
   await runLocalNode(config, { onStatus: (message) => console.log(message) });
-  return true;
 }
 
-async function localNodeStatus(): Promise<void> {
-  const config = await loadLocalAgentConfig();
-  if (!config) throw new Error('No local node is paired. Use "free-llm connect ollama".');
+async function localNodeStatus(config: LocalAgentConfig): Promise<void> {
   let running = false;
   if (config.agentPid) {
     try {
@@ -269,12 +296,14 @@ async function localNodeStatus(): Promise<void> {
       running = false;
     }
   }
-  const version = await ollamaVersion(config.ollamaBaseUrl).catch(() => "offline");
+  const runtime = runtimeConnection(config);
+  const inventory = await discoverRuntimeModels(config, config.models.map(({ modelId }) => modelId)).catch(() => undefined);
   const liveTunnel = await currentNgrokEndpoint(config.agentPort);
   console.log(`Node:       ${config.name} (${config.nodeId})`);
   console.log(`Account:    ${config.ownerAccountId} (paired)`);
   console.log(`Agent:      ${running ? `running (PID ${config.agentPid})` : "stopped"}`);
-  console.log(`Ollama:     ${version}`);
+  console.log(`Agent port: ${config.agentPort}`);
+  console.log(`Runtime:    ${runtime.label} (${inventory?.ollamaVersion ?? (inventory ? "online" : "offline")})`);
   console.log(`Tunnel:     ${liveTunnel ? `${liveTunnel} (connected)` : config.tunnelEndpoint ? `${config.tunnelEndpoint} (not detected)` : "not registered"}`);
   console.log(`Heartbeat:  ${config.lastHeartbeatAt ?? "not sent"}`);
   console.log(`Active:     ${config.lastKnownActiveRequests ?? 0}/${config.limits.maxConcurrentRequests}`);
@@ -282,16 +311,14 @@ async function localNodeStatus(): Promise<void> {
   console.log(`Models:     ${config.allowedModels.join(", ") || "none"}`);
 }
 
-async function localModels(sync: boolean): Promise<void> {
-  const config = await loadLocalAgentConfig();
-  if (!config) throw new Error("No local node is paired");
-  const discovered = await discoverOllamaModels(config.ollamaBaseUrl);
-  discovered.forEach((model) => {
-    console.log(`${config.allowedModels.includes(model.id) ? "[x]" : "[ ]"} ${model.id}`);
+async function localModels(config: LocalAgentConfig, sync: boolean): Promise<void> {
+  const inventory = await discoverRuntimeModels(config, config.models.map(({ modelId }) => modelId));
+  inventory.models.forEach((model) => {
+    console.log(`${config.allowedModels.includes(model.id) ? "[x]" : "[ ]"} ${model.id}${model.available === false ? " (load in LM Studio to use)" : ""}`);
   });
   if (!sync) return;
   const node = await localNodeDeviceRequest<LocalNode>(config, "/models/sync", {
-    models: await inspectOllamaModelInventory(config.ollamaBaseUrl, discovered, config.models.map(({ modelId }) => modelId)),
+    models: inventory.models,
   });
   config.models = node.models;
   config.allowedModels = node.models.filter((model) => model.enabled && model.installed).map((model) => model.modelId);
@@ -299,21 +326,17 @@ async function localModels(sync: boolean): Promise<void> {
   console.log("Model inventory synchronized.");
 }
 
-async function disconnectLocalNode(): Promise<void> {
-  const config = await loadLocalAgentConfig();
-  if (!config) throw new Error("No local node is paired");
+async function disconnectLocalNode(config: LocalAgentConfig): Promise<void> {
   if (config.agentPid && config.agentPid !== process.pid) {
     try { process.kill(config.agentPid, "SIGTERM"); } catch { /* already stopped */ }
   }
   delete config.agentPid;
   delete config.tunnelEndpoint;
   await saveLocalAgentConfig(config);
-  console.log("Local node stopped. Pairing and Ollama models were preserved.");
+  console.log("Local node stopped. Pairing and installed models were preserved.");
 }
 
-async function revokeLocalNode(): Promise<void> {
-  const config = await loadLocalAgentConfig();
-  if (!config) throw new Error("No local node is paired");
+async function revokeLocalNode(config: LocalAgentConfig): Promise<void> {
   let alreadyInvalidated = false;
   try {
     await localNodeDeviceRequest(config, "/revoke", {});
@@ -327,15 +350,13 @@ async function revokeLocalNode(): Promise<void> {
   if (config.agentPid && config.agentPid !== process.pid) {
     try { process.kill(config.agentPid, "SIGTERM"); } catch { /* already stopped */ }
   }
-  await deleteLocalAgentConfig();
+  await deleteLocalAgentConfig(config);
   console.log(alreadyInvalidated
     ? "Local node was already revoked or deleted remotely. Local pairing was removed."
-    : "Local node revoked. Ollama models were not changed.");
+    : "Local node revoked. Installed models were preserved.");
 }
 
-async function rotateLocalCredential(): Promise<void> {
-  let config = await loadLocalAgentConfig();
-  if (!config) throw new Error("No local node is paired");
+async function rotateLocalCredential(config: LocalAgentConfig): Promise<void> {
   if (config.agentPid && config.agentPid !== process.pid) {
     const pid = config.agentPid;
     try { process.kill(pid, "SIGTERM"); } catch { /* already stopped */ }
@@ -354,7 +375,7 @@ async function rotateLocalCredential(): Promise<void> {
     } catch (error) {
       if (error instanceof Error && error.message.includes("credential was not rotated")) throw error;
     }
-    config = (await loadLocalAgentConfig()) ?? config;
+    config = (await loadLocalAgentConfig(config.configFile)) ?? config;
   }
   const result = await localNodeDeviceRequest<{ deviceCredential: string }>(
     config,
@@ -362,11 +383,11 @@ async function rotateLocalCredential(): Promise<void> {
     {},
   );
   await replaceLocalAgentCredential(config, result.deviceCredential);
-  console.log('Local node credential rotated. Run "free-llm start" to reconnect.');
+  console.log(`Local node credential rotated. Run "free-llm start --runtime ${pairedRuntime(config)}" to reconnect.`);
 }
 
-async function localNodeLogs(): Promise<void> {
-  const target = path.resolve(path.dirname(localAgentConfigPath()), "local-node.log");
+async function localNodeLogs(configFile = localAgentConfigPath()): Promise<void> {
+  const target = path.resolve(path.dirname(configFile), "local-node.log");
   try {
     const lines = (await readFile(target, "utf8")).trim().split(/\r?\n/).slice(-200);
     console.log(lines.join("\n"));
@@ -384,30 +405,59 @@ export async function runLocalNodeCliCommand(
   args: string[],
   options: LocalNodeCliOptions,
 ): Promise<boolean> {
-  switch (command) {
-    case "connect":
-      await connectLocalNode(args[0], args.slice(1), options.cliVersion);
+  if (!isLocalNodeCliCommand(command)) return false;
+  if (command === "connect") {
+    await connectLocalNode(args[0], args.slice(1), options.cliVersion);
+    return true;
+  }
+  if (command === "start" && args.includes("--router") && !options.requirePairedStart) return false;
+
+  const runtimeIndex = args.indexOf("--runtime");
+  let runtime: LocalNodeRuntime | undefined;
+  if (runtimeIndex >= 0) {
+    const requestedRuntime = args[runtimeIndex + 1];
+    if (!isLocalNodeRuntime(requestedRuntime)) throw new Error("--runtime must be ollama or lmstudio");
+    runtime = requestedRuntime;
+  }
+  const commandArgs = args.filter((_, index) => runtimeIndex < 0 || (index !== runtimeIndex && index !== runtimeIndex + 1));
+  const paired = await loadPairedNodes();
+  const matches = runtime ? paired.filter((config) => pairedRuntime(config) === runtime) : paired;
+  if (command === "status" && matches.length) {
+    for (const [index, config] of matches.entries()) {
+      if (index > 0) console.log("");
+      await localNodeStatus(config);
+    }
+    return true;
+  }
+  if (matches.length > 1) throw new Error("Both runtimes are paired. Add --runtime ollama or --runtime lmstudio to select one.");
+  const config = matches[0];
+  if (!config) {
+    if (command === "start" && !runtime && !options.requirePairedStart) return false;
+    if (command === "logs") {
+      await localNodeLogs(runtime && !process.env.FREE_LLM_LOCAL_NODE_CONFIG ? runtimeAgentConfigPath(runtime) : undefined);
       return true;
+    }
+    throw new Error(runtime ? `No ${runtime} node is paired.` : 'No local node is paired. Use "free-llm help" for connection commands.');
+  }
+  switch (command) {
     case "start":
-      return startLocalNode(options.requirePairedStart === true, args);
-    case "status":
-      await localNodeStatus();
+      await startLocalNode(config, options.cliVersion);
       return true;
     case "models":
-      await localModels(args[0] === "sync");
+      await localModels(config, commandArgs[0] === "sync");
       return true;
     case "logs":
-      await localNodeLogs();
+      await localNodeLogs(config.configFile);
       return true;
     case "disconnect":
-      await disconnectLocalNode();
+      await disconnectLocalNode(config);
       return true;
     case "revoke":
-      await revokeLocalNode();
+      await revokeLocalNode(config);
       return true;
     case "credential":
-      if (args[0] !== "rotate") throw new Error('Use "free-llm credential rotate".');
-      await rotateLocalCredential();
+      if (commandArgs[0] !== "rotate") throw new Error('Use "free-llm credential rotate".');
+      await rotateLocalCredential(config);
       return true;
     default:
       return false;

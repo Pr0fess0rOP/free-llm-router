@@ -177,7 +177,7 @@ import {
 import { authenticateLocalNode } from "./local-nodes/local-node-auth.js";
 import { localNodeVerificationKey } from "./local-nodes/local-node-request-auth.js";
 import { allowLocalNodePairingAttempt } from "./local-nodes/local-node-store.js";
-import type { LocalNodeModelInventoryItem } from "./local-nodes/local-node-types.js";
+import { isLocalNodeRuntime, type LocalNodeModelInventoryItem } from "./local-nodes/local-node-types.js";
 
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
 
@@ -1425,8 +1425,7 @@ async function createRoutedProviderRouter(params: {
           (provider) => provider.id === attempt.providerId,
         );
         if (
-          runtimeProvider?.providerType === "local-ollama" &&
-          runtimeProvider.localNodeId &&
+          runtimeProvider?.localNodeId &&
           attempt.providerModel
         ) {
           await recordLocalProviderAttempt(
@@ -1551,6 +1550,7 @@ export async function localNodePlaygroundRequest(params: {
   if (!model?.installed || !model.enabled) {
     throw new Error("Select an enabled model installed on this local node");
   }
+  if (model.available === false) throw new Error("Load this model in LM Studio before testing it");
   if (node.status !== "online" || !node.endpoint) {
     throw new Error("Local node is offline");
   }
@@ -1781,7 +1781,7 @@ async function reconcileLocalStreamFailure(params: {
 }): Promise<void> {
   if (!params.observation.localStreamError) return;
   const provider = params.providers.find((candidate) => candidate.id === params.result.providerId);
-  if (provider?.providerType !== "local-ollama" || !provider.localNodeId) return;
+  if (!provider?.localNodeId) return;
   const message = "Local model stream failed after output started";
   const selected = params.result.attempts.find(
     (attempt) => attempt.providerId === params.result.providerId && attempt.success,
@@ -2407,8 +2407,8 @@ async function handleRequestCore(
         sendJson(response, 400, { error: "Node name is required" });
         return;
       }
-      if (body.runtime !== "ollama") {
-        sendJson(response, 400, { error: "Only the Ollama runtime is supported" });
+      if (!isLocalNodeRuntime(body.runtime)) {
+        sendJson(response, 400, { error: "Supported runtimes are Ollama and LM Studio" });
         return;
       }
       if (
@@ -2431,14 +2431,14 @@ async function handleRequestCore(
         const paired = await pairLocalNode({
           code: body.code,
           name: body.name,
-          runtime: "ollama",
+          runtime: body.runtime,
           ...(typeof body.cliVersion === "string"
             ? { cliVersion: body.cliVersion }
             : {}),
           ...(Array.isArray(body.models)
             ? {
                 models: body.models.filter(
-                  (model): model is { id: string; enabled: boolean; capabilities?: unknown } =>
+                  (model): model is { id: string; enabled: boolean; capabilities?: unknown; displayName?: unknown; loaded?: unknown; available?: unknown } =>
                     Boolean(model) &&
                     typeof model === "object" &&
                     typeof (model as { id?: unknown }).id === "string" &&
@@ -2515,6 +2515,8 @@ async function handleRequestCore(
             ...(typeof body.ollamaVersion === "string"
               ? { ollamaVersion: body.ollamaVersion }
               : {}),
+            ...(body.runtimeStatus === "online" || body.runtimeStatus === "offline"
+              ? { runtimeStatus: body.runtimeStatus } : {}),
             activeRequests: body.activeRequests,
             maxConcurrentRequests: body.maxConcurrentRequests,
             ...(models ? { models } : {}),
@@ -2656,7 +2658,7 @@ async function handleRequestCore(
         }
         const body = await readJsonBody(request);
         const modelIds = localNodeTestMatch[2] === "test-all"
-          ? node.models.filter((model) => model.enabled && model.installed).map((model) => model.modelId)
+          ? node.models.filter((model) => model.enabled && model.installed && model.available !== false).map((model) => model.modelId)
           : [typeof body.modelId === "string" ? body.modelId : ""];
         if (!modelIds.length || modelIds.some((modelId) => !modelId)) {
           sendJson(response, 400, { error: "Select a local model to test" });

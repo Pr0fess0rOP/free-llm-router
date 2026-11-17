@@ -7,11 +7,15 @@ export interface OllamaModelInfo {
 }
 
 export function normalizeOllamaBaseUrl(value: string): string {
+  return normalizeLocalRuntimeOrigin(value, "Ollama");
+}
+
+export function normalizeLocalRuntimeOrigin(value: string, name = "Local runtime"): string {
   let parsed: URL;
   try {
     parsed = new URL(value);
   } catch {
-    throw new Error("Ollama URL must be a valid loopback HTTP URL");
+    throw new Error(`${name} URL must be a valid loopback HTTP URL`);
   }
   const loopback = parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost" || parsed.hostname === "[::1]";
   if (
@@ -23,7 +27,7 @@ export function normalizeOllamaBaseUrl(value: string): string {
     parsed.hash ||
     (parsed.pathname !== "/" && parsed.pathname !== "")
   ) {
-    throw new Error("Ollama URL must use HTTP on localhost with no path or credentials");
+    throw new Error(`${name} URL must use HTTP on localhost with no path or credentials`);
   }
   return parsed.origin;
 }

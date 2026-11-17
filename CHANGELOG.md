@@ -2,6 +2,13 @@
 
 All notable changes to Free LLM Router are documented here.
 
+## 0.8.0 - Unreleased
+
+- Connect private LM Studio models from the dashboard or with `free-llm connect lmstudio`.
+- Discover downloaded chat models, surface loaded and on-demand availability, and route through the same protected agent used by Ollama.
+- Support authenticated LM Studio servers using a local `LMSTUDIO_API_TOKEN` and retain existing Ollama pairings.
+- Document global npm installation, on-demand `npx` use, and both runtime setup flows in the CLI package README.
+
 ## 0.7.0 - 2026-08-01
 
 ### Added

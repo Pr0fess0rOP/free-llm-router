@@ -1943,6 +1943,20 @@ button:active {
 .local-node-card-heading small { color: var(--muted); }
 .local-node-card-heading .local-node-warning { color: #a16207; }
 
+.local-node-connect-controls {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto;
+  align-items: end;
+  gap: 6px 8px;
+}
+
+.local-node-connect-controls label {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
 .local-node-pairing {
   display: grid;
   grid-template-columns: minmax(180px, .5fr) minmax(300px, 1.5fr);

@@ -2,16 +2,17 @@ import { constants } from "node:fs";
 import { chmod, copyFile, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { LocalNodeLimits, LocalNodeModel } from "../local-node-types.js";
+import { isLocalNodeRuntime, type LocalNodeLimits, type LocalNodeModel, type LocalNodeRuntime } from "../local-node-types.js";
 import {
   deleteProtectedCredential,
   protectDeviceCredential,
   revealDeviceCredential,
   type ProtectedCredential,
 } from "./credential-store.js";
-import { normalizeOllamaBaseUrl } from "./ollama-client.js";
+import { normalizeLocalRuntimeOrigin, normalizeOllamaBaseUrl } from "./ollama-client.js";
 
 export interface LocalAgentConfig {
+  configFile?: string;
   nodeId: string;
   ownerAccountId: string;
   name: string;
@@ -23,7 +24,9 @@ export interface LocalAgentConfig {
   models: LocalNodeModel[];
   limits: LocalNodeLimits;
   agentPort: number;
-  ollamaBaseUrl: string;
+  runtime?: LocalNodeRuntime;
+  runtimeBaseUrl?: string;
+  ollamaBaseUrl?: string;
   agentPid?: number;
   tunnelEndpoint?: string;
   ngrokPath?: string;
@@ -37,6 +40,10 @@ export function localAgentConfigPath(): string {
     return path.resolve(process.env.FREE_LLM_LOCAL_NODE_CONFIG);
   }
   return path.join(os.homedir(), ".freellm", "local-node.json");
+}
+
+export function runtimeAgentConfigPath(runtime: LocalNodeRuntime): string {
+  return path.join(path.dirname(localAgentConfigPath()), runtime, "local-node.json");
 }
 
 export function legacyLocalAgentConfigPath(): string {
@@ -67,18 +74,17 @@ export function normalizeRouterBaseUrl(value: string): string {
   try {
     parsed = new URL(value);
   } catch {
-    throw new Error("Router URL must be a valid HTTPS URL or a loopback development URL");
+    throw new Error("Pass the router site URL to --router-url, for example https://your-router.example");
   }
   const loopback = parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost" || parsed.hostname === "[::1]";
-  if (
-    (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && loopback)) ||
-    parsed.username ||
-    parsed.password ||
-    parsed.search ||
-    parsed.hash ||
-    (parsed.pathname !== "/" && parsed.pathname !== "")
-  ) {
-    throw new Error("Router URL must be an HTTPS origin (HTTP is allowed only on loopback)");
+  if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && loopback)) {
+    throw new Error("--router-url requires HTTPS. For a router on this computer, use http://127.0.0.1:8787");
+  }
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error("Use the router site URL without credentials, a query string, or a fragment");
+  }
+  if (!/^\/(?:dashboard\/?|v1\/?)?$/.test(parsed.pathname)) {
+    throw new Error("Use the router site URL, such as https://your-router.example, or copy the pairing command from the dashboard");
   }
   return parsed.origin;
 }
@@ -86,10 +92,11 @@ export function normalizeRouterBaseUrl(value: string): string {
 export async function saveLocalAgentConfig(
   config: LocalAgentConfig,
 ): Promise<void> {
-  const target = localAgentConfigPath();
+  const { configFile = localAgentConfigPath(), ...storedConfig } = config;
+  const target = configFile;
   await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
   const temporary = `${target}.${process.pid}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(config, null, 2)}\n`, {
+  await writeFile(temporary, `${JSON.stringify(storedConfig, null, 2)}\n`, {
     encoding: "utf8",
     mode: 0o600,
   });
@@ -98,6 +105,7 @@ export async function saveLocalAgentConfig(
 }
 
 export async function createLocalAgentConfig(params: {
+  configFile?: string;
   nodeId: string;
   ownerAccountId: string;
   name: string;
@@ -110,10 +118,13 @@ export async function createLocalAgentConfig(params: {
   limits: LocalNodeLimits;
   agentPort?: number;
   ollamaBaseUrl?: string;
+  runtime?: LocalNodeRuntime;
+  runtimeBaseUrl?: string;
   cliVersion: string;
   ngrokPath?: string;
 }): Promise<LocalAgentConfig> {
   const config: LocalAgentConfig = {
+    configFile: params.configFile ?? localAgentConfigPath(),
     nodeId: params.nodeId,
     ownerAccountId: params.ownerAccountId,
     name: params.name,
@@ -125,7 +136,9 @@ export async function createLocalAgentConfig(params: {
     models: params.models,
     limits: params.limits,
     agentPort: params.agentPort ?? 11_500,
-    ollamaBaseUrl: normalizeOllamaBaseUrl(params.ollamaBaseUrl ?? "http://127.0.0.1:11434"),
+    ...(params.runtime === "lmstudio"
+      ? { runtime: "lmstudio", runtimeBaseUrl: normalizeLocalRuntimeOrigin(params.runtimeBaseUrl ?? "http://127.0.0.1:1234") }
+      : { ollamaBaseUrl: normalizeOllamaBaseUrl(params.runtimeBaseUrl ?? params.ollamaBaseUrl ?? "http://127.0.0.1:11434") }),
     cliVersion: params.cliVersion,
     ...(params.ngrokPath ? { ngrokPath: params.ngrokPath } : {}),
   };
@@ -133,15 +146,27 @@ export async function createLocalAgentConfig(params: {
   return config;
 }
 
-export async function loadLocalAgentConfig(): Promise<LocalAgentConfig | undefined> {
-  await migrateLegacyLocalAgentConfig();
+export async function loadLocalAgentConfig(
+  configFile = localAgentConfigPath(),
+): Promise<LocalAgentConfig | undefined> {
+  if (configFile === localAgentConfigPath()) await migrateLegacyLocalAgentConfig();
   try {
-    const config = JSON.parse(await readFile(localAgentConfigPath(), "utf8")) as LocalAgentConfig;
+    const config = JSON.parse(await readFile(configFile, "utf8")) as LocalAgentConfig;
+    config.configFile = configFile;
     if (!config.nodeId || !config.ownerAccountId || !config.routerBaseUrl) {
       throw new Error("Invalid local node configuration");
     }
     config.routerBaseUrl = normalizeRouterBaseUrl(config.routerBaseUrl);
-    config.ollamaBaseUrl = normalizeOllamaBaseUrl(config.ollamaBaseUrl);
+    if (config.runtime !== undefined && !isLocalNodeRuntime(config.runtime)) {
+      throw new Error("Invalid local node runtime");
+    }
+    if (config.runtime === "lmstudio") {
+      if (!config.runtimeBaseUrl) throw new Error("LM Studio URL is missing");
+      config.runtimeBaseUrl = normalizeLocalRuntimeOrigin(config.runtimeBaseUrl);
+    } else {
+      if (!config.ollamaBaseUrl) throw new Error("Ollama URL is missing");
+      config.ollamaBaseUrl = normalizeOllamaBaseUrl(config.ollamaBaseUrl);
+    }
     return config;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
@@ -162,10 +187,9 @@ export async function replaceLocalAgentCredential(
   await saveLocalAgentConfig(config);
 }
 
-export async function deleteLocalAgentConfig(): Promise<void> {
-  const config = await loadLocalAgentConfig();
-  if (config) await deleteProtectedCredential(config.credential);
-  await unlink(localAgentConfigPath()).catch((error: NodeJS.ErrnoException) => {
+export async function deleteLocalAgentConfig(config: LocalAgentConfig): Promise<void> {
+  await deleteProtectedCredential(config.credential);
+  await unlink(config.configFile ?? localAgentConfigPath()).catch((error: NodeJS.ErrnoException) => {
     if (error.code !== "ENOENT") throw error;
   });
 }

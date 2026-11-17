@@ -1,11 +1,11 @@
-# Connect a private Ollama node
+# Connect a private local node
 
-Free LLM Router can use models installed in Ollama on your own computer. The node belongs only to the router account that paired it. It is not shared with other users.
+Free LLM Router can use models installed in Ollama or LM Studio on your own computer. The node belongs to the router account that paired it.
 
 ## Requirements
 
-- Ollama running on `http://127.0.0.1:11434`
-- At least one installed chat model (`ollama list`)
+- Ollama running on `http://127.0.0.1:11434` or LM Studio 0.4+ running on `http://127.0.0.1:1234`
+- At least one installed chat model
 - Node.js 20 or newer
 - ngrok installed, authenticated with `ngrok config add-authtoken ...`, and available on `PATH`
 - A signed-in Free LLM Router account
@@ -13,11 +13,17 @@ Free LLM Router can use models installed in Ollama on your own computer. The nod
 ## Connect
 
 1. Open **Dashboard → Providers → Local LLMs**.
-2. Choose **Connect Ollama** and copy the one-time command.
-3. Run it on the Ollama computer:
+2. Choose **Ollama** or **LM Studio**, select **Connect**, and copy the one-time command.
+3. Run it on the computer hosting the model:
 
    ```bash
    npx --yes @free-llm-router/cli@latest connect ollama --code FLR-XXXX-XXXX --router-url https://your-router.example
+   ```
+
+   For LM Studio, start the server from its **Developer** tab and use `connect lmstudio`. If LM Studio requires authentication, set `LMSTUDIO_API_TOKEN` in the terminal before connecting or starting the agent. [LM Studio server setup](https://lmstudio.ai/docs/developer/core/server)
+
+   ```bash
+   npx --yes @free-llm-router/cli@latest connect lmstudio --code FLR-XXXX-XXXX --router-url https://your-router.example
    ```
 
 4. Select the installed models that the router may use.
@@ -34,7 +40,7 @@ instead of asking npm to download a package:
 npm run cli -- connect ollama --code FLR-XXXX-XXXX --router-url http://localhost:8787
 ```
 
-The CLI stores its configuration under the current user's `~/.freellm/` directory, starts a protected agent on `127.0.0.1:11500`, starts or connects to an ngrok HTTPS tunnel, registers the tunnel, and sends an authenticated heartbeat every 20 seconds. Older checkout-local configuration is copied forward automatically without deleting the original. Raw Ollama is never exposed.
+The CLI stores each runtime's pairing under the current user's `~/.freellm/` directory, starts a protected loopback agent, registers its ngrok HTTPS tunnel, and sends an authenticated heartbeat every 20 seconds. Existing pairings keep their saved port. When both runtimes are paired, `free-llm status` shows both and commands such as `start` or `models sync` take `--runtime ollama` or `--runtime lmstudio`. Each online agent needs its own HTTPS endpoint pointing to its agent port. [Using both runtimes on one computer](../packages/cli/README.md#use-ollama-and-lm-studio-on-one-computer)
 
 `npx` runs the package without installing a permanent `free-llm` command. You
 can either keep using the full `npx --yes @free-llm-router/cli@latest ...`
@@ -60,12 +66,12 @@ Cloud fallback is possible only before output begins. Once a local stream sends 
 
 ## Test in the Playground
 
-Open **Playground → Local LLM**, then select an online node and one of its enabled Ollama models. This mode calls that exact local model through the protected node and bypasses cloud ranking and fallback. You can change:
+Open **Playground → Local LLM**, then select an online node and a ready, enabled model. For LM Studio, a downloaded model must be loaded or available on demand. This mode calls that exact local model through the protected node and bypasses cloud ranking and fallback. You can change:
 
 - API compatibility: OpenAI, Responses/Codex, or Claude Messages
 - Request type: basic text, JSON, structured output, tools, or reasoning
 - Temperature and output token cap
-- The prompt sent to Ollama
+- The prompt sent to the local runtime
 
 The result shows the node, exact model, latency, required capabilities, and response. This is distinct from **Router request**, which exercises the complete routing policy, and **Provider + model**, which directly diagnoses a hosted provider model.
 
@@ -86,7 +92,7 @@ curl https://your-router.example/v1/chat/completions \
 
 ## Data leaving the computer
 
-Requests selected for a local model travel through the encrypted ngrok HTTPS connection to the protected agent. The agent and the local Ollama process see the prompt in plaintext because they must process it. Heartbeats send node status, versions, active-request counts, and model names—not prompts or generated responses.
+Requests selected for a local model travel through the ngrok HTTPS connection to the protected agent. The agent and local runtime process the prompt in plaintext. Heartbeats carry operational information such as model inventory, versions, runtime status, and active-request counts. LM Studio API tokens stay on the host computer.
 
 ## Management commands
 

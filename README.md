@@ -19,7 +19,7 @@ Imagine you have several different AI assistants (like different brands of smart
 ### How it works
 
 1. **You sign in once** — Log into the dashboard with your Clerk account.
-2. **You add cloud keys or pair Ollama** — Connect hosted AI services, private models on a computer you control, or both.
+2. **You add cloud keys or pair a local runtime** — Connect hosted AI services, Ollama, or LM Studio.
 3. **You get one master key** — The system gives you a special code (starting with `flm_`) that you use in your apps.
 4. **Your apps talk to the router** — Instead of your app talking directly to each AI service, it talks to this router.
 5. **The router chooses the best AI** — Behind the scenes, it picks an eligible cloud or local model based on capabilities, policy, speed, availability, health, quotas, and local routing gates.
@@ -36,7 +36,7 @@ Imagine you have several different AI assistants (like different brands of smart
 - **Flow Features Control Center:** See every optional routing stage in one four-phase checklist and independently enable or disable alias overrides, capability matching, quota protection, cooldowns, circuit breaking, failover, Local LLM participation, and capability learning. Network recovery, malformed-response recovery, and deduplication are controlled in the same place.
 - **Comprehensive Dashboard:** Manage cloud and local providers with matching card flows, test routed, exact cloud, or exact Local LLM prompts in the Playground, and inspect detailed request analytics and performance timings.
 - **Full Compatibility:** Works out of the box as an OpenAI-compatible endpoint, Codex CLI gateway, and Claude Code gateway.
-- **Private Local Ollama Nodes:** Pair Ollama through a protected loopback agent and ngrok tunnel, inspect connections in Providers, manage routing gates, limits, lifecycle, and model capabilities under **Router & Policies → Local LLM Properties**, and test exact local models in the Playground.
+- **Private local nodes:** Pair Ollama or LM Studio through a protected loopback agent and ngrok tunnel. Manage models and routing under **Router & Policies → Local LLM Properties**, and test exact local models in the Playground.
 
 ---
 
@@ -86,12 +86,12 @@ The dashboard will start at `http://localhost:8787`.
 1. Open `http://localhost:8787` and sign in.
 2. Create your first router to generate your `flm_...` router key.
 3. Go to the **Providers** page and add your API keys for services like Groq or OpenRouter.
-4. Optionally open **Providers → Local LLMs** and pair an Ollama computer.
+4. Optionally open **Providers → Local LLMs** and pair a computer running Ollama or LM Studio.
 5. Head to the **Playground** to test a routed request, exact hosted model, or exact Local LLM immediately.
 
 For detailed setup instructions, see [Getting Started](docs/GETTING_STARTED.md).
 
-To connect Ollama running on your own computer, see [Connect a private Ollama node](docs/CONNECT_LOCAL_LLM.md).
+For help pairing either runtime, see [Connect a private local node](docs/CONNECT_LOCAL_LLM.md).
 
 ---
 
@@ -103,7 +103,7 @@ Detailed documentation has been moved to the `docs/` folder to keep this README 
 - **[Architecture & Flow](docs/ARCHITECTURE.md)** - Deep dive into request flows and system design.
 - **[Simple Explanation](docs/SIMPLE_EXPLANATION.md)** - A non-technical overview of the product.
 - **[Getting Started](docs/GETTING_STARTED.md)** - Step-by-step setup and testing guide.
-- **[Connect a Local LLM](docs/CONNECT_LOCAL_LLM.md)** - Pair, configure, route to, test, and remove a private Ollama node.
+- **[Connect a Local LLM](docs/CONNECT_LOCAL_LLM.md)** - Pair, configure, test, and remove a private Ollama or LM Studio node.
 - **[Local-node Security](docs/LOCAL_NODE_SECURITY.md)** - Network boundaries, credentials, signed requests, and agent limits.
 - **[Local-node Troubleshooting](docs/LOCAL_NODE_TROUBLESHOOTING.md)** - Diagnose Ollama, ngrok, heartbeat, routing, and credential problems.
 - **[Changelog](CHANGELOG.md)** - Release-by-release feature and behavior changes.

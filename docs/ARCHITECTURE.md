@@ -1811,7 +1811,7 @@ flowchart TD
 11. **Every 5xx is circuit-eligible even when it is not configured as retryable.**
 12. **A `429` creates cooldown state even when `429` is removed from retry codes.**
 13. **Anthropic compatibility is best-effort** when routing Claude Code to non-Claude OpenAI-compatible models.
-14. **Ollama is the only Local LLM runtime in v0.7.0.** LM Studio, llama.cpp, vLLM, LocalAI, and TGI adapters are future work.
+14. **Local routing supports Ollama and LM Studio.** llama.cpp, vLLM, LocalAI, and TGI adapters are future work.
 15. **Local routing currently uses the protected ngrok topology.** Arbitrary public inference URLs and direct exposure of Ollama are intentionally rejected.
 
 ---

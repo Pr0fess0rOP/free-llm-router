@@ -7,6 +7,7 @@ import {
 } from "./local-node-store.js";
 import {
   DEFAULT_LOCAL_NODE_LIMITS,
+  isLocalNodeRuntime,
   normalizeLocalModelCapabilities,
   type LocalNode,
   type LocalNodePairingCodeResult,
@@ -68,12 +69,12 @@ export async function pairLocalNode(params: {
   name: string;
   runtime: LocalNodeRuntime;
   cliVersion?: string;
-  models?: Array<{ id: string; enabled: boolean; capabilities?: unknown }>;
+  models?: Array<{ id: string; enabled: boolean; capabilities?: unknown; displayName?: unknown; loaded?: unknown; available?: unknown }>;
   now?: number;
 }): Promise<PairedLocalNodeResult> {
-  if (params.runtime !== "ollama") {
+  if (!isLocalNodeRuntime(params.runtime)) {
     throw new LocalNodePairingError(
-      "Only the Ollama runtime is supported",
+      "Supported runtimes are Ollama and LM Studio",
       "unsupported_runtime",
     );
   }
@@ -94,7 +95,7 @@ export async function pairLocalNode(params: {
   const normalizedModels = (params.models ?? []).map((model) => {
     const modelId = model.id.trim();
     if (!modelId || /[\s\x00-\x1f]/.test(modelId) || modelId.length > 240) {
-      throw new LocalNodePairingError("Invalid Ollama model ID", "invalid_model_id");
+      throw new LocalNodePairingError("Invalid local model ID", "invalid_model_id");
     }
     return { ...model, id: modelId };
   });
@@ -124,9 +125,11 @@ export async function pairLocalNode(params: {
     return {
       nodeId,
       modelId,
-      displayName: modelId,
+      displayName: typeof model.displayName === "string" ? model.displayName.trim().slice(0, 240) || modelId : modelId,
       enabled: model.enabled,
       installed: true,
+      ...(typeof model.loaded === "boolean" ? { loaded: model.loaded } : {}),
+      ...(typeof model.available === "boolean" ? { available: model.available } : {}),
       capabilities: normalizeLocalModelCapabilities(model.capabilities),
       health: "unknown" as const,
     };
@@ -135,7 +138,7 @@ export async function pairLocalNode(params: {
     id: nodeId,
     ownerAccountId: record.ownerAccountId,
     name,
-    runtime: "ollama",
+    runtime: params.runtime,
     status: "offline",
     createdAt,
     ...(params.cliVersion ? { cliVersion: params.cliVersion.slice(0, 40) } : {}),

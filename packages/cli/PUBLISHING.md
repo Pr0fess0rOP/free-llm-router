@@ -47,13 +47,15 @@ npm whoami
 npm publish --access public
 ```
 
-Expected package: `@free-llm-router/cli@0.7.0`.
+For `0.8.0`, deploy the router with LM Studio pairing support before publishing the CLI. Verify that a previously paired `0.7.x` Ollama agent can still reconnect.
+
+Expected package: `@free-llm-router/cli@0.8.0`.
 
 ## 5. Verify outside the repository
 
 ```powershell
-npx --yes @free-llm-router/cli@0.7.0 --version
-npx --yes @free-llm-router/cli@0.7.0 help
+npx --yes @free-llm-router/cli@0.8.0 --version
+npx --yes @free-llm-router/cli@0.8.0 help
 ```
 
 An npm version cannot be overwritten. Increment the version before every later publication.

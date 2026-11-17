@@ -422,7 +422,7 @@ export class ProviderRouter {
     const ordered = await this.orderedCandidates(requirements);
     const evaluations = ordered.evaluations;
     const candidates = ordered.candidates.filter((provider) => {
-      if (provider.providerType !== "local-ollama" || !provider.localMaxInputBytes) return true;
+      if (!provider.localMaxInputBytes) return true;
       const requestBytes = Buffer.byteLength(JSON.stringify({
         ...incomingBody,
         model: provider.model,
@@ -613,7 +613,7 @@ export class ProviderRouter {
         );
         const failoverReason = observedUnsupportedCapabilities.length
           ? "provider_capability_unsupported" as const
-          : provider.providerType === "local-ollama" && response.status >= 300 && response.status < 400
+          : provider.localNodeId && response.status >= 300 && response.status < 400
             ? "provider_model_or_endpoint_unavailable" as const
           : providerFailoverReason(response.status, message);
         const retryable = failoverReason === undefined

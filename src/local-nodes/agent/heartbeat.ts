@@ -1,5 +1,5 @@
 import type { LocalNode } from "../local-node-types.js";
-import { discoverOllamaModels, inspectOllamaModelInventory, ollamaVersion } from "./ollama-client.js";
+import { discoverRuntimeModels } from "./runtime.js";
 import {
   saveLocalAgentConfig,
   type LocalAgentConfig,
@@ -11,23 +11,14 @@ export async function sendLocalNodeHeartbeat(
   config: LocalAgentConfig,
   agent: LocalAgentHandle,
 ): Promise<LocalNode> {
-  const [version, discovered] = await Promise.all([
-    ollamaVersion(config.ollamaBaseUrl).catch(() => "unavailable"),
-    discoverOllamaModels(config.ollamaBaseUrl).catch(() => []),
-  ]);
-  const installed = new Set(discovered.map((model) => model.id));
-  const inventory = await inspectOllamaModelInventory(config.ollamaBaseUrl, discovered, config.models.map(({ modelId }) => modelId));
+  const inventory = await discoverRuntimeModels(config, config.models.map(({ modelId }) => modelId)).catch(() => undefined);
   const node = await localNodeDeviceRequest<LocalNode>(config, "/heartbeat", {
     agentVersion: config.cliVersion,
-    ollamaVersion: version,
+    ...(inventory?.ollamaVersion ? { ollamaVersion: inventory.ollamaVersion } : {}),
+    runtimeStatus: inventory ? "online" : "offline",
     activeRequests: agent.activeRequests(),
     maxConcurrentRequests: config.limits.maxConcurrentRequests,
-    models: [
-      ...inventory,
-      ...config.models
-        .filter((model) => !installed.has(model.modelId))
-        .map((model) => ({ id: model.modelId, installed: false })),
-    ],
+    ...(inventory ? { models: inventory.models } : {}),
   });
   config.limits = node.limits;
   config.models = node.models;
