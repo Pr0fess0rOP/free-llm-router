@@ -10,6 +10,7 @@ function isProviderConfig(value: unknown): value is ProviderConfig {
   return (
     typeof provider.id === "string" &&
     typeof provider.baseUrl === "string" &&
+    (provider.modelListUrl === undefined || typeof provider.modelListUrl === "string") &&
     typeof provider.model === "string" &&
     (provider.apiKeyEnv === undefined || typeof provider.apiKeyEnv === "string") &&
     (provider.apiKey === undefined || typeof provider.apiKey === "string")

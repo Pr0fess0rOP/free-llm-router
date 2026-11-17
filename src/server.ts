@@ -106,6 +106,10 @@ import {
   statusFromHttpStatus,
 } from "./provider-models.js";
 import {
+  discoverProviderModels,
+  ProviderModelDiscoveryError,
+} from "./provider-model-discovery.js";
+import {
   effectiveReliabilitySettings,
   parseReliabilitySettings,
 } from "./reliability-settings.js";
@@ -2851,8 +2855,30 @@ async function handleRequestCore(
       }
 
       const providerModelsMatch = url.pathname.match(
-        /^\/api\/providers\/([^/]+)\/models(?:\/(test|detect))?$/,
+        /^\/api\/providers\/([^/]+)\/models(?:\/(test|detect|available))?$/,
       );
+      if (providerModelsMatch?.[1] && providerModelsMatch[2] === "available" && request.method === "GET") {
+        const providerId = normalizeProviderId(decodeURIComponent(providerModelsMatch[1]));
+        const configs = await loadProviderConfigs();
+        const provider = configs.find((candidate) => candidate.id === providerId);
+        if (!provider) {
+          sendJson(response, 404, { error: "Unknown provider" });
+          return;
+        }
+        try {
+          const providerKeys = await getProviderKeys(routerKey);
+          const models = await discoverProviderModels(provider, providerKeys?.[providerId]);
+          sendJson(response, 200, { models });
+        } catch (error) {
+          sendJson(response, error instanceof ProviderModelDiscoveryError ? error.status : 502, {
+            error: error instanceof ProviderModelDiscoveryError
+              ? error.message
+              : "Could not load the provider model list.",
+          });
+        }
+        return;
+      }
+
       if (providerModelsMatch?.[1] && request.method === "PUT" && !providerModelsMatch[2]) {
         const providerId = normalizeProviderId(decodeURIComponent(providerModelsMatch[1]));
         const configs = await loadProviderConfigs();

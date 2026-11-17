@@ -478,6 +478,7 @@ export interface RequestPerformanceTiming {
 export interface ProviderConfig {
   id: string;
   baseUrl: string;
+  modelListUrl?: string;
   apiKeyEnv?: string;
   apiKey?: string;
   model: string;

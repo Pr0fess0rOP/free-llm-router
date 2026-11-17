@@ -99,6 +99,7 @@
     {
       "id": "cohere",
       "baseUrl": "https://api.cohere.ai/compatibility/v1",
+      "modelListUrl": "https://api.cohere.ai/v1/models",
       "apiKeyEnv": "COHERE_API_KEY",
       "model": "command-a-03-2025",
       "priority": 210,
