@@ -3756,19 +3756,23 @@ Content-Type: application/json</code></pre>
                         <span id="flow-feature-count" class="routing-policy-badge">11 enabled</span>
                       </div>
 
-                      <div class="mandatory-flow-strip">
-                        <div>
-                          <span class="summary-label">Always applied</span>
-                          <strong>Mandatory request stages</strong>
+                      <section class="mandatory-flow" aria-labelledby="mandatory-flow-title">
+                        <div class="mandatory-flow-heading">
+                          <div>
+                            <span class="summary-label">Always applied</span>
+                            <h4 id="mandatory-flow-title">Request stages</h4>
+                          </div>
+                          <button type="button" data-open-flow-detail="selection">Configure selection</button>
                         </div>
-                        <span>API format detection</span>
-                        <span>Authentication &amp; validation</span>
-                        <span>Model alias resolution</span>
-                        <span>Provider selection</span>
-                        <span>Request deadline</span>
-                        <span>Response adaptation</span>
-                        <button type="button" data-open-flow-detail="selection">Configure selection</button>
-                      </div>
+                        <ul class="mandatory-flow-stages" role="list">
+                          <li>API format detection</li>
+                          <li>Authentication &amp; validation</li>
+                          <li>Model alias resolution</li>
+                          <li>Provider selection</li>
+                          <li>Request deadline</li>
+                          <li>Response adaptation</li>
+                        </ul>
+                      </section>
 
                       <div class="flow-phase-list">
                         <section class="flow-phase">
