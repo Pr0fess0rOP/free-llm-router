@@ -66,6 +66,8 @@ Cloud fallback is possible only before output begins. Once a local stream sends 
 
 ## Test in the Playground
 
+Local model controls track **JSON mode** and **structured output** independently. Missing capability evidence stays unknown, including for existing pairings. The updated LM Studio connector adapts `response_format: { "type": "json_object" }` to a JSON schema that accepts an object with arbitrary properties. Requests with an explicit `json_schema` keep their supplied schema. This adaptation requires restarting an updated connector on the LM Studio computer. The selected model and LM Studio runtime must support the schema used for generation.
+
 Open **Playground → Local LLM**, then select an online node and a ready, enabled model. For LM Studio, a downloaded model must be loaded or available on demand. This mode calls that exact local model through the protected node and bypasses cloud ranking and fallback. You can change:
 
 - API compatibility: OpenAI, Responses/Codex, or Claude Messages

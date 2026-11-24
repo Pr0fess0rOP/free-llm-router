@@ -61,6 +61,10 @@ function publicNode(node: StoredLocalNode | undefined, now = Date.now()): LocalN
     : undefined;
   return {
     ...safeNode,
+    models: safeNode.models.map((model) => ({
+      ...model,
+      capabilities: normalizeLocalModelCapabilities(model.capabilities),
+    })),
     activeRequests: safeNode.activeRequests ?? 0,
     routingEnabled: safeNode.routingEnabled !== false,
     status: effectiveLocalNodeStatus(safeNode, now),
@@ -439,7 +443,7 @@ export async function eligibleLocalNodeProviders(
           capabilities: {
             streaming: model.capabilities.streaming,
             tools: model.capabilities.tools,
-            jsonMode: model.capabilities.structuredOutputs,
+            jsonMode: model.capabilities.jsonMode ?? "unknown",
             structuredOutputs: model.capabilities.structuredOutputs,
             vision: model.capabilities.vision,
             reasoning: model.capabilities.reasoning,
