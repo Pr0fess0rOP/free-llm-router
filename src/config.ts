@@ -45,7 +45,7 @@ export async function loadProviderConfigs(
 
 export async function loadProviders(
   configPath = process.env.PROVIDERS_CONFIG ?? "providers.json",
-  providerKeys: Record<string, string> = {},
+  providerKeys?: Record<string, string>,
   activeModels: Record<string, string> = {},
   activeModelOptions: Record<string, ProviderModelOption> = {},
 ): Promise<ProviderRuntime[]> {
@@ -56,10 +56,16 @@ export async function loadProviders(
 
   return providerConfigs
     .filter((provider) => provider.enabled !== false)
+    .filter((provider) => providerKeys === undefined || (
+      Object.hasOwn(normalizedProviderKeys, provider.id)
+      && typeof normalizedProviderKeys[provider.id] === "string"
+      && normalizedProviderKeys[provider.id]!.trim().length > 0
+    ))
     .map((provider) => {
-      const apiKeyValue =
-        normalizedProviderKeys[provider.id] ??
-        (provider.apiKeyEnv ? process.env[provider.apiKeyEnv] : provider.apiKey);
+      // An explicit key map scopes access to that account, including an empty map.
+      const apiKeyValue = providerKeys === undefined
+        ? (provider.apiKeyEnv ? process.env[provider.apiKeyEnv] : provider.apiKey)
+        : normalizedProviderKeys[provider.id];
 
       const model = normalizedActiveModels[provider.id] ?? provider.model;
       const effective = resolveEffectiveModelCapabilities(
