@@ -11,7 +11,10 @@ import { loadLocalAgentConfig } from "../src/local-nodes/agent/local-node-config
 import { registerAgentEndpoint } from "../src/local-nodes/agent/node-api.js";
 import { discoverRuntimeModels, runtimeConnection } from "../src/local-nodes/agent/runtime.js";
 import { startLocalAgent } from "../src/local-nodes/agent/server.js";
-import { resetLocalNodeSigningKeyCache } from "../src/local-nodes/local-node-request-auth.js";
+import { resetLocalNodeSigningKeyCache, signLocalNodeRequest } from "../src/local-nodes/local-node-request-auth.js";
+import { eligibleLocalNodeProviders, updateLocalNodeModel } from "../src/local-nodes/local-node-service.js";
+import { matchProviderCapabilities } from "../src/provider-capabilities.js";
+import { normalizeLocalModelCapabilities } from "../src/local-nodes/local-node-types.js";
 import { createLocalNodePairingCode } from "../src/local-nodes/pairing-service.js";
 import { handleRequest } from "../src/server.js";
 
@@ -44,6 +47,12 @@ test("reports which LM Studio address failed during model discovery", async () =
   );
 });
 
+test("legacy schema capability does not imply JSON mode support", () => {
+  const capabilities = normalizeLocalModelCapabilities({ structuredOutputs: "supported" });
+  assert.equal(capabilities.jsonMode, "unknown");
+  assert.equal(capabilities.structuredOutputs, "supported");
+});
+
 test("pairs LM Studio, syncs model availability, streams, and reconnects from saved config", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "freellm-lmstudio-"));
   const fileSettings = {
@@ -68,6 +77,11 @@ test("pairs LM Studio, syncs model availability, streams, and reconnects from sa
   await writeFile(path.join(directory, "providers.json"), '{"providers":[]}');
 
   let modelVisible = false;
+  const generationBodies: Array<{
+    response_format?: { type: string; json_schema?: unknown };
+    temperature?: number;
+    max_tokens?: number;
+  }> = [];
   const upstreamCalls: Array<{ url: string | undefined; authorization: string | undefined }> = [];
   const mockStudio = createServer(async (request, response) => {
     upstreamCalls.push({ url: request.url, authorization: request.headers.authorization });
@@ -96,8 +110,14 @@ test("pairs LM Studio, syncs model availability, streams, and reconnects from sa
       const chunks: Buffer[] = [];
       for await (const chunk of request) chunks.push(Buffer.from(chunk));
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-      if (body.model !== "owner/example-llm" || body.stream !== true) {
+      generationBodies.push(body);
+      if (body.model !== "owner/example-llm" || body.response_format?.type === "json_object") {
         response.writeHead(400).end();
+        return;
+      }
+      if (body.stream !== true) {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: '{"ok":true}' } }] }));
         return;
       }
       response.writeHead(200, { "content-type": "text/event-stream" });
@@ -131,10 +151,10 @@ test("pairs LM Studio, syncs model availability, streams, and reconnects from sa
     await registerAgentEndpoint(config, `http://127.0.0.1:${agent.port}`);
     await sendLocalNodeHeartbeat(config, agent);
 
-    const route = () => fetch(`${routerUrl}/v1/chat/completions`, {
+    const route = (options: Record<string, unknown> = {}) => fetch(`${routerUrl}/v1/chat/completions`, {
       method: "POST",
       headers: { authorization: `Bearer ${owner.routerKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ model: "free-router", stream: true, messages: [{ role: "user", content: "Hello" }] }),
+      body: JSON.stringify({ model: "free-router", stream: true, messages: [{ role: "user", content: "Hello" }], ...options }),
     });
     const unavailable = await route();
     assert.equal(unavailable.status, 400);
@@ -146,6 +166,70 @@ test("pairs LM Studio, syncs model availability, streams, and reconnects from sa
     const stream = await route();
     assert.equal(stream.status, 200);
     assert.match(await stream.text(), /Studio reply/);
+
+    await updateLocalNodeModel(owner.account.id, config.nodeId, "owner/example-llm", {
+      capabilities: { structuredOutputs: "supported" },
+    });
+    const [candidate] = await eligibleLocalNodeProviders(owner.account.id, "test-json-capabilities");
+    assert.ok(candidate);
+    assert.equal(candidate.capabilities?.jsonMode, "unknown");
+    assert.equal(matchProviderCapabilities(candidate.capabilities!, { required: ["jsonMode"] }).level, "partial");
+    assert.equal(matchProviderCapabilities(candidate.capabilities!, { required: ["jsonMode"] }, "strict").level, "incompatible");
+    assert.equal(matchProviderCapabilities(candidate.capabilities!, { required: ["structuredOutputs"] }).level, "full");
+
+    const jsonResponse = await route({ stream: false, response_format: { type: "json_object" }, temperature: 0, max_tokens: 8192 });
+    assert.equal(jsonResponse.status, 200);
+    assert.deepEqual(JSON.parse((await jsonResponse.json()).choices[0].message.content), { ok: true });
+    assert.deepEqual(generationBodies.at(-1)?.response_format, {
+      type: "json_schema",
+      json_schema: { name: "json_response", schema: { type: "object", additionalProperties: true } },
+    });
+    assert.equal(generationBodies.at(-1)?.temperature, 0);
+    assert.equal(generationBodies.at(-1)?.max_tokens, config.limits.maxOutputTokens);
+    const jsonStream = await route({ response_format: { type: "json_object" } });
+    assert.equal(jsonStream.status, 200);
+    await jsonStream.text();
+    assert.equal(generationBodies.at(-1)?.response_format?.type, "json_schema");
+    const schemaFormat = {
+      type: "json_schema",
+      json_schema: { name: "job_requirements", strict: true, schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"], additionalProperties: false } },
+    };
+    await (await route({ stream: false, response_format: schemaFormat })).text();
+    assert.deepEqual(generationBodies.at(-1)?.response_format, schemaFormat);
+    await (await route({ stream: false, response_format: { type: "text" } })).text();
+    assert.deepEqual(generationBodies.at(-1)?.response_format, { type: "text" });
+    await (await route({ stream: false })).text();
+    assert.equal(generationBodies.at(-1)?.response_format, undefined);
+
+    const model = config.models[0]!;
+    model.capabilities.jsonMode = "unsupported";
+    const beforeRejection = generationBodies.length;
+    const token = await signLocalNodeRequest({
+      nodeId: config.nodeId, ownerAccountId: config.ownerAccountId, requestId: "reject-json-mode", model: model.modelId,
+    });
+    const rejected = await fetch(`http://127.0.0.1:${agent.port}/v1/chat/completions`, {
+      method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ model: model.modelId, messages: [], response_format: { type: "json_object" } }),
+    });
+    assert.equal(rejected.status, 400);
+    assert.match(await rejected.text(), /does not allow JSON mode/);
+    assert.equal(generationBodies.length, beforeRejection);
+    model.capabilities.jsonMode = "unknown";
+    model.capabilities.structuredOutputs = "unsupported";
+    for (const type of ["json_object", "json_schema", "text"]) {
+      const authorization = await signLocalNodeRequest({
+        nodeId: config.nodeId, ownerAccountId: config.ownerAccountId,
+        requestId: `check-schema-support-${type}`, model: model.modelId,
+      });
+      const result: Response = await fetch(`http://127.0.0.1:${agent.port}/v1/chat/completions`, {
+        method: "POST", headers: { authorization: `Bearer ${authorization}`, "content-type": "application/json" },
+        body: JSON.stringify({ model: model.modelId, messages: [], response_format: { type } }),
+      });
+      assert.equal(result.status, type === "text" ? 200 : 400);
+      await result.text();
+    }
+    assert.equal(generationBodies.length, beforeRejection + 1);
+    model.capabilities.structuredOutputs = "unknown";
 
     delete process.env.LMSTUDIO_API_TOKEN;
     assert.equal((await sendLocalNodeHeartbeat(config, agent)).status, "offline");

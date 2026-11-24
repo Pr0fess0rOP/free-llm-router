@@ -107,7 +107,7 @@ function containsImage(value: unknown, depth = 0): boolean {
   return Object.values(record).some((item) => containsImage(item, depth + 1));
 }
 
-function validateCapabilities(model: LocalNodeModel | undefined, body: Record<string, unknown>): void {
+function validateCapabilities(model: LocalNodeModel | undefined, body: Record<string, unknown>, runtime = "ollama"): void {
   if (!model) throw new Error("Requested model is not in the local allowlist");
   if (body.stream === true && model.capabilities.streaming === "unsupported") {
     throw new Error("Local model does not allow streaming");
@@ -118,8 +118,15 @@ function validateCapabilities(model: LocalNodeModel | undefined, body: Record<st
   if (containsImage(body.messages) && model.capabilities.vision === "unsupported") {
     throw new Error("Local model does not allow image input");
   }
-  if (body.response_format && model.capabilities.structuredOutputs === "unsupported") {
+  const format = body.response_format as { type?: unknown } | undefined;
+  if (format?.type === "json_object" && model.capabilities.jsonMode === "unsupported") {
+    throw new Error("Local model does not allow JSON mode");
+  }
+  if (format?.type === "json_schema" && model.capabilities.structuredOutputs === "unsupported") {
     throw new Error("Local model does not allow structured output");
+  }
+  if (runtime === "lmstudio" && format?.type === "json_object" && model.capabilities.structuredOutputs === "unsupported") {
+    throw new Error("LM Studio JSON mode requires structured output support for this model");
   }
   if ((body.reasoning || body.thinking) && model.capabilities.reasoning === "unsupported") {
     throw new Error("Local model does not allow reasoning mode");
@@ -133,6 +140,8 @@ function pruneReplays(nowSeconds: number): void {
 }
 
 function sanitizedBody(body: Record<string, unknown>, config: LocalAgentConfig): Record<string, unknown> {
+  const format = body.response_format as { type?: unknown } | undefined;
+  const adaptJsonMode = config.runtime === "lmstudio" && format?.type === "json_object";
   const modelMaximum = config.models.find((model) => model.modelId === body.model)?.maxOutputTokens;
   const maximum = Math.min(config.limits.maxOutputTokens, modelMaximum ?? Number.MAX_SAFE_INTEGER);
   const requestedValue = typeof body.max_tokens === "number"
@@ -142,6 +151,15 @@ function sanitizedBody(body: Record<string, unknown>, config: LocalAgentConfig):
   const maxTokens = Math.max(1, Math.min(Math.floor(requested), maximum));
   return {
     ...body,
+    ...(adaptJsonMode ? {
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "json_response",
+          schema: { type: "object", additionalProperties: true },
+        },
+      },
+    } : {}),
     max_tokens: maxTokens,
     ...(body.max_completion_tokens !== undefined
       ? { max_completion_tokens: maxTokens }
@@ -239,7 +257,7 @@ async function proxyInference(params: {
     sendJson(response, 503, { error: { message: "Model is unavailable. Load it in LM Studio or enable on-demand loading." } });
     return;
   }
-  validateCapabilities(model, body);
+  validateCapabilities(model, body, config.runtime);
   const queueAbort = new AbortController();
   const abortQueue = () => queueAbort.abort();
   const abortShutdownQueue = () => queueAbort.abort(new Error("Local node agent is stopping"));

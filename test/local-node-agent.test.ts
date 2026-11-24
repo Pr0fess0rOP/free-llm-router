@@ -64,7 +64,7 @@ function agentConfig(params: {
       installed: true,
       capabilities: {
         streaming: "supported", tools: "unknown", vision: "unknown",
-        reasoning: "unknown", structuredOutputs: "unknown",
+        reasoning: "unknown", jsonMode: "unknown", structuredOutputs: "unknown",
       },
       health: "unknown",
     }],
@@ -351,6 +351,7 @@ test("protected agent exposes only health, models, and authorized inference with
         tools: "unknown",
         vision: "unknown",
         reasoning: "unknown",
+        jsonMode: "unknown",
         structuredOutputs: "unknown",
       },
       health: "unknown",

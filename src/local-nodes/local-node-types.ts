@@ -33,6 +33,7 @@ export interface LocalNodeModelCapabilities {
   tools: CapabilitySupport;
   vision: CapabilitySupport;
   reasoning: CapabilitySupport;
+  jsonMode: CapabilitySupport;
   structuredOutputs: CapabilitySupport;
 }
 
@@ -56,6 +57,7 @@ export function normalizeLocalModelCapabilities(value: unknown): LocalNodeModelC
     tools: capability("tools"),
     vision: capability("vision"),
     reasoning: capability("reasoning"),
+    jsonMode: capability("jsonMode"),
     structuredOutputs: capability("structuredOutputs"),
   };
 }

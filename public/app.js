@@ -227,7 +227,7 @@ function localRoutingProviders() {
       capabilities: {
         streaming: model.capabilities?.streaming ?? "unknown",
         tools: model.capabilities?.tools ?? "unknown",
-        jsonMode: model.capabilities?.structuredOutputs ?? "unknown",
+        jsonMode: model.capabilities?.jsonMode ?? "unknown",
         structuredOutputs: model.capabilities?.structuredOutputs ?? "unknown",
         vision: model.capabilities?.vision ?? "unknown",
         reasoning: model.capabilities?.reasoning ?? "unknown",
@@ -290,7 +290,7 @@ function localNodeStatusTone(status) {
 
 function localNodeCapabilitySummary(node) {
   const models = (node.models ?? []).filter((model) => model.enabled && model.installed);
-  const capabilities = ["streaming", "tools", "vision", "reasoning", "structuredOutputs"];
+  const capabilities = ["streaming", "tools", "vision", "reasoning", "jsonMode", "structuredOutputs"];
   const supported = capabilities.filter((capability) =>
     models.some((model) => model.capabilities?.[capability] === "supported"),
   );
@@ -323,7 +323,7 @@ function localNodeModelRows(node) {
   return node.models.map((model) => `<div class="local-node-model-row" data-local-model-id="${escapeHtml(model.modelId)}">
     ${localModelIconMarkup(model)}
     <label><input type="checkbox" data-local-model-toggle ${model.enabled ? "checked" : ""} ${!model.installed || node.status === "revoked" ? "disabled" : ""}/><span><strong title="${escapeHtml(model.modelId)}">${escapeHtml(model.displayName ?? model.modelId)}</strong><small>${escapeHtml(localModelAvailability(model))}${model.lastLatencyMs ? ` · ${model.lastLatencyMs} ms` : ""}</small></span></label>
-    <details class="local-node-capabilities"><summary>Capabilities</summary><div>${["streaming", "tools", "vision", "reasoning", "structuredOutputs"].map((capability) => `<label>${escapeHtml(capabilityLabel(capability))}<select data-local-capability="${capability}" ${node.status === "revoked" ? "disabled" : ""}>${["supported", "unknown", "unsupported"].map((value) => `<option value="${value}" ${model.capabilities?.[capability] === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>`).join("")}</div></details>
+    <details class="local-node-capabilities"><summary>Capabilities</summary><div>${["streaming", "tools", "vision", "reasoning", "jsonMode", "structuredOutputs"].map((capability) => `<label>${escapeHtml(capabilityLabel(capability))}<select data-local-capability="${capability}" ${node.status === "revoked" ? "disabled" : ""}>${["supported", "unknown", "unsupported"].map((value) => `<option value="${value}" ${(model.capabilities?.[capability] ?? "unknown") === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>`).join("")}</div></details>
     <button class="ghost compact-button" type="button" data-local-model-test ${!localModelIsPlayable(model) || node.status !== "online" ? "disabled" : ""}>Test</button>
   </div>`).join("");
 }
