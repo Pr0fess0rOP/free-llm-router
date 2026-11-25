@@ -1,6 +1,7 @@
-import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Redis } from "@upstash/redis";
+import { mutateRedisJson, replaceStorageFile, serializeMutation } from "./storage-mutations.js";
 import type {
   ProviderAttemptMetric,
   ProviderUsageWindow,
@@ -76,7 +77,7 @@ async function saveLocalStore(store: RoutingStateStore): Promise<void> {
     encoding: "utf8",
     mode: 0o600,
   });
-  await rename(temporary, target);
+  await replaceStorageFile(temporary, target);
   await chmod(target, 0o600);
 }
 
@@ -251,22 +252,22 @@ async function mutateRouterState<T>(
 ): Promise<T> {
   const redis = redisClient();
   if (redis) {
-    const key = routingStateKey(routerKeyHash);
-    const state =
-      (await redis.get<RouterRoutingState>(key)) ?? emptyRouterState();
-    state.providers = normalizeProviderStatsRecord(state.providers);
-    const result = mutate(state);
-    await redis.set(key, state);
-    return result;
+    return mutateRedisJson<RouterRoutingState, T>(redis, routingStateKey(routerKeyHash), (current) => {
+      const state = current ?? emptyRouterState();
+      state.providers = normalizeProviderStatsRecord(state.providers);
+      return { value: state, result: mutate(state) };
+    });
   }
 
-  const store = await loadLocalStore();
-  const state = store.routers[routerKeyHash] ?? emptyRouterState();
-  state.providers = normalizeProviderStatsRecord(state.providers);
-  const result = mutate(state);
-  store.routers[routerKeyHash] = state;
-  await saveLocalStore(store);
-  return result;
+  return serializeMutation(routingStatePath(), async () => {
+    const store = await loadLocalStore();
+    const state = store.routers[routerKeyHash] ?? emptyRouterState();
+    state.providers = normalizeProviderStatsRecord(state.providers);
+    const result = mutate(state);
+    store.routers[routerKeyHash] = state;
+    await saveLocalStore(store);
+    return result;
+  });
 }
 
 export async function getRoutingStats(
@@ -277,17 +278,21 @@ export async function getRoutingStats(
     const key = routingStateKey(routerKeyHash);
     const state = await redis.get<RouterRoutingState>(key);
     if (!state) return {};
-    state.providers = normalizeProviderStatsRecord(state.providers);
-    await redis.set(key, state);
-    return state.providers;
+    const normalized = normalizeProviderStatsRecord(state.providers);
+    if (JSON.stringify(normalized) !== JSON.stringify(state.providers)) {
+      return mutateRouterState(routerKeyHash, (current) => current.providers);
+    }
+    return normalized;
   }
 
   const store = await loadLocalStore();
   const state = store.routers[routerKeyHash];
   if (!state) return {};
-  state.providers = normalizeProviderStatsRecord(state.providers);
-  await saveLocalStore(store);
-  return state.providers;
+  const normalized = normalizeProviderStatsRecord(state.providers);
+  if (JSON.stringify(normalized) !== JSON.stringify(state.providers)) {
+    return mutateRouterState(routerKeyHash, (current) => current.providers);
+  }
+  return normalized;
 }
 
 export async function recordRoutingAttempt(

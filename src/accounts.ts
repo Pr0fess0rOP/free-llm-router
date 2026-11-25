@@ -6,9 +6,10 @@ import {
   randomUUID,
   timingSafeEqual,
 } from "node:crypto";
-import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Redis } from "@upstash/redis";
+import { mutateRedisJson, replaceStorageFile, serializeMutation } from "./storage-mutations.js";
 import type {
   CapabilityRoutingSettings,
   DeduplicationSettings,
@@ -235,7 +236,7 @@ async function saveLocalStore(store: AccountStore): Promise<void> {
     encoding: "utf8",
     mode: 0o600,
   });
-  await rename(temporary, target);
+  await replaceStorageFile(temporary, target);
   await chmod(target, 0o600);
 }
 
@@ -272,13 +273,40 @@ async function writeStoredAccount(account: StoredAccount): Promise<void> {
     return;
   }
 
-  const store = await loadLocalStore();
-  const index = store.accounts.findIndex((candidate) =>
-    safeHashEquals(candidate.routerKeyHash, account.routerKeyHash),
-  );
-  if (index >= 0) store.accounts[index] = account;
-  else store.accounts.push(account);
-  await saveLocalStore(store);
+  await serializeMutation(storePath(), async () => {
+    const store = await loadLocalStore();
+    const index = store.accounts.findIndex((candidate) =>
+      safeHashEquals(candidate.routerKeyHash, account.routerKeyHash),
+    );
+    if (index >= 0) store.accounts[index] = account;
+    else store.accounts.push(account);
+    await saveLocalStore(store);
+  });
+}
+
+async function mutateStoredAccount(
+  routerKeyHash: string,
+  update: (account: StoredAccount) => void,
+): Promise<StoredAccount | undefined> {
+  const redis = redisClient();
+  if (redis) {
+    return mutateRedisJson<StoredAccount, StoredAccount | undefined>(redis, accountKey(routerKeyHash), (current) => {
+      if (!current) return { value: undefined, result: undefined };
+      const account = normalizeStoredAccount(current);
+      update(account);
+      return { value: account, result: account };
+    });
+  }
+  return serializeMutation(storePath(), async () => {
+    const store = await loadLocalStore();
+    const index = store.accounts.findIndex((candidate) => safeHashEquals(candidate.routerKeyHash, routerKeyHash));
+    if (index < 0) return undefined;
+    const account = normalizeStoredAccount(store.accounts[index]!);
+    update(account);
+    store.accounts[index] = account;
+    await saveLocalStore(store);
+    return account;
+  });
 }
 
 function summarize(account: StoredAccount): AccountSummary {
@@ -438,15 +466,13 @@ export async function setProviderKey(
   initialCatalog?: ProviderModelCatalog,
 ): Promise<AccountSummary | undefined> {
   providerId = normalizeProviderId(providerId);
-  const account = await readStoredAccount(hashRouterKey(routerKey));
-  if (!account) return undefined;
-
-  account.providerKeys[providerId] = encryptCredential(apiKey);
-  if (initialCatalog && !account.providerModels?.[providerId]) {
-    account.providerModels = { ...account.providerModels, [providerId]: initialCatalog };
-  }
-  await writeStoredAccount(account);
-  return summarize(account);
+  const account = await mutateStoredAccount(hashRouterKey(routerKey), (stored) => {
+    stored.providerKeys[providerId] = encryptCredential(apiKey);
+    if (initialCatalog && !stored.providerModels?.[providerId]) {
+      stored.providerModels = { ...stored.providerModels, [providerId]: initialCatalog };
+    }
+  });
+  return account ? summarize(account) : undefined;
 }
 
 export async function deleteProviderKey(
@@ -454,12 +480,10 @@ export async function deleteProviderKey(
   providerId: string,
 ): Promise<AccountSummary | undefined> {
   providerId = normalizeProviderId(providerId);
-  const account = await readStoredAccount(hashRouterKey(routerKey));
-  if (!account) return undefined;
-
-  delete account.providerKeys[providerId];
-  await writeStoredAccount(account);
-  return summarize(account);
+  const account = await mutateStoredAccount(hashRouterKey(routerKey), (stored) => {
+    delete stored.providerKeys[providerId];
+  });
+  return account ? summarize(account) : undefined;
 }
 
 export async function updateAccountSettings(
@@ -476,53 +500,50 @@ export async function updateAccountSettings(
     routingFeatureSettings?: RoutingFeatureSettings;
   },
 ): Promise<AccountSummary | undefined> {
-  const account = await readStoredAccount(hashRouterKey(routerKey));
-  if (!account) return undefined;
+  const account = await mutateStoredAccount(hashRouterKey(routerKey), (account) => {
+    if (typeof updates.name === "string" && updates.name.trim()) {
+      account.name = updates.name.trim().slice(0, 80);
+    }
 
-  if (typeof updates.name === "string" && updates.name.trim()) {
-    account.name = updates.name.trim().slice(0, 80);
-  }
+    if (updates.routingPolicy) {
+      account.routingPolicy = normalizeRoutingPolicy(updates.routingPolicy);
+    }
 
-  if (updates.routingPolicy) {
-    account.routingPolicy = normalizeRoutingPolicy(updates.routingPolicy);
-  }
+    if (updates.modelAliases !== undefined) {
+      account.modelAliases = normalizeModelAliases(updates.modelAliases);
+    }
 
-  if (updates.modelAliases !== undefined) {
-    account.modelAliases = normalizeModelAliases(updates.modelAliases);
-  }
+    if (updates.providerQuotas !== undefined) {
+      account.providerQuotas = normalizeProviderQuotaMap(updates.providerQuotas);
+    }
 
-  if (updates.providerQuotas !== undefined) {
-    account.providerQuotas = normalizeProviderQuotaMap(updates.providerQuotas);
-  }
+    if (updates.providerModels !== undefined) {
+      account.providerModels = normalizeProviderModelCatalogMap(updates.providerModels);
+    }
 
-  if (updates.providerModels !== undefined) {
-    account.providerModels = normalizeProviderModelCatalogMap(updates.providerModels);
-  }
+    if (updates.capabilityRoutingSettings !== undefined) {
+      account.capabilityRoutingSettings = normalizeCapabilityRoutingSettings(
+        updates.capabilityRoutingSettings,
+      );
+    }
 
-  if (updates.capabilityRoutingSettings !== undefined) {
-    account.capabilityRoutingSettings = normalizeCapabilityRoutingSettings(
-      updates.capabilityRoutingSettings,
-    );
-  }
+    if (updates.reliabilitySettings !== undefined) {
+      account.reliabilitySettings = normalizeReliabilitySettings(updates.reliabilitySettings);
+    }
 
-  if (updates.reliabilitySettings !== undefined) {
-    account.reliabilitySettings = normalizeReliabilitySettings(updates.reliabilitySettings);
-  }
+    if (updates.deduplicationSettings !== undefined) {
+      account.deduplicationSettings = normalizeDeduplicationSettings(
+        updates.deduplicationSettings,
+      );
+    }
 
-  if (updates.deduplicationSettings !== undefined) {
-    account.deduplicationSettings = normalizeDeduplicationSettings(
-      updates.deduplicationSettings,
-    );
-  }
-
-  if (updates.routingFeatureSettings !== undefined) {
-    account.routingFeatureSettings = normalizeRoutingFeatureSettings(
-      updates.routingFeatureSettings,
-    );
-  }
-
-  await writeStoredAccount(account);
-  return summarize(account);
+    if (updates.routingFeatureSettings !== undefined) {
+      account.routingFeatureSettings = normalizeRoutingFeatureSettings(
+        updates.routingFeatureSettings,
+      );
+    }
+  });
+  return account ? summarize(account) : undefined;
 }
 
 export async function setProviderQuota(
@@ -531,15 +552,13 @@ export async function setProviderQuota(
   quota: unknown,
 ): Promise<AccountSummary | undefined> {
   providerId = normalizeProviderId(providerId);
-  const account = await readStoredAccount(hashRouterKey(routerKey));
-  if (!account) return undefined;
-
-  const normalized = normalizeProviderQuotaConfig(quota);
-  account.providerQuotas = normalizeProviderQuotaMap(account.providerQuotas);
-  if (normalized) account.providerQuotas[providerId] = normalized;
-  else delete account.providerQuotas[providerId];
-  await writeStoredAccount(account);
-  return summarize(account);
+  const account = await mutateStoredAccount(hashRouterKey(routerKey), (stored) => {
+    const normalized = normalizeProviderQuotaConfig(quota);
+    stored.providerQuotas = normalizeProviderQuotaMap(stored.providerQuotas);
+    if (normalized) stored.providerQuotas[providerId] = normalized;
+    else delete stored.providerQuotas[providerId];
+  });
+  return account ? summarize(account) : undefined;
 }
 
 export async function deleteProviderQuota(
@@ -547,12 +566,11 @@ export async function deleteProviderQuota(
   providerId: string,
 ): Promise<AccountSummary | undefined> {
   providerId = normalizeProviderId(providerId);
-  const account = await readStoredAccount(hashRouterKey(routerKey));
-  if (!account) return undefined;
-  account.providerQuotas = normalizeProviderQuotaMap(account.providerQuotas);
-  delete account.providerQuotas[providerId];
-  await writeStoredAccount(account);
-  return summarize(account);
+  const account = await mutateStoredAccount(hashRouterKey(routerKey), (stored) => {
+    stored.providerQuotas = normalizeProviderQuotaMap(stored.providerQuotas);
+    delete stored.providerQuotas[providerId];
+  });
+  return account ? summarize(account) : undefined;
 }
 
 export async function setProviderModelCatalog(
@@ -561,14 +579,13 @@ export async function setProviderModelCatalog(
   catalog: ProviderModelCatalog,
 ): Promise<AccountSummary | undefined> {
   providerId = normalizeProviderId(providerId);
-  const account = await readStoredAccount(hashRouterKey(routerKey));
-  if (!account) return undefined;
-  const normalized = normalizeProviderModelCatalog(catalog);
-  if (!normalized) throw new Error("A provider must have at least one saved model");
-  account.providerModels = normalizeProviderModelCatalogMap(account.providerModels);
-  account.providerModels[providerId] = normalized;
-  await writeStoredAccount(account);
-  return summarize(account);
+  const account = await mutateStoredAccount(hashRouterKey(routerKey), (stored) => {
+    const normalized = normalizeProviderModelCatalog(catalog);
+    if (!normalized) throw new Error("A provider must have at least one saved model");
+    stored.providerModels = normalizeProviderModelCatalogMap(stored.providerModels);
+    stored.providerModels[providerId] = normalized;
+  });
+  return account ? summarize(account) : undefined;
 }
 
 export async function updateProviderModelHealthByHash(
@@ -583,36 +600,35 @@ export async function updateProviderModelHealthByHash(
   },
 ): Promise<void> {
   providerId = normalizeProviderId(providerId);
-  const account = await readStoredAccount(routerKeyHash);
-  if (!account) return;
-  account.providerModels = normalizeProviderModelCatalogMap(account.providerModels);
-  const existing = account.providerModels[providerId] ?? {
-    activeModelId: modelId,
-    models: [{ id: modelId, status: "unknown" as const }],
-  };
-  const models = existing.models.map((model) => {
-    if (model.id !== modelId) return model;
-    const next = {
-      ...model,
-      status: update.status,
-      ...(update.lastStatus !== undefined ? { lastStatus: update.lastStatus } : {}),
-      ...(update.lastError ? { lastError: update.lastError.slice(0, 500) } : {}),
-      lastCheckedAt: update.checkedAt ?? new Date().toISOString(),
+  await mutateStoredAccount(routerKeyHash, (account) => {
+    account.providerModels = normalizeProviderModelCatalogMap(account.providerModels);
+    const existing = account.providerModels[providerId] ?? {
+      activeModelId: modelId,
+      models: [{ id: modelId, status: "unknown" as const }],
     };
-    if (!update.lastError) delete next.lastError;
-    return next;
-  });
-  if (!models.some((model) => model.id === modelId)) {
-    models.push({
-      id: modelId,
-      status: update.status,
-      ...(update.lastStatus !== undefined ? { lastStatus: update.lastStatus } : {}),
-      ...(update.lastError ? { lastError: update.lastError.slice(0, 500) } : {}),
-      lastCheckedAt: update.checkedAt ?? new Date().toISOString(),
+    const models = existing.models.map((model) => {
+      if (model.id !== modelId) return model;
+      const next = {
+        ...model,
+        status: update.status,
+        ...(update.lastStatus !== undefined ? { lastStatus: update.lastStatus } : {}),
+        ...(update.lastError ? { lastError: update.lastError.slice(0, 500) } : {}),
+        lastCheckedAt: update.checkedAt ?? new Date().toISOString(),
+      };
+      if (!update.lastError) delete next.lastError;
+      return next;
     });
-  }
-  account.providerModels[providerId] = { ...existing, models };
-  await writeStoredAccount(account);
+    if (!models.some((model) => model.id === modelId)) {
+      models.push({
+        id: modelId,
+        status: update.status,
+        ...(update.lastStatus !== undefined ? { lastStatus: update.lastStatus } : {}),
+        ...(update.lastError ? { lastError: update.lastError.slice(0, 500) } : {}),
+        lastCheckedAt: update.checkedAt ?? new Date().toISOString(),
+      });
+    }
+    account.providerModels[providerId] = { ...existing, models };
+  });
 }
 
 
@@ -623,32 +639,31 @@ export async function updateProviderModelCapabilitiesByHash(
   updates: Partial<Record<ProviderCapabilityName, ModelCapabilityState>>,
 ): Promise<void> {
   providerId = normalizeProviderId(providerId);
-  const account = await readStoredAccount(routerKeyHash);
-  if (!account) return;
-  account.providerModels = normalizeProviderModelCatalogMap(account.providerModels);
-  const existing = account.providerModels[providerId] ?? {
-    activeModelId: modelId,
-    models: [{ id: modelId, status: "unknown" as const }],
-  };
-  const sourcePriority = { provider: 1, catalog: 2, runtime: 3, probe: 4, user: 5 } as const;
-  const models = existing.models.map((model) => {
-    if (model.id !== modelId) return model;
-    const capabilities = { ...(model.capabilities ?? {}) };
-    for (const [name, update] of Object.entries(updates) as Array<[ProviderCapabilityName, ModelCapabilityState]>) {
-      const current = capabilities[name];
-      if (current && sourcePriority[current.source] > sourcePriority[update.source]) continue;
-      if (current && update.value === "unknown" && current.value !== "unknown" && update.source !== "user") continue;
-      capabilities[name] = update;
-    }
-    return { ...model, capabilities };
-  });
-  if (!models.some((model) => model.id === modelId)) {
-    models.push({
-      id: modelId,
-      status: "unknown",
-      capabilities: { ...updates },
+  await mutateStoredAccount(routerKeyHash, (account) => {
+    account.providerModels = normalizeProviderModelCatalogMap(account.providerModels);
+    const existing = account.providerModels[providerId] ?? {
+      activeModelId: modelId,
+      models: [{ id: modelId, status: "unknown" as const }],
+    };
+    const sourcePriority = { provider: 1, catalog: 2, runtime: 3, probe: 4, user: 5 } as const;
+    const models = existing.models.map((model) => {
+      if (model.id !== modelId) return model;
+      const capabilities = { ...(model.capabilities ?? {}) };
+      for (const [name, update] of Object.entries(updates) as Array<[ProviderCapabilityName, ModelCapabilityState]>) {
+        const current = capabilities[name];
+        if (current && sourcePriority[current.source] > sourcePriority[update.source]) continue;
+        if (current && update.value === "unknown" && current.value !== "unknown" && update.source !== "user") continue;
+        capabilities[name] = update;
+      }
+      return { ...model, capabilities };
     });
-  }
-  account.providerModels[providerId] = { ...existing, models };
-  await writeStoredAccount(account);
+    if (!models.some((model) => model.id === modelId)) {
+      models.push({
+        id: modelId,
+        status: "unknown",
+        capabilities: { ...updates },
+      });
+    }
+    account.providerModels[providerId] = { ...existing, models };
+  });
 }

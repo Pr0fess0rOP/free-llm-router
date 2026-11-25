@@ -243,7 +243,13 @@ function responseInputToMessages(input: unknown): OpenAIMessage[] {
     const itemType = stringValue(rawItem.type);
     const role = stringValue(rawItem.role);
 
-    if (itemType === "reasoning" || itemType === "item_reference") {
+    if (itemType === "item_reference") {
+      throw new Error("input item_reference is unsupported. Send the complete conversation messages in input.");
+    }
+    if (itemType === "reasoning") {
+      if (rawItem.encrypted_content) {
+        throw new Error("Encrypted reasoning input is unsupported by the Chat Completions gateway.");
+      }
       continue;
     }
 
@@ -404,6 +410,35 @@ function convertResponseFormat(text: unknown): unknown {
 }
 
 export function responsesToOpenAI(body: JsonObject): JsonObject {
+  if (Array.isArray(body.include) && body.include.includes("reasoning.encrypted_content")) {
+    throw new Error("reasoning.encrypted_content is unsupported by the Chat Completions gateway");
+  }
+  for (const field of ["previous_response_id", "conversation"]) {
+    if (body[field] !== undefined && body[field] !== null) {
+      throw new Error(`${field} is unsupported. Send the complete conversation history in input.`);
+    }
+  }
+  for (const field of ["store", "background"]) {
+    if (body[field] !== undefined && body[field] !== null && body[field] !== false) {
+      throw new Error(`${field} is unsupported. Use ${field}: false.`);
+    }
+  }
+  let reasoningEffort: string | undefined;
+  if (body.reasoning !== undefined && body.reasoning !== null) {
+    if (!isObject(body.reasoning)) throw new Error("reasoning must be an object");
+    for (const [field, value] of Object.entries(body.reasoning)) {
+      if (field !== "effort" && value !== undefined && value !== null) {
+        throw new Error(`reasoning.${field} is unsupported by the Chat Completions gateway`);
+      }
+    }
+    const effort = body.reasoning.effort;
+    if (effort !== undefined && effort !== null) {
+      if (typeof effort !== "string" || !["none", "minimal", "low", "medium", "high", "xhigh"].includes(effort)) {
+        throw new Error("Unsupported reasoning.effort value");
+      }
+      reasoningEffort = effort;
+    }
+  }
   const messages: OpenAIMessage[] = [];
   const instructions = textFromContent(body.instructions);
   if (instructions) messages.push({ role: "system", content: instructions });
@@ -432,6 +467,7 @@ export function responsesToOpenAI(body: JsonObject): JsonObject {
       ? { parallel_tool_calls: booleanValue(body.parallel_tool_calls) }
       : {}),
     ...(responseFormat !== undefined ? { response_format: responseFormat } : {}),
+    ...(reasoningEffort !== undefined ? { reasoning_effort: reasoningEffort } : {}),
   };
 }
 
@@ -466,7 +502,12 @@ function responseUsage(usage: unknown, fallbackInput = 0, fallbackOutput = 0): J
     input_tokens: inputTokens,
     input_tokens_details: { cached_tokens: 0 },
     output_tokens: outputTokens,
-    output_tokens_details: { reasoning_tokens: 0 },
+    output_tokens_details: {
+      reasoning_tokens: numberValue(
+        (isObject(source.completion_tokens_details) ? source.completion_tokens_details.reasoning_tokens : undefined)
+        ?? (isObject(source.output_tokens_details) ? source.output_tokens_details.reasoning_tokens : undefined),
+      ) ?? 0,
+    },
     total_tokens: totalTokens,
   };
 }
@@ -498,9 +539,9 @@ function responseSkeleton(params: {
     model: requestedModel,
     output,
     parallel_tool_calls: booleanValue(body.parallel_tool_calls) ?? true,
-    previous_response_id: stringValue(body.previous_response_id) ?? null,
+    previous_response_id: null,
     reasoning,
-    store: body.store === true,
+    store: false,
     temperature: numberValue(body.temperature) ?? 1,
     text: textConfig,
     tool_choice: body.tool_choice ?? "auto",

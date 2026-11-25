@@ -39,7 +39,7 @@ test("disabled capability matching leaves provider eligibility to the saved orde
     [first, provider("tools", 20)],
     async (input) => {
       calls.push(String(input));
-      return new Response(JSON.stringify({ choices: [] }), {
+      return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
         headers: { "content-type": "application/json" },
       });
     },
@@ -72,7 +72,7 @@ test("fails over after a 429 response", async () => {
         { status: 429, headers: { "content-type": "application/json" } },
       );
     }
-    return new Response(JSON.stringify({ choices: [] }), {
+    return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
@@ -96,7 +96,7 @@ test("fails over after a 429 response", async () => {
 
 test("forwards streaming responses without buffering", async () => {
   const fetcher: typeof fetch = async () =>
-    new Response("data: hello\n\ndata: [DONE]\n\n", {
+    new Response('data: {"choices":[{"delta":{"content":"hello"}}]}\n\ndata: [DONE]\n\n', {
       headers: { "content-type": "text/event-stream" },
     });
 
@@ -104,7 +104,7 @@ test("forwards streaming responses without buffering", async () => {
   const result = await router.chatCompletion({ stream: true, messages: [] });
 
   assert.equal(result.response.headers.get("content-type"), "text/event-stream");
-  assert.equal(await result.response.text(), "data: hello\n\ndata: [DONE]\n\n");
+  assert.equal(await result.response.text(), 'data: {"choices":[{"delta":{"content":"hello"}}]}\n\ndata: [DONE]\n\n');
 });
 
 test("skips a provider while it is cooling down", async () => {
@@ -114,7 +114,7 @@ test("skips a provider while it is cooling down", async () => {
 
   const fetcher: typeof fetch = async (input) => {
     calls.push(String(input));
-    return new Response(JSON.stringify({ choices: [] }));
+    return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }));
   };
 
   const router = new ProviderRouter([first, provider("second", 20)], fetcher);
@@ -128,7 +128,7 @@ test("priority policy respects the saved provider order", async () => {
   const calls: string[] = [];
   const fetcher: typeof fetch = async (input) => {
     calls.push(String(input));
-    return new Response(JSON.stringify({ choices: [] }));
+    return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }));
   };
 
   const router = new ProviderRouter(
@@ -151,7 +151,7 @@ test("round-robin policy rotates from the supplied cursor", async () => {
   const calls: string[] = [];
   const fetcher: typeof fetch = async (input) => {
     calls.push(String(input));
-    return new Response(JSON.stringify({ choices: [] }));
+    return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }));
   };
 
   const router = new ProviderRouter(
@@ -170,7 +170,7 @@ test("round-robin policy rotates from the supplied cursor", async () => {
 
 test("fastest policy prefers the lowest observed latency", async () => {
   const fetcher: typeof fetch = async (input) =>
-    new Response(JSON.stringify({ selected: String(input) }));
+    new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: String(input) } }] }));
 
   const router = new ProviderRouter(
     [provider("slow", 10), provider("fast", 20)],
@@ -205,7 +205,7 @@ test("fastest policy prefers the lowest observed latency", async () => {
 
 test("least-used policy protects the provider with more prior attempts", async () => {
   const fetcher: typeof fetch = async () =>
-    new Response(JSON.stringify({ choices: [] }));
+    new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }));
 
   const router = new ProviderRouter(
     [provider("busy", 10), provider("quiet", 20)],
@@ -238,7 +238,7 @@ test("least-used policy protects the provider with more prior attempts", async (
 
 test("reliability policy prefers the strongest success history", async () => {
   const fetcher: typeof fetch = async () =>
-    new Response(JSON.stringify({ choices: [] }));
+    new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }));
 
   const router = new ProviderRouter(
     [provider("unstable", 10), provider("stable", 20)],
@@ -273,7 +273,7 @@ test("reliability policy prefers the strongest success history", async () => {
 
 test("smart policy balances reliability, latency, usage, and priority", async () => {
   const fetcher: typeof fetch = async () =>
-    new Response(JSON.stringify({ choices: [] }));
+    new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }));
 
   const router = new ProviderRouter(
     [provider("fast-but-failing", 10), provider("balanced", 20)],
@@ -314,7 +314,7 @@ test("capability-aware routing skips providers that explicitly lack required too
 
   const fetcher: typeof fetch = async (input) => {
     calls.push(String(input));
-    return new Response(JSON.stringify({ choices: [] }));
+    return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }));
   };
 
   const router = new ProviderRouter([noTools, tools], fetcher);
@@ -345,7 +345,7 @@ test("known capability support is preferred over unknown support", async () => {
 
   const fetcher: typeof fetch = async (input) => {
     calls.push(String(input));
-    return new Response(JSON.stringify({ choices: [] }));
+    return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }));
   };
 
   const router = new ProviderRouter([unknown, supported], fetcher);
@@ -408,7 +408,7 @@ test("honors Retry-After seconds and records persistent cooldown metadata", asyn
           headers: { "retry-after": "120", "content-type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ choices: [] }), { status: 200 });
+      return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), { status: 200 });
     },
     { onAttempt: (attempt) => { attempts.push(attempt); } },
   );
@@ -485,7 +485,7 @@ test("opens a circuit after the third retryable provider failure", async () => {
           headers: { "content-type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ choices: [] }), {
+      return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
@@ -533,7 +533,7 @@ test("skips providers whose circuit is still open", async () => {
     [open, provider("closed-circuit", 20)],
     async (input) => {
       calls.push(String(input));
-      return new Response(JSON.stringify({ choices: [] }));
+      return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }));
     },
   );
 
@@ -557,7 +557,7 @@ test("runs one half-open probe after the circuit delay and closes on success", a
 
   const router = new ProviderRouter(
     [recovering],
-    async () => new Response(JSON.stringify({ choices: [] }), {
+    async () => new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
       headers: { "content-type": "application/json" },
     }),
     {
@@ -653,7 +653,7 @@ test("skips a provider whose configured quota is exhausted", async () => {
   const available = provider("available", 20);
   const router = new ProviderRouter([exhausted, available], async (input) => {
     calls.push(String(input));
-    return new Response(JSON.stringify({ choices: [] }), {
+    return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
       headers: { "content-type": "application/json" },
     });
   });
@@ -697,7 +697,7 @@ test("demotes a provider that has crossed its quota warning threshold", async ()
 
   const router = new ProviderRouter(
     [warned, provider("healthy", 20)],
-    async () => new Response(JSON.stringify({ choices: [] }), {
+    async () => new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
       headers: { "content-type": "application/json" },
     }),
   );
@@ -803,7 +803,7 @@ test("immediately fails over when a provider model returns 404", async () => {
           headers: { "content-type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ choices: [] }), {
+      return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
@@ -855,7 +855,7 @@ test("immediately fails over after provider-specific 401 and 403 responses", asy
             headers: { "content-type": "application/json" },
           });
         }
-        return new Response(JSON.stringify({ choices: [] }), {
+        return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
           status: 200,
           headers: { "content-type": "application/json" },
         });
@@ -891,7 +891,7 @@ test("isolates a provider HTTP 400 and immediately tries the next provider", asy
             status: 400,
             headers: { "content-type": "application/json" },
           })
-        : new Response(JSON.stringify({ choices: [] }), {
+        : new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
             status: 200,
             headers: { "content-type": "application/json" },
           });
@@ -930,7 +930,7 @@ test("treats a provider-specific missing-model HTTP 400 as immediate failover", 
             status: 400,
             headers: { "content-type": "application/json" },
           })
-        : new Response(JSON.stringify({ choices: [] }), {
+        : new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
             status: 200,
             headers: { "content-type": "application/json" },
           });
@@ -1010,7 +1010,7 @@ test("supports custom retryable statuses and records the configured backoff", as
           headers: { "content-type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ choices: [] }), {
+      return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
@@ -1050,7 +1050,7 @@ test("applies provider-specific timeout overrides and fails over after timeout",
           }, { once: true });
         });
       }
-      return new Response(JSON.stringify({ choices: [] }), {
+      return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
@@ -1197,7 +1197,7 @@ test("strict capability mode skips providers with unknown required support", asy
     [unknown, supported],
     async (input) => {
       calls.push(String(input));
-      return new Response(JSON.stringify({ choices: [] }), {
+      return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
@@ -1227,7 +1227,7 @@ test("clear capability-specific client errors update evidence and fail over imme
           headers: { "content-type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ choices: [] }), {
+      return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
@@ -1283,7 +1283,7 @@ test("disabled quota protection permits a provider with exhausted configured quo
     [exhausted, provider("available", 20)],
     async (input) => {
       calls.push(String(input));
-      return new Response(JSON.stringify({ choices: [] }), {
+      return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "OK" } }] }), {
         headers: { "content-type": "application/json" },
       });
     },

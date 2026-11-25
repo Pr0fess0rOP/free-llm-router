@@ -21,6 +21,7 @@ import {
   localProviderId,
   recordLocalNodeHeartbeat,
   registerLocalNodeEndpoint,
+  syncLocalNodeModels,
   updateLocalNode,
   updateLocalNodeModel,
 } from "../src/local-nodes/local-node-service.js";
@@ -63,6 +64,7 @@ test("local routing supports prefer-local, cloud fallback, local-only, and accou
 
   let localMode: "success" | "failure" | "first-timeout" | "post-token-failure" = "success";
   let cloudCalls = 0;
+  const localModelCalls: string[] = [];
   const ollama = createServer(async (request, response) => {
     if (request.url !== "/v1/chat/completions") {
       response.writeHead(404).end();
@@ -71,7 +73,8 @@ test("local routing supports prefer-local, cloud fallback, local-only, and accou
     const chunks: Buffer[] = [];
     for await (const chunk of request) chunks.push(Buffer.from(chunk));
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    if (localMode === "failure") {
+    localModelCalls.push(body.model);
+    if (localMode === "failure" && body.model !== "backup:latest") {
       response.writeHead(503, { "content-type": "application/json" });
       response.end(JSON.stringify({ error: { message: "Local model unavailable" } }));
       return;
@@ -255,6 +258,27 @@ test("local routing supports prefer-local, cloud fallback, local-only, and accou
     await updateLocalNode(owner.account.id, paired.node.id, { routingMode: "local-only" });
     const localOnlySuccess = await route(owner.routerKey);
     assert.equal(localOnlySuccess.headers.get("x-free-llm-provider"), localId);
+    await localOnlySuccess.text();
+
+    await syncLocalNodeModels(paired.node.id, [
+      { id: "qwen:latest", installed: true },
+      { id: "backup:latest", installed: true },
+    ]);
+    const withBackup = await updateLocalNodeModel(owner.account.id, paired.node.id, "backup:latest", { enabled: true });
+    assert.ok(withBackup);
+    agentConfig.models = withBackup.models;
+    agentConfig.allowedModels = withBackup.models.filter((model) => model.enabled).map((model) => model.modelId);
+    localMode = "failure";
+    const callsBeforeFallback = localModelCalls.length;
+    const cloudsBeforeLocalFallback = cloudCalls;
+    const sameNodeFallback = await route(owner.routerKey);
+    assert.equal(sameNodeFallback.status, 200);
+    assert.equal(sameNodeFallback.headers.get("x-free-llm-provider"), localProviderId(paired.node.id, "backup:latest"));
+    await sameNodeFallback.text();
+    assert.deepEqual(localModelCalls.slice(callsBeforeFallback), ["qwen:latest", "backup:latest"]);
+    assert.equal(cloudCalls, cloudsBeforeLocalFallback);
+    localMode = "success";
+
     await updateLocalNode(owner.account.id, paired.node.id, { routingEnabled: false });
     const gatedLocalOnly = await route(owner.routerKey);
     assert.equal(gatedLocalOnly.headers.get("x-free-llm-provider"), "cloud");

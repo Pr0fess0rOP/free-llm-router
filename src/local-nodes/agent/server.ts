@@ -236,7 +236,7 @@ async function proxyInference(params: {
   }
   const nowSeconds = Math.floor(Date.now() / 1_000);
   pruneReplays(nowSeconds);
-  const replayKey = `${config.nodeId}:${claims.requestId}`;
+  const replayKey = `${config.nodeId}:${claims.jti ?? claims.requestId}`;
   if (replayedRequestIds.has(replayKey)) {
     sendJson(response, 409, { error: { message: "Request authorization has already been used" } });
     return;

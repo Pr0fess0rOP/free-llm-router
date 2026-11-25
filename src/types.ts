@@ -83,6 +83,7 @@ export type ProviderCapabilityName =
   | "embeddings";
 
 export interface ModelCapabilityEvidence {
+  validated?: boolean;
   status?: number;
   message?: string;
   requestId?: string;

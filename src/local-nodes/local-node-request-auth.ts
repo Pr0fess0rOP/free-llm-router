@@ -3,6 +3,7 @@ import {
   createPrivateKey,
   createPublicKey,
   generateKeyPairSync,
+  randomUUID,
   sign,
   verify,
 } from "node:crypto";
@@ -14,6 +15,7 @@ export interface LocalNodeRequestClaims {
   aud: string;
   sub: string;
   requestId: string;
+  jti?: string;
   model: string;
   iat: number;
   exp: number;
@@ -129,6 +131,7 @@ export async function signLocalNodeRequest(params: {
     aud: params.nodeId,
     sub: params.ownerAccountId,
     requestId: params.requestId,
+    jti: randomUUID(),
     model: params.model,
     iat: nowSeconds,
     exp: nowSeconds + ttlSeconds,
@@ -177,6 +180,9 @@ export function verifyLocalNodeRequestToken(params: {
   if (claims.model !== params.expectedModel) throw new Error("Invalid token model");
   if (!claims.requestId || typeof claims.requestId !== "string") {
     throw new Error("Invalid token request ID");
+  }
+  if (claims.jti !== undefined && (typeof claims.jti !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(claims.jti))) {
+    throw new Error("Invalid token attempt ID");
   }
   if (!Number.isInteger(claims.iat) || !Number.isInteger(claims.exp)) {
     throw new Error("Invalid token timestamps");

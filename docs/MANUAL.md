@@ -1981,6 +1981,10 @@ If all providers fail:
 
 The Responses adapter is the modern OpenAI-compatible surface used by the Codex CLI custom-provider configuration. The router translates each Responses request to the selected provider's Chat Completions API, then reconstructs Responses output items and SSE events.
 
+Send the complete conversation history in `input` and use `store: false`. The gateway returns HTTP 400 for `previous_response_id`, `conversation`, `store: true`, `background: true`, and item references. It forwards `reasoning.effort` as `reasoning_effort`. Unsupported reasoning summaries and encrypted reasoning options return HTTP 400.
+
+Analysis retains redacted snapshots of incoming generation parameters and, when a provider attempt was made, a separate **Gateway upstream request** with the translated fields and selected model. A local agent may subsequently apply its own token limits or runtime-specific format adaptation. Snapshot size and depth limits still apply. Existing records are redacted when read. Clear old analytics records to remove previously stored secrets from storage.
+
 ### `POST /v1/responses`
 
 Authentication:

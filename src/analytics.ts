@@ -82,6 +82,7 @@ export interface RequestLogEntry {
   providerAttemptCount?: number | undefined;
   fallbackPath?: string[] | undefined;
   request: unknown;
+  upstreamRequest?: unknown;
   response: unknown;
 }
 
@@ -142,6 +143,9 @@ function normalizeRequestLogProviderIds(entry: RequestLogEntry): RequestLogEntry
 
   return {
     ...entry,
+    request: sanitize(entry.request),
+    response: sanitize(entry.response),
+    ...(entry.upstreamRequest !== undefined ? { upstreamRequest: sanitize(entry.upstreamRequest) } : {}),
     providerId,
     ...(providerAttempts ? { providerAttempts } : {}),
     ...(providerEvaluations ? { providerEvaluations } : {}),
@@ -200,13 +204,38 @@ async function saveLocalStore(store: AnalyticsStore): Promise<void> {
   await chmod(target, 0o600);
 }
 
+const SENSITIVE_KEYS = new Set([
+  "authorization", "proxyauthorization", "apikey", "xapikey", "key", "token",
+  "accesstoken", "refreshtoken", "idtoken", "password", "secret", "clientsecret",
+  "routerkey", "devicecredential", "privatekey", "signingprivatekey",
+  "cookie", "setcookie", "credential", "credentials",
+  "sessiontoken", "secretkey",
+]);
+
 function sanitize(value: unknown, depth = 0): unknown {
   if (value === null) return null;
   if (["number", "boolean"].includes(typeof value)) return value;
   if (typeof value === "string") {
-    return value.length > MAX_STRING_LENGTH
-      ? `${value.slice(0, MAX_STRING_LENGTH)}…[truncated]`
-      : value;
+    let safe = value;
+    let structured = false;
+    if (/^\s*[\[{]/.test(value)) {
+      try {
+        safe = depth >= 6 ? "[max depth reached]" : JSON.stringify(sanitize(JSON.parse(value), depth + 1));
+        structured = true;
+      } catch {
+        // Preserve diagnostic text that happens to start with a bracket.
+      }
+    }
+    if (!structured) {
+      safe = safe.replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi, "Bearer [redacted]");
+      safe = safe.replace(
+        /((?:"|')?(?:api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|session[_-]?token|client[_-]?secret|secret[_-]?key|router[_-]?key|device[_-]?credential|password|authorization|secret|token|private[_-]?key)(?:"|')?\s*[:=]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}&]+)/gi,
+        '$1"[redacted]"',
+      );
+    }
+    return safe.length > MAX_STRING_LENGTH
+      ? `${safe.slice(0, MAX_STRING_LENGTH)}…[truncated]`
+      : safe;
   }
   if (value === undefined || typeof value === "function" || typeof value === "symbol") {
     return undefined;
@@ -218,11 +247,13 @@ function sanitize(value: unknown, depth = 0): unknown {
   if (typeof value === "object") {
     const output: Record<string, unknown> = {};
     for (const [key, item] of Object.entries(value).slice(0, MAX_OBJECT_KEYS)) {
-      if (["authorization", "apiKey", "api_key", "key", "token", "password"].includes(key.toLowerCase())) {
-        output[key] = "[redacted]";
-      } else {
-        output[key] = sanitize(item, depth + 1);
-      }
+      const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const sensitive = SENSITIVE_KEYS.has(normalized)
+        || /(?:apikey|privatekey|secretkey|password|accesstoken|refreshtoken|sessiontoken|routerkey|devicecredential)$/.test(normalized);
+      Object.defineProperty(output, key, {
+        value: sensitive ? "[redacted]" : sanitize(item, depth + 1),
+        enumerable: true, writable: true, configurable: true,
+      });
     }
     return output;
   }
@@ -231,32 +262,21 @@ function sanitize(value: unknown, depth = 0): unknown {
 
 function requestSnapshot(body: Record<string, unknown>): unknown {
   return sanitize({
-    model: body.model,
+    ...body,
     stream: body.stream === true,
-    instructions: body.instructions,
-    input: body.input,
-    messages: body.messages,
-    tools: body.tools,
-    tool_choice: body.tool_choice,
-    max_output_tokens: body.max_output_tokens,
-    max_tokens: body.max_tokens,
   });
 }
 
 function responseSnapshot(text: string, contentType: string | null): unknown {
-  const clipped = text.length > MAX_STRING_LENGTH
-    ? `${text.slice(0, MAX_STRING_LENGTH)}…[truncated]`
-    : text;
-
   if (contentType?.includes("application/json")) {
     try {
-      return sanitize(JSON.parse(clipped) as unknown);
+      return sanitize(JSON.parse(text) as unknown);
     } catch {
-      return clipped;
+      return "[invalid JSON response omitted]";
     }
   }
 
-  return clipped;
+  return sanitize(text);
 }
 
 function parseResponsePayload(text: string, contentType: string | null): unknown {
@@ -291,6 +311,7 @@ export function createRequestLog(params: {
   deduplication?: DeduplicationMetadata;
   performance?: RequestPerformanceTiming;
   requestBody: Record<string, unknown>;
+  upstreamRequestBody?: Record<string, unknown> | undefined;
   responseText: string;
   responseContentType: string | null;
   requestHeaders?: IncomingHttpHeaders;
@@ -358,6 +379,12 @@ export function createRequestLog(params: {
     fallbackPath: fallback.fallbackPath,
     timeline,
     request: requestSnapshot(params.requestBody),
+    ...(params.upstreamRequestBody ? {
+      upstreamRequest: requestSnapshot({
+        ...params.upstreamRequestBody,
+        ...(params.providerModel ? { model: params.providerModel } : {}),
+      }),
+    } : {}),
     response: responseSnapshot(params.responseText, params.responseContentType),
   };
 }
@@ -385,6 +412,7 @@ export function createStreamingRequestLog(params: {
   deduplication?: DeduplicationMetadata;
   performance?: RequestPerformanceTiming;
   requestBody: Record<string, unknown>;
+  upstreamRequestBody?: Record<string, unknown> | undefined;
   requestHeaders?: IncomingHttpHeaders;
   startedAt?: number;
   completedAt?: number;
@@ -449,6 +477,12 @@ export function createStreamingRequestLog(params: {
     fallbackPath: fallback.fallbackPath,
     timeline,
     request: requestSnapshot(params.requestBody),
+    ...(params.upstreamRequestBody ? {
+      upstreamRequest: requestSnapshot({
+        ...params.upstreamRequestBody,
+        ...(params.providerModel ? { model: params.providerModel } : {}),
+      }),
+    } : {}),
     response: "Streaming response was forwarded to the client and was not captured.",
   };
 }

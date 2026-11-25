@@ -5,7 +5,13 @@ export default async function handler(
   request: IncomingMessage,
   response: ServerResponse,
 ): Promise<void> {
-  const incomingUrl = new URL(request.url ?? "/", "http://localhost");
+  let incomingUrl: URL;
+  try {
+    incomingUrl = new URL(request.url ?? "/", "http://localhost");
+  } catch {
+    await handleRequest(request, response);
+    return;
+  }
   const routedPath = incomingUrl.searchParams.get("__route");
 
   if (routedPath) {

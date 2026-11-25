@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { requestClientAddress } from "./request-network.js";
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type OutgoingHttpHeaders, type ServerResponse } from "node:http";
 import { Readable } from "node:stream";
@@ -200,9 +201,7 @@ function sendJson(response: ServerResponse, status: number, body: unknown): void
 }
 
 function clientId(request: IncomingMessage): string {
-  const forwarded = request.headers["x-forwarded-for"];
-  const firstForwarded = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  return firstForwarded?.split(",").at(-1)?.trim() || request.socket.remoteAddress || "unknown";
+  return requestClientAddress(request);
 }
 
 async function readJsonBody(
@@ -263,6 +262,7 @@ interface RoutedFailureAnalyticsContext {
   endpoint: string;
   capabilityRequirements: CapabilityRequirements;
   requestBody: Record<string, unknown>;
+  upstreamRequestBody?: Record<string, unknown>;
   requestHeaders: IncomingMessage["headers"];
   startedAt: number;
 }
@@ -507,6 +507,7 @@ async function recordRoutedFailure(
       performance,
       requestHeaders: context.requestHeaders,
       requestBody: context.requestBody,
+      upstreamRequestBody: providerAttempts?.length ? context.upstreamRequestBody : undefined,
       responseText: JSON.stringify(responsePayload),
       responseContentType: "application/json",
     }),
@@ -1401,6 +1402,7 @@ async function createRoutedProviderRouter(params: {
             source: "runtime",
             lastVerifiedAt: observedAt,
             evidence: {
+              validated: true,
               ...(attempt.status !== undefined ? { status: attempt.status } : {}),
               requestId: params.requestId,
               observedAt,
@@ -2333,10 +2335,10 @@ function sendBodyParsingError(
 async function handleRequestCore(
   request: IncomingMessage,
   response: ServerResponse,
+  url: URL,
 ): Promise<void> {
   const correlation = requestCorrelation(request);
   setRequestCorrelationHeaders(response, correlation);
-  const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
 
   try {
     if (request.method === "HEAD" && url.pathname === "/") {
@@ -3301,6 +3303,7 @@ async function handleRequestCore(
       }
 
       const body = await readJsonBody(request);
+      const upstreamBody = responsesToOpenAI(body);
       const requestedModel = typeof body.model === "string" && body.model.trim()
         ? body.model.trim()
         : "codex-free-router";
@@ -3328,7 +3331,6 @@ async function handleRequestCore(
 
       const controller = new AbortController();
       request.once("aborted", () => controller.abort());
-      const upstreamBody = responsesToOpenAI(body);
       const capabilityRequirements = features.capabilityMatching
         ? mergeAliasRequirements(
             detectCapabilityRequirements(body),
@@ -3351,6 +3353,7 @@ async function handleRequestCore(
           capabilityRequirements,
           requestHeaders: request.headers,
           requestBody: body,
+          upstreamRequestBody: upstreamBody,
           correlation,
           startedAt,
         },
@@ -3487,6 +3490,7 @@ async function handleRequestCore(
               ...(usage ? { usage } : {}),
               requestHeaders: request.headers,
               requestBody: body,
+              upstreamRequestBody: upstreamBody,
               responseText: JSON.stringify(capturedResponse),
               responseContentType: "application/json",
             }),
@@ -3567,6 +3571,7 @@ async function handleRequestCore(
           ...(usage ? { usage } : {}),
           requestHeaders: request.headers,
           requestBody: body,
+          upstreamRequestBody: upstreamBody,
           responseText,
           responseContentType: "application/json",
         }),
@@ -3659,6 +3664,7 @@ async function handleRequestCore(
           capabilityRequirements,
           requestHeaders: request.headers,
           requestBody: body,
+          upstreamRequestBody: upstreamBody,
           correlation,
           startedAt,
         },
@@ -3795,6 +3801,7 @@ async function handleRequestCore(
               ...(usage ? { usage } : {}),
               requestHeaders: request.headers,
               requestBody: body,
+              upstreamRequestBody: upstreamBody,
               responseText: JSON.stringify(capturedMessage),
               responseContentType: "application/json",
             }),
@@ -3872,6 +3879,7 @@ async function handleRequestCore(
           ...(usage ? { usage } : {}),
           requestHeaders: request.headers,
           requestBody: body,
+          upstreamRequestBody: upstreamBody,
           responseText,
           responseContentType: "application/json",
         }),
@@ -3898,6 +3906,7 @@ async function handleRequestCore(
       }
 
       const body = await readJsonBody(request);
+      const upstreamBody = body;
       const requestedModel = typeof body.model === "string" && body.model.trim()
         ? body.model.trim()
         : "free-router";
@@ -3948,6 +3957,7 @@ async function handleRequestCore(
           capabilityRequirements,
           requestHeaders: request.headers,
           requestBody: body,
+          upstreamRequestBody: upstreamBody,
           correlation,
           startedAt,
         },
@@ -4082,6 +4092,7 @@ async function handleRequestCore(
             ...(usage ? { usage } : {}),
             requestHeaders: request.headers,
             requestBody: body,
+            upstreamRequestBody: upstreamBody,
           }),
         );
         response.end();
@@ -4147,6 +4158,7 @@ async function handleRequestCore(
           ...(usage ? { usage } : {}),
           requestHeaders: request.headers,
           requestBody: body,
+          upstreamRequestBody: upstreamBody,
           responseText,
           responseContentType: result.response.headers.get("content-type"),
         }),
@@ -4379,23 +4391,20 @@ async function handleRequestCore(
   }
 }
 
-export async function handleRequest(
+async function handleRequestWithDeduplication(
   request: IncomingMessage,
   response: ServerResponse,
+  url: URL,
 ): Promise<void> {
   const correlation = requestCorrelation(request);
   setRequestCorrelationHeaders(response, correlation);
-  const url = new URL(
-    request.url ?? "/",
-    `http://${request.headers.host ?? "localhost"}`,
-  );
   const endpoint = url.pathname;
   if (request.method === "POST" && DEDUPLICATION_ENDPOINTS.has(endpoint)) {
     response.setHeader("x-free-llm-deduplicated", "false");
   }
 
   if (request.method !== "POST" || !DEDUPLICATION_ENDPOINTS.has(endpoint)) {
-    await handleRequestCore(request, response);
+    await handleRequestCore(request, response, url);
     return;
   }
 
@@ -4403,13 +4412,13 @@ export async function handleRequest(
     ? bearerToken(request)
     : routerToken(request);
   if (!token) {
-    await handleRequestCore(request, response);
+    await handleRequestCore(request, response, url);
     return;
   }
 
   const account = await findAccount(token);
   if (!account) {
-    await handleRequestCore(request, response);
+    await handleRequestCore(request, response, url);
     return;
   }
 
@@ -4431,7 +4440,7 @@ export async function handleRequest(
   });
   if (bypassReason) {
     response.setHeader("x-free-llm-deduplication-bypass", bypassReason);
-    await handleRequestCore(request, response);
+    await handleRequestCore(request, response, url);
     return;
   }
 
@@ -4454,6 +4463,7 @@ export async function handleRequest(
         await handleRequestCore(
           request,
           capture as unknown as ServerResponse,
+          url,
         );
         if (!capture.writableEnded) capture.end();
         return capture.capture();
@@ -4501,10 +4511,42 @@ export async function handleRequest(
   }
 }
 
+export async function handleRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+): Promise<void> {
+  try {
+    setRequestCorrelationHeaders(response, requestCorrelation(request));
+    let url: URL;
+    try {
+      url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+    } catch {
+      sendJson(response, 400, {
+        error: { message: "Invalid request URL or Host header", type: "invalid_request_error" },
+      });
+      return;
+    }
+    await handleRequestWithDeduplication(request, response, url);
+  } catch (error) {
+    console.error("Request processing failed:", error);
+    if (response.destroyed) return;
+    if (response.headersSent) {
+      response.destroy();
+      return;
+    }
+    sendJson(response, 500, {
+      error: { message: "Internal server error", type: "server_error" },
+    });
+  }
+}
+
 export async function startServer(): Promise<void> {
   const port = Number(process.env.PORT ?? 8787);
   const server = createServer((request, response) => {
-    void handleRequest(request, response);
+    void handleRequest(request, response).catch((error) => {
+      console.error("Failed to finish HTTP response:", error);
+      response.destroy();
+    });
   });
 
   server.listen(port, () => {

@@ -3085,6 +3085,8 @@ function openRequestDrawer(logId) {
     toolSection.innerHTML = "";
   }
   $("#drawer-request").textContent = formatJson(request.request);
+  $("#drawer-upstream-request-section").hidden = request.upstreamRequest === undefined;
+  $("#drawer-upstream-request").textContent = request.upstreamRequest === undefined ? "" : formatJson(request.upstreamRequest);
   $("#drawer-response").textContent = responsePreview(request.response);
   drawer.hidden = false;
   lockPageScroll();

@@ -65,7 +65,7 @@ Create a `.env` file in the root directory:
 CLERK_SECRET_KEY=sk_test_your_clerk_secret_key
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_clerk_publishable_key
 
-# Recommended when deployed behind Vercel, a reverse proxy, or a custom domain
+# Required for the dashboard's public custom domain
 CLERK_AUTHORIZED_PARTIES=https://your-dashboard.example.com
 
 # Strongly recommended for production (encrypts stored API keys)

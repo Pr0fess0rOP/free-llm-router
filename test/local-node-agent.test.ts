@@ -120,6 +120,24 @@ test("short-lived Ed25519 node tokens enforce issuer, audience, owner, model, an
       now,
     });
     assert.equal(claims.requestId, "req_1");
+    assert.ok(claims.jti);
+    const nextAttempt = await signLocalNodeRequest({
+      nodeId: "node_1",
+      ownerAccountId: "account_1",
+      requestId: "req_1",
+      model: "qwen:latest",
+      now,
+    });
+    const nextClaims = verifyLocalNodeRequestToken({
+      token: nextAttempt,
+      publicKey: verification.publicKey,
+      expectedNodeId: "node_1",
+      expectedOwnerAccountId: "account_1",
+      expectedModel: "qwen:latest",
+      now,
+    });
+    assert.equal(nextClaims.requestId, claims.requestId);
+    assert.notEqual(nextClaims.jti, claims.jti);
     assert.throws(() => verifyLocalNodeRequestToken({
       token,
       publicKey: verification.publicKey,

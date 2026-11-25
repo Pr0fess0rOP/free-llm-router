@@ -1,7 +1,8 @@
-import { mkdir, readFile, rename, writeFile, chmod } from "node:fs/promises";
+import { mkdir, readFile, writeFile, chmod } from "node:fs/promises";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { Redis } from "@upstash/redis";
+import { replaceStorageFile } from "../storage-mutations.js";
 import type {
   LocalNodePairingCode,
   StoredLocalNode,
@@ -94,7 +95,7 @@ async function saveLocalStore(store: LocalNodeStoreData): Promise<void> {
     encoding: "utf8",
     mode: 0o600,
   });
-  await rename(temporary, target);
+  await replaceStorageFile(temporary, target);
   await chmod(target, 0o600);
 }
 

@@ -26,37 +26,36 @@ export function clerkConfigurationError(): string | undefined {
   return undefined;
 }
 
-function firstHeaderValue(value: string | string[] | undefined): string | undefined {
-  const raw = Array.isArray(value) ? value[0] : value;
-  return raw?.split(",")[0]?.trim() || undefined;
-}
-
-function originForHost(host: string | undefined, protocol?: string): string | undefined {
-  if (!host || /[\s/?#@]/.test(host)) return undefined;
-  const local = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host);
-  const normalizedProtocol = protocol === "http" || protocol === "https"
-    ? protocol
-    : local ? "http" : "https";
-  try {
-    return new URL(`${normalizedProtocol}://${host}`).origin;
-  } catch {
-    return undefined;
-  }
-}
-
 export function clerkAuthorizedParties(request: IncomingMessage): string[] {
   const explicit = (process.env.CLERK_AUTHORIZED_PARTIES ?? "")
     .split(",")
     .map((value) => value.trim().replace(/\/+$/, ""))
     .filter(Boolean);
-  const forwardedProtocol = firstHeaderValue(request.headers["x-forwarded-proto"]);
-  const forwardedHost = firstHeaderValue(request.headers["x-forwarded-host"]);
-  const requestHost = firstHeaderValue(request.headers.host);
-  return [...new Set([
-    ...explicit,
-    originForHost(forwardedHost, forwardedProtocol),
-    originForHost(requestHost, forwardedProtocol),
-  ].filter((value): value is string => Boolean(value)))];
+  if (explicit.length) {
+    return [...new Set(explicit.map((value) => {
+      const url = new URL(value);
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password ||
+          url.pathname !== "/" || url.search || url.hash) {
+        throw new Error("CLERK_AUTHORIZED_PARTIES must contain HTTP or HTTPS origins");
+      }
+      return url.origin;
+    }))];
+  }
+  if (process.env.VERCEL === "1") {
+    return [...new Set([
+      process.env.VERCEL_URL,
+      process.env.VERCEL_PROJECT_PRODUCTION_URL,
+      process.env.VERCEL_BRANCH_URL,
+    ].filter((value): value is string => Boolean(value))
+      .map((host) => new URL(`https://${host}`).origin))];
+  }
+  const host = request.headers.host;
+  const peer = request.socket?.remoteAddress;
+  const localPeer = peer === "::1" || peer?.startsWith("127.") || peer?.startsWith("::ffff:127.");
+  if (process.env.NODE_ENV !== "production" && localPeer && host && /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host)) {
+    return [new URL(`http://${host}`).origin];
+  }
+  return [];
 }
 
 function cookieValue(request: IncomingMessage, name: string): string | undefined {
@@ -102,10 +101,13 @@ export async function sessionUserId(
 
   try {
     const authorizedParties = clerkAuthorizedParties(request);
+    if (!authorizedParties.length) {
+      throw new Error("Set CLERK_AUTHORIZED_PARTIES to the public dashboard origin");
+    }
 
     const verified = await verifyToken(token, {
       secretKey,
-      ...(authorizedParties.length ? { authorizedParties } : {}),
+      authorizedParties,
     });
 
     return typeof verified.sub === "string" ? verified.sub : undefined;

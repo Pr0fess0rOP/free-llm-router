@@ -22,6 +22,7 @@ import {
 import { providerQuotaStatus } from "./provider-quotas.js";
 import { normalizeReliabilitySettings } from "./reliability-settings.js";
 import { normalizeRoutingFeatureSettings } from "./routing-features.js";
+import { inspectProviderResponse } from "./provider-response.js";
 
 const MAX_RATE_LIMIT_COOLDOWN_MS = 24 * 60 * 60_000;
 const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 30_000;
@@ -243,27 +244,6 @@ async function readErrorMessage(response: Response): Promise<string> {
     return body.error?.message ?? body.message ?? fallback;
   } catch {
     return fallback;
-  }
-}
-
-async function validateSuccessfulResponse(
-  response: Response,
-  streaming: boolean,
-): Promise<string | undefined> {
-  if (streaming) {
-    return response.body ? undefined : "Provider returned an empty streaming response";
-  }
-
-  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-  if (!contentType.includes("application/json")) return undefined;
-  try {
-    const body = await response.clone().json();
-    if (!body || typeof body !== "object") {
-      return "Provider returned a malformed JSON response";
-    }
-    return undefined;
-  } catch {
-    return "Provider returned invalid JSON";
   }
 }
 
@@ -499,7 +479,7 @@ export class ProviderRouter {
           upstreamBody,
           this.options.requestId,
         );
-        const response = await this.fetcher(`${provider.baseUrl}/chat/completions`, {
+        let response = await this.fetcher(`${provider.baseUrl}/chat/completions`, {
           method: "POST",
           headers: {
             "content-type": "application/json",
@@ -520,10 +500,9 @@ export class ProviderRouter {
 
         const headersLatencyMs = Date.now() - startedAt;
         if (response.ok) {
-          const malformed = await validateSuccessfulResponse(
-            response,
-            incomingBody.stream === true,
-          );
+          const inspection = await inspectProviderResponse(response, incomingBody);
+          response = inspection.response;
+          const malformed = inspection.error;
           const latencyMs = Date.now() - startedAt;
           if (!malformed) {
             provider.failures = 0;
@@ -548,7 +527,7 @@ export class ProviderRouter {
               circuitOpenCount: 0,
               halfOpenProbeActive: false,
               requiredCapabilities: [...requirements.required],
-              observedSupportedCapabilities: [...requirements.required],
+              observedSupportedCapabilities: inspection.observedSupportedCapabilities.filter((capability) => requirements.required.includes(capability)),
             });
             return {
               response,

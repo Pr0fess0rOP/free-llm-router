@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+
 import {
   createAccount,
   findAccount,
@@ -225,7 +226,10 @@ test("protects higher-confidence model capability sources from runtime downgrade
       {
         tools: { value: "unsupported", source: "runtime" },
         vision: { value: "unsupported", source: "runtime" },
-        reasoning: { value: "supported", source: "runtime" },
+        reasoning: {
+          value: "supported", source: "runtime",
+          evidence: { observedAt: new Date().toISOString(), validated: true },
+        },
       },
     );
     await updateProviderModelCapabilitiesByHash(
@@ -359,4 +363,25 @@ test("detects and persists per-model capabilities with controlled probes", async
     else process.env.PROVIDERS_CONFIG = previous.providers;
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("old HTTP-only runtime observations remain unknown until validated", () => {
+  const catalog = normalizeProviderModelCatalog({
+    activeModelId: "model",
+    models: [{
+      id: "model", status: "healthy",
+      capabilities: {
+        tools: { value: "supported", source: "runtime" },
+        jsonMode: {
+          value: "supported", source: "runtime",
+          evidence: { observedAt: "2026-11-24T00:00:00.000Z", validated: true },
+        },
+        vision: { value: "supported", source: "probe" },
+      },
+    }],
+  });
+  const profile = catalog?.models[0]?.capabilities;
+  assert.equal(profile?.tools?.value, "unknown");
+  assert.equal(profile?.jsonMode?.value, "supported");
+  assert.equal(profile?.vision?.value, "supported");
 });

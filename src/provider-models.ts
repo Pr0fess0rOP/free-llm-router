@@ -52,6 +52,7 @@ function normalizeCapabilityState(value: unknown): ModelCapabilityState | undefi
     && !Number.isNaN(Date.parse(evidenceCandidate.observedAt))
     ? {
         observedAt: evidenceCandidate.observedAt,
+        ...(evidenceCandidate.validated === true ? { validated: true } : {}),
         ...(Number.isInteger(Number(evidenceCandidate.status))
           ? { status: Number(evidenceCandidate.status) } : {}),
         ...(typeof evidenceCandidate.message === "string" && evidenceCandidate.message.trim()
@@ -61,7 +62,7 @@ function normalizeCapabilityState(value: unknown): ModelCapabilityState | undefi
       }
     : undefined;
   return {
-    value: support,
+    value: source === "runtime" && support === "supported" && evidence?.validated !== true ? "unknown" : support,
     source,
     ...(lastVerifiedAt ? { lastVerifiedAt } : {}),
     ...(evidence ? { evidence } : {}),

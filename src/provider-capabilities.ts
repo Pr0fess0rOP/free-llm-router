@@ -60,7 +60,8 @@ export function resolveEffectiveModelCapabilities(
   for (const name of PROVIDER_CAPABILITY_NAMES) {
     const override = model?.capabilities?.[name];
     if (override && override.source !== "catalog" && override.source !== "provider") {
-      output[name] = override.value;
+      output[name] = override.source === "runtime" && override.value === "supported"
+        && override.evidence?.validated !== true ? "unknown" : override.value;
       sources[name] = override.source;
     }
   }
@@ -154,8 +155,8 @@ export function detectCapabilityRequirements(
   if (formatType === "json_schema") required.add("structuredOutputs");
 
   if (
-    (body.reasoning && typeof body.reasoning === "object")
-    || typeof body.reasoning_effort === "string"
+    (body.reasoning && typeof body.reasoning === "object" && (body.reasoning as Record<string, unknown>).effort !== "none")
+    || (typeof body.reasoning_effort === "string" && body.reasoning_effort !== "none")
     || (body.thinking && typeof body.thinking === "object")
   ) {
     required.add("reasoning");
